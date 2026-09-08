@@ -1,0 +1,27 @@
+# Dependencias
+node_modules/
+
+# Builds e cobertura
+dist/
+coverage/
+
+# Variaveis locais de ambiente
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Supabase CLI temporario
+supabase/.temp/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operacional
+.DS_Store
+
+# Artefatos do TypeScript
+*.tsbuildinfo
