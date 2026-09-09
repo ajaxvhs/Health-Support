@@ -1,15 +1,5 @@
 import { useState } from "react";
-import {
-  BookOpen,
-  CheckCircle2,
-  ChevronRight,
-  Pencil,
-  Plus,
-  Power,
-  Settings2,
-  Trash2,
-  Zap,
-} from "lucide-react";
+import { BookOpen, CheckCircle2, Pencil, Plus, Power, Settings2, Trash2, Zap } from "lucide-react";
 import {
   Badge,
   BulkActionButtons,
@@ -127,11 +117,11 @@ export function CatalogsPage() {
         title="Catálogos"
         description="Mantenha as opções utilizadas na abertura dos chamados."
       />
-      <div className="grid gap-6 lg:grid-cols-[250px_1fr]">
-        <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-soft">
-          <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Itens gerenciáveis
-          </p>
+      <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft sm:p-4">
+        <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Itens gerenciáveis
+        </p>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {[
             { key: "categories", label: "Categorias", icon: Settings2 },
             { key: "units", label: "Unidades", icon: BookOpen },
@@ -142,107 +132,103 @@ export function CatalogsPage() {
               type="button"
               key={item.key}
               onClick={() => setTabAndClear(item.key as CatalogTab)}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold ${tab === item.key ? "bg-teal-50 text-teal-800" : "text-slate-500 hover:bg-slate-50"}`}
+              className={`flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold transition ${tab === item.key ? "bg-teal-50 text-teal-800 ring-1 ring-inset ring-teal-100" : "text-slate-500 hover:bg-slate-50 hover:text-ink"}`}
             >
               <item.icon size={17} />
-              {item.label}
-              <ChevronRight size={15} className="ml-auto" />
+              <span className="truncate">{item.label}</span>
             </button>
           ))}
-          <div className="mt-5 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-            Desative opções antigas para preservar o histórico dos chamados.
-          </div>
         </div>
-        <section className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-soft">
-          <div className="min-w-[950px]">
-            <div className="flex flex-col gap-5 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-              <div>
-                <h2 className="font-display font-bold text-ink">
-                  {tab === "categories"
-                    ? "Categorias de TI"
-                    : tab === "units"
-                      ? "Unidades de atendimento"
-                      : tab === "priorities"
-                        ? "Prioridades controladas"
-                        : "Status do fluxo"}
-                </h2>
-                <p className="mt-1 text-xs text-slate-400">{items.length} itens no catálogo</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <TopSearch
-                  value={search}
-                  onSearch={setSearch}
-                  placeholder="Buscar no catálogo"
-                  className="w-full sm:w-64"
-                />
-                {selected.length > 0 && (
-                  <BulkActionButtons
-                    onActivate={() => bulkAction("activate")}
-                    onDeactivate={() => bulkAction("deactivate")}
-                    onDelete={() => bulkAction("delete")}
-                  />
-                )}
-                {(tab === "categories" || tab === "units") && (
-                  <Button className="min-h-12" onClick={() => setCreating(true)}>
-                    <Plus size={16} /> Novo item
-                  </Button>
-                )}
-              </div>
+      </div>
+      <section className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-soft">
+        <div className="min-w-[950px]">
+          <div className="flex flex-col gap-5 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <div>
+              <h2 className="font-display font-bold text-ink">
+                {tab === "categories"
+                  ? "Categorias de TI"
+                  : tab === "units"
+                    ? "Unidades de atendimento"
+                    : tab === "priorities"
+                      ? "Prioridades controladas"
+                      : "Status do fluxo"}
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">{items.length} itens no catálogo</p>
             </div>
-            <div className="grid grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:px-7">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  aria-label="Selecionar todos os itens exibidos"
-                  checked={allSelected}
-                  onChange={() =>
-                    setSelected(
-                      allSelected
-                        ? selected.filter((id) => !items.some((item) => item.id === id))
-                        : [...new Set([...selected, ...items.map((item) => item.id)])],
-                    )
-                  }
-                  className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+            <div className="flex flex-wrap items-center gap-2">
+              <TopSearch
+                value={search}
+                onSearch={setSearch}
+                placeholder="Buscar no catálogo"
+                className="w-full sm:w-64"
+              />
+              {selected.length > 0 && (
+                <BulkActionButtons
+                  onActivate={() => bulkAction("activate")}
+                  onDeactivate={() => bulkAction("deactivate")}
+                  onDelete={() => bulkAction("delete")}
                 />
-              </div>
-              <span>Item</span>
-              <span className="text-center">Status</span>
-              <span className="text-center">Ações</span>
+              )}
+              {(tab === "categories" || tab === "units") && (
+                <Button className="min-h-12" onClick={() => setCreating(true)}>
+                  <Plus size={16} /> Novo item
+                </Button>
+              )}
             </div>
-            {items.map((item) => (
-              <CatalogRow
-                key={item.id}
-                item={item}
-                selected={selected.includes(item.id)}
-                referenced={isCatalogReferenced(data, tab, item)}
-                onSelect={(checked) =>
-                  setSelected((current) =>
-                    checked
-                      ? [...new Set([...current, item.id])]
-                      : current.filter((id) => id !== item.id),
+          </div>
+          <div className="grid grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:px-7">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                aria-label="Selecionar todos os itens exibidos"
+                checked={allSelected}
+                onChange={() =>
+                  setSelected(
+                    allSelected
+                      ? selected.filter((id) => !items.some((item) => item.id === id))
+                      : [...new Set([...selected, ...items.map((item) => item.id)])],
                   )
                 }
-                onEdit={() => setEditing(item)}
-                onToggle={() =>
-                  setConfirm({
-                    title: item.isActive ? "Desativar item" : "Ativar item",
-                    description: item.isActive
-                      ? `${item.name} não aparecerá em novos formulários. O histórico será preservado.`
-                      : `${item.name} voltará a aparecer nas opções disponíveis.`,
-                    confirmLabel: item.isActive ? "Desativar" : "Ativar",
-                    action: () =>
-                      finish(async () => {
-                        await repo.setCatalogActive(tab, item.id, !item.isActive);
-                        showToast(`${item.name} ${item.isActive ? "desativado" : "ativado"}.`);
-                      }),
-                  })
-                }
-                onDelete={() => requestDelete(item)}
+                className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
               />
-            ))}
+            </div>
+            <span>Item</span>
+            <span className="text-center">Status</span>
+            <span className="text-center">Ações</span>
           </div>
-        </section>
-      </div>
+          {items.map((item) => (
+            <CatalogRow
+              key={item.id}
+              item={item}
+              selected={selected.includes(item.id)}
+              referenced={isCatalogReferenced(data, tab, item)}
+              onSelect={(checked) =>
+                setSelected((current) =>
+                  checked
+                    ? [...new Set([...current, item.id])]
+                    : current.filter((id) => id !== item.id),
+                )
+              }
+              onEdit={() => setEditing(item)}
+              onToggle={() =>
+                setConfirm({
+                  title: item.isActive ? "Desativar item" : "Ativar item",
+                  description: item.isActive
+                    ? `${item.name} não aparecerá em novos formulários. O histórico será preservado.`
+                    : `${item.name} voltará a aparecer nas opções disponíveis.`,
+                  confirmLabel: item.isActive ? "Desativar" : "Ativar",
+                  action: () =>
+                    finish(async () => {
+                      await repo.setCatalogActive(tab, item.id, !item.isActive);
+                      showToast(`${item.name} ${item.isActive ? "desativado" : "ativado"}.`);
+                    }),
+                })
+              }
+              onDelete={() => requestDelete(item)}
+            />
+          ))}
+        </div>
+      </section>
       {creating && (
         <CreateCatalogDialog kind={tab} onClose={() => setCreating(false)} onCreate={createItem} />
       )}

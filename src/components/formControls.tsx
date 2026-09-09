@@ -10,6 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { ChevronDown, Search, X } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useFloatingPosition } from "./useFloatingPosition";
 
 const inputClass =
   "min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-ink outline-none transition hover:border-teal-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-100";
@@ -43,6 +44,7 @@ export function SelectField({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const labelId = useId();
+  const menuPosition = useFloatingPosition(buttonRef, open);
 
   useEffect(() => {
     if (!open) return;
@@ -107,15 +109,21 @@ export function SelectField({
         <ChevronDown size={16} className={cn("transition-transform", open && "rotate-180")} />
       </button>
       {open &&
-        buttonRef.current &&
+        menuPosition &&
         createPortal(
           <div
             ref={menuRef}
             style={{
-              position: "fixed",
-              top: buttonRef.current.getBoundingClientRect().bottom + 8,
-              left: buttonRef.current.getBoundingClientRect().left,
-              width: buttonRef.current.getBoundingClientRect().width,
+              position: "absolute",
+              top: menuPosition.top,
+              left: Math.max(
+                window.scrollX + 8,
+                Math.min(
+                  menuPosition.left,
+                  window.scrollX + window.innerWidth - menuPosition.width - 8,
+                ),
+              ),
+              width: Math.min(menuPosition.width, window.innerWidth - 16),
             }}
             className="z-[1000] max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
             role="listbox"

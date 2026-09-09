@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useFloatingPosition } from "./useFloatingPosition";
 
 const weekdays = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 const monthFormatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
@@ -48,6 +49,7 @@ export function DateRangePicker({
   const [month, setMonth] = useState(() => monthStart(from ? parseDate(from) : new Date()));
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const panelPosition = useFloatingPosition(buttonRef, open);
   const startDate = from ? parseDate(from) : null;
   const endDate = to ? parseDate(to) : null;
   const today = formatInputDate(new Date());
@@ -111,16 +113,19 @@ export function DateRangePicker({
         />
       </button>
       {open &&
-        buttonRef.current &&
+        panelPosition &&
         createPortal(
           <div
             ref={panelRef}
             style={{
               position: "absolute",
-              top: buttonRef.current.getBoundingClientRect().bottom + window.scrollY,
-              left: Math.min(
-                buttonRef.current.getBoundingClientRect().left + window.scrollX,
-                window.scrollX + window.innerWidth - Math.min(336, window.innerWidth - 32),
+              top: panelPosition.top,
+              left: Math.max(
+                window.scrollX + 8,
+                Math.min(
+                  panelPosition.left,
+                  window.scrollX + window.innerWidth - Math.min(336, window.innerWidth - 32) - 8,
+                ),
               ),
             }}
             className="z-[1000] w-[min(21rem,calc(100vw-2rem))] rounded-2xl border border-slate-100 bg-white p-4 shadow-xl"
