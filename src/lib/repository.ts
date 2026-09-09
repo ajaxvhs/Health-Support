@@ -77,7 +77,7 @@ const message = (r: Row): TicketMessage => ({
 });
 const event = (r: Row): TicketEvent => ({
   id: r.id as string,
-  ticketId: r.ticket_id as string,
+  ticketId: r.ticket_id as string | undefined,
   actorId: r.actor_id as string,
   type: r.event_type as string,
   detail: ((r.metadata as Row)?.detail as string) ?? (r.event_type as string),
@@ -353,19 +353,25 @@ export class SupabaseRepository {
   async bulkDeleteUsers(ids: string[]) {
     return this.invokeUserAction("bulk_delete", { ids });
   }
-  async addCatalog(kind: "categories" | "units", name: string) {
+  async addCatalog(kind: "categories" | "units", name: string, description = "") {
     const table = kind === "units" ? "units" : "ticket_categories";
     const { error } =
       kind === "units"
         ? await this.client
             .from(table)
             .insert({ name: name.trim(), code: name.trim().slice(0, 3).toUpperCase() })
-        : await this.client.from(table).insert({ name: name.trim() });
+        : await this.client
+            .from(table)
+            .insert({ name: name.trim(), description: description.trim() || null });
     if (error) throw error;
   }
-  async renameCatalog(kind: CatalogKind, id: string, name: string) {
+  async renameCatalog(kind: CatalogKind, id: string, name: string, description = "") {
     const table = catalogTables[kind];
-    const { error } = await this.client.from(table).update({ name: name.trim() }).eq("id", id);
+    const values = {
+      name: name.trim(),
+      ...(kind === "categories" ? { description: description.trim() || null } : {}),
+    };
+    const { error } = await this.client.from(table).update(values).eq("id", id);
     if (error) throw error;
   }
   async setCatalogActive(kind: CatalogKind, id: string, isActive: boolean) {

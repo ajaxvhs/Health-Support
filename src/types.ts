@@ -38,7 +38,7 @@ export interface TicketMessage {
 }
 export interface TicketEvent {
   id: string;
-  ticketId: string;
+  ticketId?: string;
   actorId: string;
   type: string;
   detail: string;

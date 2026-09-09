@@ -25,8 +25,9 @@ export function Button({
   return (
     <button
       className={cn(
-        "relative inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-        variant === "primary" && "bg-teal-700 text-white shadow-sm hover:bg-teal-800",
+        "relative inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-[background-color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        variant === "primary" &&
+          "bg-teal-700 text-white shadow-sm hover:bg-teal-800 hover:shadow-md active:bg-teal-900",
         variant === "secondary" &&
           "border border-slate-200 bg-white text-ink hover:border-teal-300 hover:bg-teal-50",
         variant === "ghost" && "text-slate-600 hover:bg-slate-100 hover:text-ink",
@@ -145,7 +146,7 @@ export function PageHeader({
         </h1>
         {description && <p className="mt-2 max-w-2xl text-sm text-slate-500">{description}</p>}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
     </div>
   );
 }
@@ -227,7 +228,7 @@ export function StatCard({
         compact ? "p-4" : "p-5",
       )}
     >
-      <div className="flex items-start justify-between">
+      <div className="flex min-w-0 items-start justify-between gap-3">
         <span
           className={cn(
             "flex items-center justify-center rounded-xl",
@@ -237,7 +238,11 @@ export function StatCard({
         >
           <Icon size={compact ? 17 : 19} />
         </span>
-        {detail && <span className="text-[11px] font-bold text-emerald-600">{detail}</span>}
+        {detail && (
+          <span className="min-w-0 text-right text-[11px] font-bold text-emerald-600">
+            {detail}
+          </span>
+        )}
       </div>
       <p className={cn("font-bold text-ink", compact ? "mt-3 text-xl" : "mt-5 text-2xl")}>
         {value}

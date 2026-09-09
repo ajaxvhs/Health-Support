@@ -52,21 +52,22 @@ export function FilterToolbar({
 }) {
   return (
     <>
-      <div className="grid grid-cols-2 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <TopSearch
           value={search}
           onSearch={onSearch}
           placeholder={searchPlaceholder}
-          className="col-span-2 w-full min-w-0 max-w-none sm:col-span-1"
+          className="w-full min-w-0 max-w-none"
         />
         <Button
           variant={open ? "primary" : "secondary"}
-          className="min-h-12 w-full shrink-0 sm:w-auto"
+          className="min-h-10 w-full shrink-0 px-3 sm:min-h-12 sm:w-auto sm:px-4"
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={panelId}
         >
-          <SlidersHorizontal size={16} /> Filtros
+          <SlidersHorizontal size={16} />
+          <span>Filtros</span>
           {chips.length > 0 && (
             <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">
               {chips.length}

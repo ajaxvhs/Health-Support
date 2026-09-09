@@ -114,9 +114,7 @@ export function AuditPage() {
         <StatCard
           label="Chamados acompanhados"
           value={
-            new Set(
-              events.filter((event) => event.ticketId !== "system").map((event) => event.ticketId),
-            ).size
+            new Set(events.filter((event) => event.ticketId).map((event) => event.ticketId)).size
           }
           icon={BookOpen}
           tone="blue"

@@ -13,9 +13,10 @@ export function CreateCatalogDialog({
 }: {
   kind: CatalogKind;
   onClose: () => void;
-  onCreate: (name: string) => Promise<void>;
+  onCreate: (name: string, description: string) => Promise<void>;
 }) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
   const submit = async (event: FormEvent) => {
@@ -26,7 +27,7 @@ export function CreateCatalogDialog({
     }
     setSaving(true);
     try {
-      await onCreate(name);
+      await onCreate(name, description);
     } catch (reason) {
       showToast(
         reason instanceof Error ? reason.message : "Não foi possível adicionar o item.",
@@ -55,6 +56,16 @@ export function CreateCatalogDialog({
             required
           />
         </div>
+        {kind === "categories" && (
+          <div className="mt-5">
+            <TextField
+              label="Descrição"
+              value={description}
+              onChange={setDescription}
+              placeholder="Resumo exibido no catálogo"
+            />
+          </div>
+        )}
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
@@ -80,6 +91,7 @@ export function EditCatalogDialog({
   const { repo, refresh } = useApp();
   const { showToast } = useToast();
   const [name, setName] = useState(item.name);
+  const [description, setDescription] = useState(item.description ?? "");
   const [saving, setSaving] = useState(false);
   const save = async () => {
     if (!name.trim()) {
@@ -88,7 +100,7 @@ export function EditCatalogDialog({
     }
     setSaving(true);
     try {
-      await repo.renameCatalog(kind, item.id, name);
+      await repo.renameCatalog(kind, item.id, name, description);
       await refresh();
       showToast("Item atualizado com sucesso.");
       onClose();
@@ -105,13 +117,27 @@ export function EditCatalogDialog({
   return (
     <Dialog
       title="Editar item"
-      description="Atualize o nome do item do catálogo."
+      description={
+        kind === "categories"
+          ? "Atualize o nome e a descrição da categoria."
+          : "Atualize o nome do item do catálogo."
+      }
       onClose={onClose}
       maxWidth="max-w-md"
     >
       <div className="mt-5">
         <TextField label="Nome" value={name} onChange={setName} required />
       </div>
+      {kind === "categories" && (
+        <div className="mt-5">
+          <TextField
+            label="Descrição"
+            value={description}
+            onChange={setDescription}
+            placeholder="Resumo exibido no catálogo"
+          />
+        </div>
+      )}
       <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onClose}>
           Cancelar

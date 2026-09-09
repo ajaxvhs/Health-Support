@@ -133,14 +133,14 @@ export function AppShell() {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[274px] flex-col border-r border-slate-100 bg-white px-4 py-5 transition-transform md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[274px] flex-col overflow-hidden border-r border-slate-100 bg-white px-4 py-5 transition-transform md:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="px-2">
           <Logo />
         </div>
-        <nav className="mt-9 flex-1 space-y-6 overflow-y-auto">
+        <nav className="scrollbar-none mt-9 min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain">
           {navigationFor(user, data).map((group) => (
             <div key={group.title}>
               <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[.17em] text-slate-400">
@@ -161,11 +161,12 @@ export function AppShell() {
                           : isActive;
                       return cn(
                         "group relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-all duration-200",
-                        active && !link.primary
-                          ? "bg-teal-50 pl-4 text-teal-900 shadow-sm ring-1 ring-inset ring-teal-100 before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-teal-600 before:content-['']"
-                          : "text-slate-500 hover:-translate-y-px hover:bg-slate-50 hover:text-ink hover:shadow-sm",
                         link.primary &&
-                          "bg-teal-700 text-white shadow-sm ring-1 ring-inset ring-teal-600 hover:-translate-y-px hover:bg-teal-800 hover:shadow-lg",
+                          "bg-teal-700 text-white shadow-sm ring-1 ring-inset ring-teal-600 hover:bg-teal-800 hover:text-white hover:shadow-md",
+                        !link.primary &&
+                          (active
+                            ? "bg-teal-50 pl-4 text-teal-900 shadow-sm ring-1 ring-inset ring-teal-100 before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-teal-600 before:content-['']"
+                            : "text-slate-500 hover:-translate-y-px hover:bg-slate-50 hover:text-ink hover:shadow-sm"),
                       );
                     }}
                   >

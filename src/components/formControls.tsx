@@ -112,9 +112,9 @@ export function SelectField({
           <div
             ref={menuRef}
             style={{
-              position: "absolute",
-              top: buttonRef.current.getBoundingClientRect().bottom + window.scrollY + 8,
-              left: buttonRef.current.getBoundingClientRect().left + window.scrollX,
+              position: "fixed",
+              top: buttonRef.current.getBoundingClientRect().bottom + 8,
+              left: buttonRef.current.getBoundingClientRect().left,
               width: buttonRef.current.getBoundingClientRect().width,
             }}
             className="z-[1000] max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"

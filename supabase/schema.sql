@@ -89,7 +89,7 @@ create table if not exists ticket_messages (
 
 create table if not exists ticket_events (
   id uuid primary key default gen_random_uuid(),
-  ticket_id uuid not null references tickets (id) on delete cascade,
+  ticket_id uuid references tickets (id) on delete cascade,
   actor_id uuid references profiles (id),
   event_type text not null,
   from_status_id uuid references ticket_statuses (id),
@@ -464,7 +464,8 @@ with
 create policy event_read on ticket_events for
 select
   to authenticated using (
-    exists (
+    is_admin ()
+    or exists (
       select
         1
       from
@@ -527,6 +528,69 @@ drop trigger if exists tickets_audit on tickets;
 create trigger tickets_audit
 after insert or update on tickets for each row
 execute function audit_ticket_change ();
+
+create or replace function audit_catalog_change () returns trigger language plpgsql security definer
+set
+  search_path = public as $$
+declare
+  item_name text;
+  event_type text;
+  event_detail text;
+begin
+  item_name := coalesce(to_jsonb(new)->>'name', to_jsonb(old)->>'name');
+  if tg_op = 'INSERT' then
+    event_type := 'catalog_created';
+    event_detail := format('Item de catálogo "%s" criado', item_name);
+  elsif tg_op = 'DELETE' then
+    event_type := 'catalog_deleted';
+    event_detail := format('Item de catálogo "%s" excluído', item_name);
+  elsif (to_jsonb(new)->>'is_active') is distinct from (to_jsonb(old)->>'is_active') then
+    event_type := case when (to_jsonb(new)->>'is_active')::boolean
+      then 'catalog_activated' else 'catalog_deactivated' end;
+    event_detail := format(
+      'Item de catálogo "%s" %s',
+      item_name,
+      case when (to_jsonb(new)->>'is_active')::boolean then 'ativado' else 'desativado' end
+    );
+  else
+    event_type := 'catalog_renamed';
+    event_detail := format('Item de catálogo "%s" atualizado', item_name);
+  end if;
+
+  insert into ticket_events (ticket_id, actor_id, event_type, metadata)
+  values (
+    null,
+    auth.uid(),
+    event_type,
+    jsonb_build_object('detail', event_detail, 'catalog', tg_table_name, 'item', item_name)
+  );
+  return case when tg_op = 'DELETE' then old else new end;
+end;
+$$;
+
+drop trigger if exists units_audit on units;
+
+create trigger units_audit
+after insert or update or delete on units for each row
+execute function audit_catalog_change ();
+
+drop trigger if exists categories_audit on ticket_categories;
+
+create trigger categories_audit
+after insert or update or delete on ticket_categories for each row
+execute function audit_catalog_change ();
+
+drop trigger if exists priorities_audit on ticket_priorities;
+
+create trigger priorities_audit
+after insert or update or delete on ticket_priorities for each row
+execute function audit_catalog_change ();
+
+drop trigger if exists statuses_audit on ticket_statuses;
+
+create trigger statuses_audit
+after insert or update or delete on ticket_statuses for each row
+execute function audit_catalog_change ();
 
 create or replace function notify_ticket_message () returns trigger language plpgsql security definer
 set

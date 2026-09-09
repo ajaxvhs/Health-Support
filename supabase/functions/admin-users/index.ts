@@ -133,8 +133,11 @@ Deno.serve(async (request) => {
       return response({ ok: true });
     }
     if (!targetId) return response({ error: "Usuário não informado." }, 400);
-    if (targetId === actor.id)
+    const isSelfUpdate = targetId === actor.id && body.action === "update";
+    if (targetId === actor.id && !isSelfUpdate)
       return response({ error: "Não é possível alterar o próprio usuário." }, 400);
+    if (isSelfUpdate && body.role !== undefined && body.role !== actorProfile.role)
+      return response({ error: "Não é possível alterar o próprio perfil." }, 400);
     const { data: target } = await admin
       .from("profiles")
       .select("role,is_active")

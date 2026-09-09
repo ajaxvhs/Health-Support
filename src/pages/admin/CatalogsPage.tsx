@@ -93,9 +93,9 @@ export function CatalogsPage() {
         ),
     });
   };
-  const createItem = async (itemName: string) => {
+  const createItem = async (itemName: string, description: string) => {
     if (tab !== "categories" && tab !== "units") return;
-    await repo.addCatalog(tab, itemName);
+    await repo.addCatalog(tab, itemName, description);
     await refresh();
     showToast("Item adicionado ao catálogo.");
     setCreating(false);

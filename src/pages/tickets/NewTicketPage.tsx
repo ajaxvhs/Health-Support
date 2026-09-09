@@ -56,7 +56,30 @@ export function NewTicketPage() {
         title="Abrir novo chamado"
         description="Conte para a equipe o que está acontecendo. Campos marcados com * são obrigatórios."
       />
-      <form onSubmit={submit} className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <aside className="mb-6 rounded-2xl border border-teal-100 bg-teal-50 p-5 sm:p-7">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-teal-700">
+          <BookOpen size={19} />
+        </div>
+        <h2 className="mt-5 font-display font-bold text-teal-950">Antes de enviar</h2>
+        <ul className="mt-4 space-y-3 text-sm leading-5 text-teal-900/70">
+          <li className="flex gap-2">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Confira se a
+            unidade está correta.
+          </li>
+          <li className="flex gap-2">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Inclua mensagens de
+            erro ou códigos.
+          </li>
+          <li className="flex gap-2">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Não inclua senhas
+            no chamado.
+          </li>
+        </ul>
+        <div className="mt-6 border-t border-teal-200/60 pt-4 text-xs leading-5 text-teal-800/70">
+          A equipe será avisada e você poderá acompanhar as respostas pela linha do tempo.
+        </div>
+      </aside>
+      <form onSubmit={submit}>
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-7">
           <div className="mb-7 flex items-center gap-3 border-b border-slate-100 pb-5">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
@@ -149,29 +172,6 @@ export function NewTicketPage() {
             </Button>
           </FormActions>
         </div>
-        <aside className="h-fit rounded-2xl border border-teal-100 bg-teal-50 p-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-teal-700">
-            <BookOpen size={19} />
-          </div>
-          <h2 className="mt-5 font-display font-bold text-teal-950">Antes de enviar</h2>
-          <ul className="mt-4 space-y-3 text-sm leading-5 text-teal-900/70">
-            <li className="flex gap-2">
-              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Confira se a
-              unidade está correta.
-            </li>
-            <li className="flex gap-2">
-              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Inclua mensagens
-              de erro ou códigos.
-            </li>
-            <li className="flex gap-2">
-              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Não inclua senhas
-              no chamado.
-            </li>
-          </ul>
-          <div className="mt-6 border-t border-teal-200/60 pt-4 text-xs leading-5 text-teal-800/70">
-            A equipe será avisada e você poderá acompanhar as respostas pela linha do tempo.
-          </div>
-        </aside>
       </form>
     </>
   );

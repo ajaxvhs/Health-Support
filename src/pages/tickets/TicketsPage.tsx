@@ -49,18 +49,18 @@ function TicketsViewSwitcher({
   onChange: (view: TicketFilterView) => void;
 }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div
         role="tablist"
         aria-label="Visualização dos chamados"
-        className="inline-flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
+        className="grid w-full grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:inline-flex sm:w-auto sm:flex-wrap"
       >
         <button
           type="button"
           role="tab"
           aria-selected={view === "queue"}
           onClick={() => onChange("queue")}
-          className={`inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-3.5 text-xs font-bold transition ${view === "queue" ? "bg-teal-700 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-ink"}`}
+          className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition sm:px-3.5 ${view === "queue" ? "bg-teal-700 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-ink"}`}
         >
           <ClipboardList size={14} /> Fila de atendimento
         </button>
@@ -69,13 +69,13 @@ function TicketsViewSwitcher({
           role="tab"
           aria-selected={view === "all"}
           onClick={() => onChange("all")}
-          className={`inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-3.5 text-xs font-bold transition ${view === "all" ? "bg-teal-700 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-ink"}`}
+          className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition sm:px-3.5 ${view === "all" ? "bg-teal-700 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-ink"}`}
         >
           <TicketIcon size={14} /> Todos os chamados
         </button>
       </div>
       {view === "queue" && (
-        <div className="grid grid-cols-2 gap-2 text-center sm:w-[240px]">
+        <div className="grid w-full grid-cols-2 gap-2 text-center sm:w-[240px]">
           <div className="rounded-xl bg-red-50 px-3 py-2">
             <strong className="block text-lg text-red-600">
               {
@@ -111,7 +111,7 @@ export function TicketsPage() {
   );
   const [filtersByView, setFiltersByView] = useState(initialFiltersByView);
   const [assignedByView, setAssignedByView] = useState(initialAssignedByView);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [refreshingQueue, setRefreshingQueue] = useState(false);
 
   useEffect(() => {
@@ -210,14 +210,19 @@ export function TicketsPage() {
               : `${tickets.length} chamados encontrados`
         }
         action={
-          <div className="flex flex-wrap gap-2">
-            <Link to="/chamados/novo">
-              <Button>
+          <div className="flex w-full justify-between gap-3 sm:w-auto">
+            <Link to="/chamados/novo" className="flex-1 sm:flex-none">
+              <Button className="min-h-12 w-full sm:min-w-[190px]">
                 <Plus size={17} /> Novo chamado
               </Button>
             </Link>
             {isStaff && view === "queue" && (
-              <Button variant="secondary" onClick={refreshQueue} loading={refreshingQueue}>
+              <Button
+                variant="secondary"
+                className="min-h-12 flex-1 sm:min-w-[190px] sm:flex-none"
+                onClick={refreshQueue}
+                loading={refreshingQueue}
+              >
                 {!refreshingQueue && <RefreshCw size={16} />} Atualizar fila
               </Button>
             )}
