@@ -50,7 +50,9 @@ function Logo() {
 
 function navigationFor(user: Profile, data: AppData): NavigationGroup[] {
   const staff = isStaff(user.role);
-  const openTickets = data.tickets.filter((ticket) => ticket.status !== "fechado");
+  const openTickets = data.tickets.filter(
+    (ticket) => ticket.status !== "fechado" && ticket.status !== "resolvido",
+  );
   const visibleTickets = staff
     ? openTickets
     : openTickets.filter((ticket) => ticket.createdBy === user.id);
