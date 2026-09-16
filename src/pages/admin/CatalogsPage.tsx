@@ -140,8 +140,8 @@ export function CatalogsPage() {
           ))}
         </div>
       </div>
-      <section className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-soft">
-        <div className="min-w-[950px]">
+      <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-soft">
+        <div className="min-w-0 md:min-w-[950px]">
           <div className="flex flex-col gap-5 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
             <div>
               <h2 className="font-display font-bold text-ink">
@@ -155,28 +155,48 @@ export function CatalogsPage() {
               </h2>
               <p className="mt-1 text-xs text-slate-400">{items.length} itens no catálogo</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-2">
               <TopSearch
                 value={search}
                 onSearch={setSearch}
                 placeholder="Buscar no catálogo"
-                className="w-full sm:w-64"
+                className="w-full max-w-none sm:w-64"
               />
+              <div className="flex items-center justify-between gap-4 sm:contents">
+                <label className="flex min-h-10 items-center gap-2 px-1 text-xs font-semibold text-slate-500 md:hidden">
+                  <input
+                    type="checkbox"
+                    aria-label="Selecionar todos os itens exibidos"
+                    checked={allSelected}
+                    onChange={() =>
+                      setSelected(
+                        allSelected
+                          ? selected.filter((id) => !items.some((item) => item.id === id))
+                          : [...new Set([...selected, ...items.map((item) => item.id)])],
+                      )
+                    }
+                    className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                  />
+                  Selecionar todos
+                </label>
+                {(tab === "categories" || tab === "units") && (
+                  <Button className="min-h-11" onClick={() => setCreating(true)}>
+                    <Plus size={16} /> Novo item
+                  </Button>
+                )}
+              </div>
               {selected.length > 0 && (
-                <BulkActionButtons
-                  onActivate={() => bulkAction("activate")}
-                  onDeactivate={() => bulkAction("deactivate")}
-                  onDelete={() => bulkAction("delete")}
-                />
-              )}
-              {(tab === "categories" || tab === "units") && (
-                <Button className="min-h-12" onClick={() => setCreating(true)}>
-                  <Plus size={16} /> Novo item
-                </Button>
+                <div className="flex w-full justify-center sm:w-auto">
+                  <BulkActionButtons
+                    onActivate={() => bulkAction("activate")}
+                    onDeactivate={() => bulkAction("deactivate")}
+                    onDelete={() => bulkAction("delete")}
+                  />
+                </div>
               )}
             </div>
           </div>
-          <div className="grid grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:px-7">
+          <div className="hidden grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 md:grid md:px-7">
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -278,61 +298,126 @@ function CatalogRow({
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const status = (
+    <Badge tone={item.isActive ? "green" : "slate"} dot>
+      {item.isActive ? "Ativo" : "Inativo"}
+    </Badge>
+  );
+  const mobileActions = (
+    <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3">
+      <Button
+        variant="ghost"
+        aria-label={`Editar ${item.name}`}
+        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap bg-slate-50 px-1 py-2 text-[11px]"
+        onClick={onEdit}
+      >
+        <Pencil size={14} /> Editar
+      </Button>
+      <Button
+        variant="ghost"
+        aria-label={`${item.isActive ? "Desativar" : "Ativar"} ${item.name}`}
+        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap bg-slate-50 px-1 py-2 text-[11px]"
+        onClick={onToggle}
+      >
+        {item.isActive ? <Power size={14} /> : <CheckCircle2 size={14} />}{" "}
+        {item.isActive ? "Desativar" : "Ativar"}
+      </Button>
+      <Button
+        variant="danger"
+        aria-label={`Excluir ${item.name}`}
+        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap px-1 py-2 text-[11px]"
+        onClick={onDelete}
+      >
+        <Trash2 size={14} /> Excluir
+      </Button>
+    </div>
+  );
   return (
-    <div className="grid grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] items-center gap-4 border-b border-slate-100 px-5 py-4 last:border-0 sm:px-7">
-      <input
-        type="checkbox"
-        aria-label={`Selecionar ${item.name}`}
-        checked={selected}
-        onChange={(event) => onSelect(event.target.checked)}
-        className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
-      />
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-xs font-bold text-teal-700">
-          {item.code ? item.code.slice(0, 2) : <Settings2 size={16} />}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-ink">{item.name}</p>
-          <p className="truncate text-xs text-slate-400">
+    <div className="mx-3 my-3 rounded-2xl border border-slate-100 p-4 md:mx-0 md:my-0 md:grid md:grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] md:items-center md:gap-4 md:rounded-none md:border-x-0 md:border-b md:border-t-0 md:px-5 md:py-4">
+      <div className="space-y-4 md:hidden">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-xs font-bold text-teal-700">
+            {item.code ? item.code.slice(0, 2) : <Settings2 size={16} />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-sm font-bold leading-5 text-ink">{item.name}</p>
+            <div className="mt-2">{status}</div>
+          </div>
+          <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-slate-50">
+            <input
+              type="checkbox"
+              aria-label={`Selecionar ${item.name}`}
+              checked={selected}
+              onChange={(event) => onSelect(event.target.checked)}
+              className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+            />
+          </label>
+        </div>
+        <div className="min-w-0 rounded-xl bg-slate-50/70 p-3">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Descrição
+          </span>
+          <p className="mt-1 break-words text-xs leading-5 text-slate-600">
             {item.description ?? item.code ?? "Disponível no formulário de chamados"}
           </p>
         </div>
+        {mobileActions}
       </div>
-      <div className="flex justify-center">
-        <Badge tone={item.isActive ? "green" : "slate"} dot>
-          {item.isActive ? "Ativo" : "Inativo"}
-        </Badge>
-      </div>
-      <div className="flex items-center justify-center gap-1">
-        <Button
-          variant="ghost"
-          aria-label={`Editar ${item.name}`}
-          title="Editar item"
-          className="min-h-8 px-2 text-xs"
-          onClick={onEdit}
-        >
-          <Pencil size={14} /> Editar
-        </Button>
-        <Button
-          variant="ghost"
-          aria-label={`${item.isActive ? "Desativar" : "Ativar"} ${item.name}`}
-          className="min-h-8 px-2 text-xs"
-          onClick={onToggle}
-        >
-          {item.isActive ? <Power size={14} /> : <CheckCircle2 size={14} />}{" "}
-          {item.isActive ? "Desativar" : "Ativar"}
-        </Button>
-        <Button
-          variant="danger"
-          aria-label={`Excluir ${item.name}`}
-          title={
-            item.isActive && referenced ? "Será desativado para preservar o histórico" : undefined
-          }
-          className="min-h-8 px-2 text-xs"
-          onClick={onDelete}
-        >
-          <Trash2 size={14} /> Excluir
-        </Button>
+      <div className="hidden md:contents">
+        <input
+          type="checkbox"
+          aria-label={`Selecionar ${item.name}`}
+          checked={selected}
+          onChange={(event) => onSelect(event.target.checked)}
+          className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+        />
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-xs font-bold text-teal-700">
+            {item.code ? item.code.slice(0, 2) : <Settings2 size={16} />}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-ink">{item.name}</p>
+            <p className="truncate text-xs text-slate-400">
+              {item.description ?? item.code ?? "Disponível no formulário de chamados"}
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-center">
+          <Badge tone={item.isActive ? "green" : "slate"} dot>
+            {item.isActive ? "Ativo" : "Inativo"}
+          </Badge>
+        </div>
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            variant="ghost"
+            aria-label={`Editar ${item.name}`}
+            title="Editar item"
+            className="min-h-8 px-2 text-xs"
+            onClick={onEdit}
+          >
+            <Pencil size={14} /> Editar
+          </Button>
+          <Button
+            variant="ghost"
+            aria-label={`${item.isActive ? "Desativar" : "Ativar"} ${item.name}`}
+            className="min-h-8 px-2 text-xs"
+            onClick={onToggle}
+          >
+            {item.isActive ? <Power size={14} /> : <CheckCircle2 size={14} />}{" "}
+            {item.isActive ? "Desativar" : "Ativar"}
+          </Button>
+          <Button
+            variant="danger"
+            aria-label={`Excluir ${item.name}`}
+            title={
+              item.isActive && referenced ? "Será desativado para preservar o histórico" : undefined
+            }
+            className="min-h-8 px-2 text-xs"
+            onClick={onDelete}
+          >
+            <Trash2 size={14} /> Excluir
+          </Button>
+        </div>
       </div>
     </div>
   );
