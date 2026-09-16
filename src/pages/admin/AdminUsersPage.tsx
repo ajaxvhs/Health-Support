@@ -119,8 +119,8 @@ export function AdminUsersPage() {
         </div>
       </div>
       <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-soft">
-        <div className="min-w-[1050px]">
-          <div className="grid grid-cols-[36px_minmax(250px,1.55fr)_minmax(145px,1fr)_minmax(145px,0.9fr)_110px_minmax(275px,auto)] gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="min-w-0 md:min-w-[1050px]">
+          <div className="hidden grid-cols-[36px_minmax(250px,1.55fr)_minmax(145px,1fr)_minmax(145px,0.9fr)_110px_minmax(275px,auto)] gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 md:grid">
             <div className="flex items-center">
               <input
                 type="checkbox"

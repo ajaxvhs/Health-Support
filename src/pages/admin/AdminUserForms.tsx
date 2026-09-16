@@ -27,11 +27,78 @@ function UserModal({
   );
 }
 
+function UserFormLayout({
+  title,
+  description,
+  onClose,
+  tab,
+  onTabChange,
+  onSubmit,
+  actions,
+  children,
+}: {
+  title: string;
+  description: string;
+  onClose: () => void;
+  tab: UserFormTab;
+  onTabChange: (value: UserFormTab) => void;
+  onSubmit?: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  actions: ReactNode;
+  children: ReactNode;
+}) {
+  const content = (
+    <>
+      <UserFormTabs value={tab} onChange={onTabChange} includeSecurity />
+      <div className="h-[23rem] overflow-y-auto sm:h-[14rem]">{children}</div>
+      <div className="mt-6 flex justify-end gap-3">{actions}</div>
+    </>
+  );
+
+  return (
+    <UserModal title={title} description={description} onClose={onClose}>
+      {onSubmit ? <form onSubmit={onSubmit}>{content}</form> : content}
+    </UserModal>
+  );
+}
+
 const roleOptionElements = roleOptions.map((option) => (
   <option key={option.value} value={option.value}>
     {option.label}
   </option>
 ));
+
+type UserFormTab = "personal" | "access" | "security";
+
+function UserFormTabs({
+  value,
+  onChange,
+  includeSecurity = false,
+}: {
+  value: UserFormTab;
+  onChange: (value: UserFormTab) => void;
+  includeSecurity?: boolean;
+}) {
+  const tabs: Array<{ value: UserFormTab; label: string }> = [
+    { value: "personal", label: "Dados pessoais" },
+    { value: "access", label: "Acesso" },
+    ...(includeSecurity ? [{ value: "security" as const, label: "Segurança" }] : []),
+  ];
+  return (
+    <div className="mt-5 flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+      {tabs.map((tab) => (
+        <button
+          key={tab.value}
+          type="button"
+          onClick={() => onChange(tab.value)}
+          aria-selected={value === tab.value}
+          className={`min-h-10 min-w-0 flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-bold transition ${value === tab.value ? "bg-white text-ink shadow-sm" : "text-slate-500 hover:text-ink"}`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function CreateUserForm({ onClose }: { onClose: () => void }) {
   const { data, repo, refresh } = useApp();
@@ -43,6 +110,7 @@ export function CreateUserForm({ onClose }: { onClose: () => void }) {
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [unitId, setUnitId] = useState(data.units[0]?.id ?? "");
   const [role, setRole] = useState<Role>("solicitante");
+  const [tab, setTab] = useState<UserFormTab>("personal");
   const [saving, setSaving] = useState(false);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -80,12 +148,25 @@ export function CreateUserForm({ onClose }: { onClose: () => void }) {
     }
   };
   return (
-    <UserModal
+    <UserFormLayout
       title="Novo usuário"
       description="A conta será criada com senha temporária e troca obrigatória no primeiro acesso."
       onClose={onClose}
+      tab={tab}
+      onTabChange={setTab}
+      onSubmit={submit}
+      actions={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" loading={saving}>
+            <UserPlus size={16} /> Criar usuário
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={submit}>
+      {tab === "personal" ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <TextField label="Nome completo" value={fullName} onChange={setFullName} />
           <TextField label="Usuário" value={username} onChange={setUsername} autoComplete="off" />
@@ -103,13 +184,9 @@ export function CreateUserForm({ onClose }: { onClose: () => void }) {
             onChange={(value) => setPhone(formatPhone(value))}
             inputMode="tel"
           />
-          <TextField
-            label="Senha temporária"
-            value={temporaryPassword}
-            onChange={setTemporaryPassword}
-            type="password"
-            autoComplete="new-password"
-          />
+        </div>
+      ) : tab === "access" ? (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <SelectField label="Unidade" value={unitId} onChange={setUnitId}>
             {data.units
               .filter((unit) => unit.isActive)
@@ -123,16 +200,19 @@ export function CreateUserForm({ onClose }: { onClose: () => void }) {
             {roleOptionElements}
           </SelectField>
         </div>
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" loading={saving}>
-            <UserPlus size={16} /> Criar usuário
-          </Button>
+      ) : (
+        <div className="mt-6 max-w-md">
+          <TextField
+            label="Senha temporária"
+            value={temporaryPassword}
+            onChange={setTemporaryPassword}
+            type="password"
+            autoComplete="new-password"
+            hint="Use pelo menos 8 caracteres"
+          />
         </div>
-      </form>
-    </UserModal>
+      )}
+    </UserFormLayout>
   );
 }
 
@@ -143,7 +223,7 @@ export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: 
   const [username, setUsername] = useState(profile.username);
   const [email, setEmail] = useState(profile.email);
   const [phone, setPhone] = useState(formatPhone(profile.phone));
-  const [tab, setTab] = useState<"info" | "security">("info");
+  const [tab, setTab] = useState<UserFormTab>("personal");
   const [resetPassword, setResetPassword] = useState("");
   const [unitId, setUnitId] = useState(profile.unitId);
   const [role, setRole] = useState<Role>(profile.role);
@@ -164,70 +244,94 @@ export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: 
     }
   };
   return (
-    <UserModal
+    <UserFormLayout
       title="Editar usuário"
       description={`Atualize os dados e as permissões de ${profile.fullName}.`}
       onClose={onClose}
-      maxWidth="max-w-2xl"
+      tab={tab}
+      onTabChange={setTab}
+      actions={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          {tab === "security" && (
+            <Button
+              onClick={async () => {
+                try {
+                  await repo.resetUserPassword(profile.id, resetPassword);
+                  await refresh();
+                  showToast("Senha redefinida. O usuário deverá trocá-la no próximo acesso.");
+                  setResetPassword("");
+                } catch (reason) {
+                  const message =
+                    reason instanceof Error
+                      ? reason.message
+                      : "Não foi possível redefinir a senha.";
+                  showToast(message, "error");
+                }
+              }}
+            >
+              Redefinir senha
+            </Button>
+          )}
+          {tab !== "security" && (
+            <Button onClick={save} loading={saving}>
+              Salvar alterações
+            </Button>
+          )}
+        </>
+      }
     >
-      <div className="mt-5 flex gap-1 rounded-xl bg-slate-100 p-1">
-        <button
-          type="button"
-          onClick={() => setTab("info")}
-          className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold ${tab === "info" ? "bg-white text-ink shadow-sm" : "text-slate-500"}`}
-        >
-          Informações
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("security")}
-          className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold ${tab === "security" ? "bg-white text-ink shadow-sm" : "text-slate-500"}`}
-        >
-          Segurança
-        </button>
-      </div>
-      {tab === "info" ? (
+      {tab !== "security" ? (
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <TextField label="Nome completo" value={fullName} onChange={setFullName} required />
-          <TextField
-            label="Usuário"
-            value={username}
-            onChange={setUsername}
-            autoComplete="off"
-            required
-          />
-          <TextField
-            label="E-mail"
-            value={email}
-            onChange={setEmail}
-            type="email"
-            autoComplete="off"
-            required
-          />
-          <TextField
-            label="Telefone"
-            value={phone}
-            onChange={(value) => setPhone(formatPhone(value))}
-            inputMode="tel"
-            required
-          />
-          <SelectField label="Unidade" value={unitId} onChange={setUnitId} required>
-            {data.units
-              .filter((unit) => unit.isActive || unit.id === profile.unitId)
-              .map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                </option>
-              ))}
-          </SelectField>
-          <SelectField
-            label="Perfil"
-            value={role}
-            onChange={(value) => setRole(value as Role)}
-            required
-          >
-            {roleOptionElements}
-          </SelectField>
+          {tab === "personal" ? (
+            <>
+              <TextField label="Nome completo" value={fullName} onChange={setFullName} required />
+              <TextField
+                label="Usuário"
+                value={username}
+                onChange={setUsername}
+                autoComplete="off"
+                required
+              />
+              <TextField
+                label="E-mail"
+                value={email}
+                onChange={setEmail}
+                type="email"
+                autoComplete="off"
+                required
+              />
+              <TextField
+                label="Telefone"
+                value={phone}
+                onChange={(value) => setPhone(formatPhone(value))}
+                inputMode="tel"
+                required
+              />
+            </>
+          ) : (
+            <>
+              <SelectField label="Unidade" value={unitId} onChange={setUnitId} required>
+                {data.units
+                  .filter((unit) => unit.isActive || unit.id === profile.unitId)
+                  .map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </option>
+                  ))}
+              </SelectField>
+              <SelectField
+                label="Perfil"
+                value={role}
+                onChange={(value) => setRole(value as Role)}
+                required
+              >
+                {roleOptionElements}
+              </SelectField>
+            </>
+          )}
         </div>
       ) : (
         <div className="mt-5 space-y-4">
@@ -246,35 +350,6 @@ export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: 
           />
         </div>
       )}
-      <div className="mt-6 flex justify-end">
-        <Button variant="secondary" onClick={onClose}>
-          Cancelar
-        </Button>
-        {tab === "security" && (
-          <Button
-            className="ml-3"
-            onClick={async () => {
-              try {
-                await repo.resetUserPassword(profile.id, resetPassword);
-                await refresh();
-                showToast("Senha redefinida. O usuário deverá trocá-la no próximo acesso.");
-                setResetPassword("");
-              } catch (reason) {
-                const message =
-                  reason instanceof Error ? reason.message : "Não foi possível redefinir a senha.";
-                showToast(message, "error");
-              }
-            }}
-          >
-            Redefinir senha
-          </Button>
-        )}
-        {tab === "info" && (
-          <Button className="ml-3" onClick={save} loading={saving}>
-            Salvar alterações
-          </Button>
-        )}
-      </div>
-    </UserModal>
+    </UserFormLayout>
   );
 }
