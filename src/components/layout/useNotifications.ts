@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { AppNotification } from "../../types";
 import type { SupabaseRepository } from "../../lib/repository";
 import { errorMessage } from "../../lib/utils";
+import { getSupabaseClient } from "../../lib/supabase/client";
 
 export function useNotifications(
   repo: SupabaseRepository,
@@ -12,6 +13,18 @@ export function useNotifications(
 
   useEffect(() => {
     let active = true;
+    const client = getSupabaseClient();
+    const refreshNotifications = async (announce = false, title?: string) => {
+      try {
+        const items = await repo.getNotifications(userId);
+        if (!active) return;
+        setNotifications(items);
+        if (announce) showToast(title ?? "Nova notificação recebida.", "info");
+      } catch (reason) {
+        if (active)
+          showToast(errorMessage(reason, "Não foi possível atualizar as notificações."), "error");
+      }
+    };
     repo
       .getNotifications(userId)
       .then((items) => {
@@ -21,8 +34,39 @@ export function useNotifications(
         if (active)
           showToast(errorMessage(reason, "Não foi possível carregar as notificações."), "error");
       });
+    if (!client)
+      return () => {
+        active = false;
+      };
+    const channel = client
+      .channel(`notifications:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const row = payload.new as { title?: string };
+          void refreshNotifications(true, row.title);
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => void refreshNotifications(),
+      )
+      .subscribe();
     return () => {
       active = false;
+      void client.removeChannel(channel);
     };
   }, [repo, showToast, userId]);
 

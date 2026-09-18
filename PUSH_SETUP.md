@@ -7,10 +7,12 @@ Supabase Cron chama a Edge Function `send-push` para enviar Web Push. Não há
 servidor dedicado. O service worker exibe um aviso genérico e abre `/chamados`,
 onde as rotas autenticadas e RLS continuam controlando o acesso.
 
-Novos chamados avisam administradores e atendentes ativos, exceto o autor.
-Respostas usam o trigger existente `notify_ticket_message`, que exclui o autor
-e não envia notas internas ao solicitante. A fila revalida perfil ativo, troca
-obrigatória de senha e acesso ao chamado antes de liberar o envio.
+Novos chamados avisam administradores e atendentes ativos, exceto o autor, com
+nome do solicitante e número do chamado. Respostas usam o trigger existente
+`notify_ticket_message`, que exclui o autor e informa quem respondeu e qual
+chamado foi atualizado. Notas internas não são enviadas ao solicitante. A fila
+revalida perfil ativo, troca obrigatória de senha e acesso ao chamado antes de
+liberar o envio.
 
 ## Estado atual do backend (configurado via CLI em 2026-09-17)
 

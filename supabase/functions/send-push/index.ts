@@ -46,7 +46,11 @@ Deno.serve(async (request) => {
       try {
         await webpush.sendNotification(
           { endpoint: job.endpoint, keys: { p256dh: job.p256dh, auth: job.auth } },
-          "{}",
+          JSON.stringify({
+            title: job.notification_title,
+            body: job.notification_message,
+            ticketId: job.ticket_id,
+          }),
           { TTL: 3600, timeout: 5000 },
         );
         const { error: deleteError } = await client
