@@ -1,10 +1,8 @@
 import {
-  ArrowRight,
   CheckCircle2,
   Clock3,
   MessageCircle,
   Plus,
-  Sparkles,
   Ticket as TicketIcon,
   UserCheck,
   Zap,
@@ -13,7 +11,6 @@ import { Link } from "react-router-dom";
 import { Button, EmptyState, PageHeader, StatCard } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { isStaff } from "../../lib/permissions";
-import { averageFirstPublicStaffResponseMinutes, formatResponseTime } from "../../lib/utils";
 import { TicketRow } from "../tickets/TicketRow";
 
 export function DashboardPage() {
@@ -33,32 +30,9 @@ export function DashboardPage() {
     const sender = data.profiles.find((profile) => profile.id === latestPublicMessage?.senderId);
     return sender?.role !== "solicitante" && Boolean(latestPublicMessage);
   });
-  const averageResponseMinutes = averageFirstPublicStaffResponseMinutes(
-    mine,
-    data.messages,
-    data.profiles,
-  );
-  const delayedTickets =
-    staff && averageResponseMinutes !== null
-      ? mine.filter((ticket) => {
-          if (ticket.status === "fechado") return false;
-          const publicMessages = data.messages
-            .filter((message) => message.ticketId === ticket.id && !message.isInternal)
-            .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
-          const lastMessage = publicMessages[publicMessages.length - 1];
-          const sender = data.profiles.find((profile) => profile.id === lastMessage?.senderId);
-          const waitingForStaff = !lastMessage || sender?.role === "solicitante";
-          const waitingSince = lastMessage?.createdAt ?? ticket.createdAt;
-          return (
-            waitingForStaff &&
-            Date.now() - new Date(waitingSince).getTime() > averageResponseMinutes * 60000
-          );
-        })
-      : [];
   const recent = [...mine]
     .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
     .slice(0, 5);
-  const averageResponse = formatResponseTime(averageResponseMinutes);
   return (
     <>
       <PageHeader
@@ -140,13 +114,6 @@ export function DashboardPage() {
               tone="orange"
             />
             <StatCard
-              label="Acima do tempo médio"
-              value={delayedTickets.length}
-              detail={delayedTickets.length ? "Resposta pendente" : "Tudo em dia"}
-              icon={Clock3}
-              tone="orange"
-            />
-            <StatCard
               label="Atribuídos a mim"
               value={
                 mine.filter(
@@ -160,7 +127,7 @@ export function DashboardPage() {
           </>
         )}
       </div>
-      <div className="mt-7 grid gap-6 xl:grid-cols-[1fr_320px]">
+      <div className="mt-7">
         <section className="rounded-2xl border border-slate-100 bg-white shadow-soft">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
             <div>
@@ -188,27 +155,6 @@ export function DashboardPage() {
               }
             />
           )}
-        </section>
-        <section className="rounded-2xl bg-ink p-6 text-white">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-700">
-            <Sparkles size={19} />
-          </div>
-          <h2 className="mt-6 font-display text-xl font-bold">
-            Atendimento simples, do início ao fim.
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-slate-300">
-            Descreva seu problema com detalhes. Nossa equipe acompanha cada etapa por aqui.
-          </p>
-          <Link
-            to="/chamados/novo"
-            className="mt-7 inline-flex items-center gap-2 text-sm font-bold text-teal-200 hover:text-white"
-          >
-            Abrir um chamado <ArrowRight size={15} />
-          </Link>
-          <div className="mt-8 border-t border-white/10 pt-4 text-[11px] text-slate-400">
-            Tempo médio de primeira resposta{" "}
-            <strong className="ml-1 text-teal-200">{averageResponse}</strong>
-          </div>
         </section>
       </div>
     </>

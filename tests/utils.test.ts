@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  averageFirstPublicStaffResponseMinutes,
-  filterAuditEvents,
-  filterTickets,
-  formatResponseTime,
-} from "../src/lib/utils";
-import type { Profile, Ticket, TicketMessage } from "../src/types";
+import { filterAuditEvents, filterTickets } from "../src/lib/utils";
+import type { Profile, Ticket } from "../src/types";
 
 const requester: Profile = {
   id: "requester",
@@ -49,39 +44,6 @@ const ticket = (
 });
 
 describe("metricas e filtros de chamados", () => {
-  it("calcula a primeira resposta publica de equipe e ignora nota interna", () => {
-    const tickets = [ticket("t-1", "2025-01-10T10:00:00.000Z")];
-    const messages: TicketMessage[] = [
-      {
-        id: "internal",
-        ticketId: "t-1",
-        senderId: staff.id,
-        message: "nota",
-        isInternal: true,
-        createdAt: "2025-01-10T10:30:00.000Z",
-      },
-      {
-        id: "public",
-        ticketId: "t-1",
-        senderId: staff.id,
-        message: "resposta",
-        isInternal: false,
-        createdAt: "2025-01-10T11:30:00.000Z",
-      },
-      {
-        id: "requester",
-        ticketId: "t-1",
-        senderId: requester.id,
-        message: "retorno",
-        isInternal: false,
-        createdAt: "2025-01-10T11:00:00.000Z",
-      },
-    ];
-    expect(averageFirstPublicStaffResponseMinutes(tickets, messages, [requester, staff])).toBe(90);
-    expect(formatResponseTime(90)).toBe("1h 30min");
-    expect(formatResponseTime(null)).toBe("Sem respostas ainda");
-  });
-
   it("filtra por busca, prioridade e periodo e ordena resultados", () => {
     const tickets = [
       ticket("t-1", "2025-01-10T10:00:00.000Z", "high"),
