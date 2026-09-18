@@ -53,11 +53,9 @@ VITE_APP_URL=http://localhost:5173
 ```
 
 A `SUPABASE_SERVICE_ROLE_KEY` nunca deve ser usada no navegador. Ela deve ficar
-somente no ambiente protegido da Edge Function administrativa, quando
-necessário.
-
-Para detalhes de configuração do Supabase, consulte
-[`SUPABASE_SETUP.md`](./SUPABASE_SETUP.md).
+somente no ambiente protegido de uma Edge Function, quando necessário. As
+migrations do banco ficam versionadas em `supabase/migrations` e devem ser
+aplicadas somente ao ambiente apropriado.
 
 ## Desenvolvimento
 
@@ -94,8 +92,11 @@ npm run build         # gera a versão de produção
 
 ## Atualizações e deploy
 
-Para instalar e configurar notificações Web Push com Vercel e Supabase serverless,
-consulte [PUSH_SETUP.md](./PUSH_SETUP.md).
+As notificações Web Push usam a Vercel no frontend e Supabase serverless no
+backend. O frontend lê a chave pública VAPID da configuração autenticada; a
+chave privada, `service_role` e o segredo do dispatch ficam somente no ambiente
+protegido da Edge Function. A configuração operacional detalhada permanece no
+cofre local do projeto e não é publicada neste repositório.
 
 O PWA avisa quando uma versão nova está pronta. O usuário deve salvar seu
 trabalho antes de clicar em **Atualizar**; **Depois** mantém a versão atual.
@@ -126,7 +127,7 @@ Verificar também navegação offline e falha persistente de chunk sem loop.
 ```text
 src/pages       telas da aplicação
 src/components  componentes reutilizáveis
-src/routes      proteção e redirecionamento de rotas
+src/router.tsx  proteção, redirecionamento e recuperação de rotas
 src/lib         autenticação, regras, permissões e dados
 src/context     estado compartilhado
 supabase        schema, migrations e Edge Functions
