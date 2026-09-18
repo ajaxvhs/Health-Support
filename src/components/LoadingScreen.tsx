@@ -6,7 +6,7 @@ export function LoadingScreen({ label = "Carregando sessão..." }: { label?: str
       aria-live="polite"
     >
       <span
-        className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-teal-700 motion-reduce:animate-none"
+        className="h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-teal-700 dark:border-[#29433f] dark:border-t-[#5fd0bb]"
         aria-hidden="true"
       />
       <p className="mt-3 text-sm font-medium">{label}</p>
