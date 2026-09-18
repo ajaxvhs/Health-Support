@@ -134,7 +134,7 @@ export function AppShell() {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[232px] flex-col overflow-hidden border-r border-slate-100 bg-white px-4 py-5 transition-transform md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[232px] flex-col overflow-hidden border-r border-slate-100 bg-white px-4 py-5 transition-transform md:transform-none md:transition-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -161,7 +161,7 @@ export function AppShell() {
                           ? location.pathname === "/chamados" && !location.search
                           : isActive;
                       return cn(
-                        "group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-semibold transition-colors duration-150",
+                        "group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-semibold transition-colors duration-150 [&>*]:pointer-events-none",
                         link.primary &&
                           "bg-teal-700 text-white shadow-sm ring-1 ring-inset ring-teal-600 hover:bg-teal-800 hover:text-white hover:shadow-md",
                         !link.primary &&
@@ -193,7 +193,7 @@ export function AppShell() {
         <button
           type="button"
           onClick={logout}
-          className="mt-3 flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700"
+          className="mt-3 flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700 [&>*]:pointer-events-none"
         >
           <LogOut size={17} />
           Sair da conta
