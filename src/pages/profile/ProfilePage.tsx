@@ -7,6 +7,7 @@ import { passwordUpdateErrorMessage, updatePassword } from "../../lib/auth";
 import { roleLabels } from "../../types";
 import { formatPhone } from "../../lib/utils";
 import { PushNotificationSettings } from "../../components/PushNotificationSettings";
+import { ThemeSettings } from "../../components/ThemeSettings";
 
 export function ProfilePage() {
   const { user, data, repo, refresh } = useApp();
@@ -142,7 +143,8 @@ export function ProfilePage() {
             </div>
           </section>
         ) : (
-          <div className="max-w-xl">
+          <div className="max-w-xl space-y-4">
+            <ThemeSettings />
             <PushNotificationSettings />
           </div>
         )}
