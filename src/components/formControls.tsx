@@ -201,7 +201,9 @@ export function TextField({
   readOnly,
   hint,
   autoComplete,
+  autoFocus,
   inputMode,
+  showRequiredIndicator = true,
   className,
 }: {
   label: string;
@@ -213,7 +215,9 @@ export function TextField({
   readOnly?: boolean;
   hint?: string;
   autoComplete?: string;
+  autoFocus?: boolean;
   inputMode?: "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
+  showRequiredIndicator?: boolean;
   className?: string;
 }) {
   const labelId = useId();
@@ -224,7 +228,7 @@ export function TextField({
     <div className="block">
       <span id={labelId} className="mb-2 block text-sm font-bold text-ink">
         {label}
-        {required && <span className="ml-1 text-teal-700">*</span>}
+        {required && showRequiredIndicator && <span className="ml-1 text-teal-700">*</span>}
       </span>
       <div className="relative">
         <input
@@ -236,6 +240,7 @@ export function TextField({
           readOnly={readOnly}
           required={required}
           autoComplete={autoComplete}
+          autoFocus={autoFocus}
           inputMode={inputMode}
           aria-labelledby={labelId}
           className={cn(

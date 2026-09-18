@@ -63,24 +63,25 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
 
           <form onSubmit={submit} className="mt-7 space-y-5" autoComplete="on">
             <TextField
-              label="Usuário ou e-mail"
+              label="Usuário"
               value={username}
               onChange={setUsername}
-              placeholder="seu.usuario ou seu@email.com"
+              placeholder="seu.usuario"
               autoComplete="username"
+              autoFocus
               className="min-h-12"
               required
+              showRequiredIndicator={false}
             />
             <div className="block">
-              <span className="mb-2 block text-sm font-bold text-ink">
-                Senha<span className="ml-1 text-teal-700">*</span>
-              </span>
+              <span className="mb-2 block text-sm font-bold text-ink">Senha</span>
               <span className="relative block">
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  placeholder="••••••••"
                   autoComplete="current-password"
                   aria-label="Senha"
                   className="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-12 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
@@ -95,7 +96,7 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
                 </button>
               </span>
             </div>
-            <Button loading={loading} className="mt-1 min-h-12 w-full">
+            <Button type="submit" loading={loading} className="mt-1 min-h-12 w-full">
               Entrar no portal
               <ArrowRight size={17} />
             </Button>
