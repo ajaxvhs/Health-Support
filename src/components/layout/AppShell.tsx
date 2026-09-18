@@ -135,7 +135,7 @@ export function AppShell() {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[248px] flex-col overflow-hidden border-r border-slate-100 bg-white px-4 py-5 transition-transform md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[232px] flex-col overflow-hidden border-r border-slate-100 bg-white px-4 py-5 transition-transform md:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -211,7 +211,7 @@ export function AppShell() {
           Sair da conta
         </button>
       </aside>
-      <div className="md:pl-[248px]">
+      <div className="md:pl-[232px]">
         <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-slate-100 bg-white/90 px-4 backdrop-blur-md sm:px-8">
           <div className="flex items-center gap-3">
             <button
