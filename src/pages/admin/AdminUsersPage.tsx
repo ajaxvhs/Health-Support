@@ -26,7 +26,6 @@ type ConfirmState = {
 
 const PAGE_SIZE = 10;
 type PageItem = number | "ellipsis";
-
 function pageItems(currentPage: number, pageCount: number): PageItem[] {
   if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
   if (currentPage <= 4) return [1, 2, 3, 4, 5, "ellipsis", pageCount];
@@ -117,37 +116,39 @@ export function AdminUsersPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Administração"
-        title="Usuários"
-        description="Gerencie quem pode acessar o portal e suas permissões."
-        action={
-          <Button onClick={() => setShowForm(true)}>
-            <UserPlus size={17} /> Novo usuário
-          </Button>
-        }
-      />
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft sm:flex-row sm:items-center sm:gap-5">
-        <TopSearch
-          value={search}
-          onSearch={updateSearch}
-          placeholder="Buscar usuário, e-mail ou unidade"
-          className="w-full min-w-0 max-w-none flex-1"
+      <div className="mx-auto w-full max-w-[1320px]">
+        <PageHeader
+          eyebrow="Administração"
+          title="Usuários"
+          description="Gerencie quem pode acessar o portal e suas permissões."
+          action={
+            <Button className="w-full sm:w-auto" onClick={() => setShowForm(true)}>
+              <UserPlus size={17} /> Novo usuário
+            </Button>
+          }
         />
-        <div className="flex shrink-0 flex-wrap items-center gap-3 sm:ml-auto">
-          <span className="text-xs text-slate-400">{users.length} usuários cadastrados</span>
-          {selected.length > 0 && (
-            <BulkActionButtons
-              onActivate={() => bulkAction("activate")}
-              onDeactivate={() => bulkAction("deactivate")}
-              onDelete={() => bulkAction("delete")}
-            />
-          )}
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft sm:gap-4 sm:p-4">
+          <TopSearch
+            value={search}
+            onSearch={updateSearch}
+            placeholder="Buscar usuário, e-mail ou unidade"
+            className="w-full min-w-0 max-w-none flex-[1_1_24rem]"
+          />
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
+            <span className="shrink-0 text-xs text-slate-400">
+              {users.length} usuários cadastrados
+            </span>
+            {selected.length > 0 && (
+              <BulkActionButtons
+                onActivate={() => bulkAction("activate")}
+                onDeactivate={() => bulkAction("deactivate")}
+                onDelete={() => bulkAction("delete")}
+              />
+            )}
+          </div>
         </div>
-      </div>
-      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-soft">
-        <div className="min-w-0">
-          <div className="hidden grid-cols-[28px_minmax(220px,2fr)_minmax(110px,1fr)_145px_80px_88px] gap-2 border-b border-slate-100 bg-slate-50/60 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:grid 2xl:grid-cols-[36px_minmax(320px,2fr)_minmax(180px,1.1fr)_145px_110px_120px] 2xl:gap-4 2xl:px-5 2xl:py-3">
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-soft">
+          <div className="hidden border-b border-slate-100 bg-slate-50/60 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:grid lg:grid-cols-[28px_minmax(0,1.65fr)_minmax(0,1fr)_148px_80px_132px] lg:gap-2 xl:grid-cols-[36px_minmax(280px,2fr)_minmax(150px,1.1fr)_148px_90px_132px] xl:gap-4 xl:px-5 xl:py-3">
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -232,61 +233,61 @@ export function AdminUsersPage() {
               currentUserId={app.user.id}
             />
           ))}
-        </div>
-        {users.length > 0 && (
-          <div className="grid gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-5">
-            <span className="sm:justify-self-start">
-              Exibindo {pageStart + 1}-{pageEnd} de {users.length} usuários
-            </span>
-            <div className="flex items-center justify-center gap-1 sm:justify-self-center">
-              <button
-                type="button"
-                aria-label="Página anterior"
-                disabled={currentPage === 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              {pageItems(currentPage, pageCount).map((item, index) =>
-                item === "ellipsis" ? (
-                  <span
-                    key={`ellipsis-${index}`}
-                    className="flex h-10 w-10 items-center justify-center"
-                  >
-                    ...
-                  </span>
-                ) : (
-                  <button
-                    key={item}
-                    type="button"
-                    aria-label={`Ir para a página ${item}`}
-                    aria-current={item === currentPage ? "page" : undefined}
-                    onClick={() => setPage(item)}
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-lg font-semibold transition",
-                      item === currentPage
-                        ? "bg-teal-700 text-white"
-                        : "text-slate-500 hover:bg-teal-50 hover:text-teal-700",
-                    )}
-                  >
-                    {item}
-                  </button>
-                ),
-              )}
-              <button
-                type="button"
-                aria-label="Próxima página"
-                disabled={currentPage === pageCount}
-                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronRight size={16} />
-              </button>
+          {users.length > 0 && (
+            <div className="grid gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-5">
+              <span className="sm:justify-self-start">
+                Exibindo {pageStart + 1}-{pageEnd} de {users.length} usuários
+              </span>
+              <div className="flex items-center justify-center gap-1 sm:justify-self-center">
+                <button
+                  type="button"
+                  aria-label="Página anterior"
+                  disabled={currentPage === 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                {pageItems(currentPage, pageCount).map((item, index) =>
+                  item === "ellipsis" ? (
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="flex h-10 w-10 items-center justify-center"
+                    >
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      aria-label={`Ir para a página ${item}`}
+                      aria-current={item === currentPage ? "page" : undefined}
+                      onClick={() => setPage(item)}
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-lg font-semibold transition",
+                        item === currentPage
+                          ? "bg-teal-700 text-white"
+                          : "text-slate-500 hover:bg-slate-50 hover:text-ink",
+                      )}
+                    >
+                      {item}
+                    </button>
+                  ),
+                )}
+                <button
+                  type="button"
+                  aria-label="Próxima página"
+                  disabled={currentPage === pageCount}
+                  onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <span aria-hidden="true" className="hidden sm:block" />
             </div>
-            <span aria-hidden="true" className="hidden sm:block" />
-          </div>
-        )}
+          )}
+        </div>
       </div>
       {showForm && <CreateUserForm onClose={() => setShowForm(false)} />}
       {editing && <EditUserForm profile={editing} onClose={() => setEditing(null)} />}
