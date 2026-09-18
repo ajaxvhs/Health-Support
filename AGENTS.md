@@ -7,9 +7,10 @@ Vite, Tailwind CSS, Vitest e Supabase.
 
 Antes de alterar codigo:
 
-1. Leia o `README.md`, o `.env.example`, `SUPABASE_SETUP.md` e as notas do cofre
-   em `~/Projetos/Cofre/Health Support` quando o trabalho envolver arquitetura,
-   banco ou operacao.
+1. Leia o `README.md`, o `.env.example` e as notas do cofre em
+   `~/Projetos/Cofre/Health Support` quando o trabalho envolver arquitetura,
+   banco ou operacao. Consulte as migrations e as Edge Functions em `supabase/`
+   para os detalhes tecnicos versionados.
 2. Identifique a menor mudanca que resolve o pedido.
 3. Verifique se a mudanca afeta autenticacao, permissoes, RLS, migrations,
    rotas ou dados persistidos.

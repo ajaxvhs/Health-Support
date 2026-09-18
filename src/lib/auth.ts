@@ -1,5 +1,6 @@
 import type { Profile, Role } from "../types";
 import { getSupabaseClient } from "./supabase/client";
+import { disablePush } from "./pushNotifications";
 
 type ProfileRow = {
   id: string;
@@ -89,6 +90,7 @@ export async function restoreUserSession() {
 }
 
 export async function signOut() {
+  await disablePush();
   const client = getSupabaseClient();
   if (client) await client.auth.signOut();
 }

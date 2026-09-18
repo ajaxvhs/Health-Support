@@ -53,11 +53,9 @@ VITE_APP_URL=http://localhost:5173
 ```
 
 A `SUPABASE_SERVICE_ROLE_KEY` nunca deve ser usada no navegador. Ela deve ficar
-somente no ambiente protegido da Edge Function administrativa, quando
-necessário.
-
-Para detalhes de configuração do Supabase, consulte
-[`SUPABASE_SETUP.md`](./SUPABASE_SETUP.md).
+somente no ambiente protegido de uma Edge Function, quando necessário. As
+migrations do banco ficam versionadas em `supabase/migrations` e devem ser
+aplicadas somente ao ambiente apropriado.
 
 ## Desenvolvimento
 
@@ -92,6 +90,30 @@ npm run build         # gera a versão de produção
 - `/admin/auditoria`: histórico de alterações
 - `/perfil`: dados e senha do usuário
 
+## Atualizações e deploy
+
+As notificações Web Push usam a Vercel no frontend e Supabase serverless no
+backend. O frontend lê a chave pública VAPID da configuração autenticada; a
+chave privada, `service_role` e o segredo do dispatch ficam somente no ambiente
+protegido da Edge Function. A configuração operacional detalhada permanece no
+cofre local do projeto e não é publicada neste repositório.
+
+O PWA avisa quando uma versão nova está pronta. O usuário deve salvar seu
+trabalho antes de clicar em **Atualizar**; **Depois** mantém a versão atual.
+O service worker novo aguarda confirmação antes de assumir as páginas.
+
+Na Vercel, `vercel.json` configura revalidação do HTML e do service worker,
+cache imutável dos assets com hash e exclui `/assets/` do fallback da SPA.
+Falhas de módulos permitem uma recarga automática por aba a cada cinco minutos,
+somente online, sem apagar caches ou a sessão. Erros persistentes exibem uma
+tela com opção de tentar novamente.
+
+A retenção de assets de deploys anteriores depende da hospedagem e não é
+garantida por esses headers. Antes de publicar, validar com duas builds:
+abrir a primeira, publicar a segunda, confirmar que o aviso aparece e que
+**Depois** preserva o formulário; **Atualizar** deve abrir a versão nova.
+Verificar também navegação offline e falha persistente de chunk sem loop.
+
 ## Segurança
 
 - Arquivos `.env` não devem ser commitados.
@@ -105,7 +127,7 @@ npm run build         # gera a versão de produção
 ```text
 src/pages       telas da aplicação
 src/components  componentes reutilizáveis
-src/routes      proteção e redirecionamento de rotas
+src/router.tsx  proteção, redirecionamento e recuperação de rotas
 src/lib         autenticação, regras, permissões e dados
 src/context     estado compartilhado
 supabase        schema, migrations e Edge Functions
