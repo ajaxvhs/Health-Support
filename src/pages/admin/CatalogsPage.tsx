@@ -157,7 +157,7 @@ export function CatalogsPage() {
                 value={search}
                 onSearch={setSearch}
                 placeholder="Buscar no catálogo"
-                className="w-full max-w-none sm:w-64"
+                className="w-full max-w-none sm:w-[32rem]"
               />
               <div className="flex items-center justify-between gap-4 sm:contents">
                 <label className="flex min-h-10 items-center gap-2 px-1 text-xs font-semibold text-slate-500 md:hidden">

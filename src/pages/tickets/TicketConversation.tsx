@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { Send } from "lucide-react";
+import { Check, Send } from "lucide-react";
 import { Avatar, Badge, Button } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { isStaff } from "../../lib/permissions";
 import { userById } from "../../lib/selectors";
-import { formatDate } from "../../lib/utils";
+import { cn, formatDate } from "../../lib/utils";
 import type { Ticket } from "../../types";
 
 export function TicketConversation({ ticket }: { ticket: Ticket }) {
@@ -46,7 +46,7 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
           Mensagens públicas e atualizações do atendimento
         </p>
       </div>
-      <div className="space-y-5 p-5 sm:p-7">
+      <div className="max-h-96 space-y-5 overflow-y-auto p-5 sm:max-h-[32rem] sm:p-7">
         {messages.length ? (
           messages.map((item) => {
             const sender = userById(data, item.senderId);
@@ -95,16 +95,32 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
         </div>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {canStaff && (
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+            <label
+              className={cn(
+                "group flex min-h-10 cursor-pointer select-none items-center gap-2 rounded-xl px-4 text-xs font-bold transition-colors",
+                internal ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-100",
+              )}
+            >
               <input
                 type="checkbox"
                 aria-label="Nota interna (somente equipe)"
                 checked={internal}
                 onChange={(event) => setInternal(event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-500"
-              />{" "}
+                className="peer sr-only"
+              />
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-teal-500 peer-focus-visible:ring-offset-2",
+                  internal
+                    ? "border-teal-700 bg-teal-700 text-white"
+                    : "border-slate-300 bg-white group-hover:border-teal-400",
+                )}
+              >
+                {internal && <Check size={14} strokeWidth={3} />}
+              </span>
               <span>Nota interna (somente equipe)</span>
-            </div>
+            </label>
           )}
           <Button className="sm:ml-auto" loading={sending}>
             <Send size={15} /> Enviar mensagem
