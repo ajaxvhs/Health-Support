@@ -79,6 +79,13 @@ export function SelectField({
     });
   collectOptions(children);
   const selected = options.find((option) => option.value === value);
+  const floatingMenuWidth = menuPosition ? Math.min(menuPosition.width, window.innerWidth - 16) : 0;
+  const floatingMenuLeft = menuPosition
+    ? Math.max(
+        window.scrollX + 8,
+        Math.min(menuPosition.left, window.scrollX + window.innerWidth - floatingMenuWidth - 8),
+      )
+    : 0;
 
   return (
     <div className={cn("relative block", className)}>
@@ -105,7 +112,7 @@ export function SelectField({
         aria-label={label ? undefined : ariaLabel}
         aria-labelledby={label ? labelId : undefined}
       >
-        <span>{selected?.label || "Selecione uma opção"}</span>
+        <span className="min-w-0 truncate">{selected?.label || "Selecione uma opção"}</span>
         <ChevronDown size={16} className={cn("transition-transform", open && "rotate-180")} />
       </button>
       {open &&
@@ -116,16 +123,10 @@ export function SelectField({
             style={{
               position: "absolute",
               top: menuPosition.top,
-              left: Math.max(
-                window.scrollX + 8,
-                Math.min(
-                  menuPosition.left,
-                  window.scrollX + window.innerWidth - menuPosition.width - 8,
-                ),
-              ),
-              width: Math.min(menuPosition.width, window.innerWidth - 16),
+              left: floatingMenuLeft,
+              width: floatingMenuWidth,
             }}
-            className="z-[1000] max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+            className="z-[1000] max-h-60 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
             role="listbox"
           >
             {options.map((option) => (
@@ -136,7 +137,7 @@ export function SelectField({
                 aria-selected={option.value === value}
                 disabled={option.disabled}
                 className={cn(
-                  "block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+                  "block w-full rounded-lg px-3 py-3 text-left text-sm hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
                   option.value === value && "bg-teal-50 font-bold text-teal-800",
                 )}
                 onClick={() => {

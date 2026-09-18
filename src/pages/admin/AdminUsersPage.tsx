@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import {
   BulkActionButtons,
   Button,
@@ -9,6 +9,7 @@ import {
 } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { unitName } from "../../lib/selectors";
+import { cn } from "../../lib/utils";
 import { useToast } from "../../context/useToast";
 import type { Profile } from "../../types";
 import { AdminUserRow } from "./AdminUserRow";
@@ -22,6 +23,18 @@ type ConfirmState = {
   variant?: "primary" | "danger";
   action: () => Promise<void>;
 } | null;
+
+const PAGE_SIZE = 10;
+type PageItem = number | "ellipsis";
+
+function pageItems(currentPage: number, pageCount: number): PageItem[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
+  if (currentPage <= 4) return [1, 2, 3, 4, 5, "ellipsis", pageCount];
+  if (currentPage >= pageCount - 3) {
+    return [1, "ellipsis", pageCount - 4, pageCount - 3, pageCount - 2, pageCount - 1, pageCount];
+  }
+  return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", pageCount];
+}
 
 export function AdminUsersPage() {
   const app = useApp();
@@ -41,11 +54,25 @@ export function AdminUsersPage() {
         .toLowerCase()
         .includes(query),
   );
-  const visibleIds = users
+  const pageCount = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+  const [page, setPage] = useState(1);
+  const currentPage = Math.min(page, pageCount);
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageUsers = users.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageEnd = Math.min(pageStart + PAGE_SIZE, users.length);
+  const visibleIds = pageUsers
     .filter((profile) => profile.id !== app.user.id)
     .map((profile) => profile.id);
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
+  const updateSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+    setSelected([]);
+  };
   const finish = async (action: () => Promise<void>) => {
     try {
       await action();
@@ -103,7 +130,7 @@ export function AdminUsersPage() {
       <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft sm:flex-row sm:items-center sm:gap-5">
         <TopSearch
           value={search}
-          onSearch={setSearch}
+          onSearch={updateSearch}
           placeholder="Buscar usuário, e-mail ou unidade"
           className="w-full min-w-0 max-w-none flex-1"
         />
@@ -119,8 +146,8 @@ export function AdminUsersPage() {
         </div>
       </div>
       <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-soft">
-        <div className="min-w-0 md:min-w-[1050px]">
-          <div className="hidden grid-cols-[36px_minmax(250px,1.55fr)_minmax(145px,1fr)_minmax(145px,0.9fr)_110px_minmax(275px,auto)] gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 md:grid">
+        <div className="min-w-0">
+          <div className="hidden grid-cols-[28px_minmax(220px,2fr)_minmax(110px,1fr)_145px_80px_88px] gap-2 border-b border-slate-100 bg-slate-50/60 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:grid 2xl:grid-cols-[36px_minmax(320px,2fr)_minmax(180px,1.1fr)_145px_110px_120px] 2xl:gap-4 2xl:px-5 2xl:py-3">
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -142,7 +169,7 @@ export function AdminUsersPage() {
             <span className="text-center">Status</span>
             <span className="text-center">Ações</span>
           </div>
-          {users.map((profile) => (
+          {pageUsers.map((profile) => (
             <AdminUserRow
               key={profile.id}
               profile={profile}
@@ -206,6 +233,60 @@ export function AdminUsersPage() {
             />
           ))}
         </div>
+        {users.length > 0 && (
+          <div className="grid gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-5">
+            <span className="sm:justify-self-start">
+              Exibindo {pageStart + 1}-{pageEnd} de {users.length} usuários
+            </span>
+            <div className="flex items-center justify-center gap-1 sm:justify-self-center">
+              <button
+                type="button"
+                aria-label="Página anterior"
+                disabled={currentPage === 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {pageItems(currentPage, pageCount).map((item, index) =>
+                item === "ellipsis" ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex h-10 w-10 items-center justify-center"
+                  >
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    aria-label={`Ir para a página ${item}`}
+                    aria-current={item === currentPage ? "page" : undefined}
+                    onClick={() => setPage(item)}
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-lg font-semibold transition",
+                      item === currentPage
+                        ? "bg-teal-700 text-white"
+                        : "text-slate-500 hover:bg-teal-50 hover:text-teal-700",
+                    )}
+                  >
+                    {item}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                aria-label="Próxima página"
+                disabled={currentPage === pageCount}
+                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            <span aria-hidden="true" className="hidden sm:block" />
+          </div>
+        )}
       </div>
       {showForm && <CreateUserForm onClose={() => setShowForm(false)} />}
       {editing && <EditUserForm profile={editing} onClose={() => setEditing(null)} />}
