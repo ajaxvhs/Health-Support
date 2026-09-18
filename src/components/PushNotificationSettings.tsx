@@ -24,14 +24,14 @@ export function PushNotificationSettings() {
     };
   }, [supported]);
   return (
-    <section className="mb-6 max-w-3xl rounded-2xl border border-slate-100 bg-white p-5 shadow-soft">
+    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-6">
       <h2 className="font-bold text-ink">Notificações neste dispositivo</h2>
-      <p className="mt-2 text-sm text-slate-500">
-        Receba avisos de novos chamados e respostas, mesmo com o portal fechado. No iPhone, adicione
-        o portal à Tela de Início pelo Safari e abra o aplicativo instalado.
+      <p className="mt-3 text-justify text-sm leading-6 text-slate-500">
+        Receba avisos de novos chamados e respostas mesmo quando o portal não estiver aberto. A
+        disponibilidade depende do dispositivo, navegador e permissões de notificação.
       </p>
       <Button
-        className="mt-4"
+        className="mt-5 w-full sm:w-auto"
         variant="secondary"
         disabled={!supported}
         onClick={async () => {

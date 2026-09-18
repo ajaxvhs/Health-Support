@@ -29,6 +29,15 @@ const dateLabels: Record<TicketFilters["dateRange"], string> = {
   "30d": "Últimos 30 dias",
 };
 
+const defaultMineStatuses: TicketStatus[] = ["aberto", "em_andamento"];
+
+function hasCustomMineStatusSelection(statuses: TicketStatus[]) {
+  return (
+    statuses.length !== defaultMineStatuses.length ||
+    defaultMineStatuses.some((status) => !statuses.includes(status))
+  );
+}
+
 function getActiveFilterChips(
   view: TicketFilterView,
   filters: TicketFilters,
@@ -48,7 +57,11 @@ function getActiveFilterChips(
       label: `Busca: ${filters.search.trim()}`,
       onRemove: () => onFilterChange("search", ""),
     });
-  if (view === "mine" && filters.statusSelection?.length)
+  if (
+    view === "mine" &&
+    filters.statusSelection?.length &&
+    hasCustomMineStatusSelection(filters.statusSelection)
+  )
     chips.push({
       key: "status",
       label: `Status: ${filters.statusSelection.map((status) => statusMeta[status].label).join(", ")}`,

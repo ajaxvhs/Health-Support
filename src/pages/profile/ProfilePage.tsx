@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { LockKeyhole } from "lucide-react";
 import { Avatar, Button, PageHeader, PillTabs, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { unitName } from "../../lib/selectors";
@@ -26,7 +25,6 @@ export function ProfilePage() {
         title="Meu perfil"
         description="Mantenha seus dados de contato atualizados."
       />
-      <PushNotificationSettings />
       <PillTabs
         ariaLabel="Seções do perfil"
         value={activeTab}
@@ -34,12 +32,13 @@ export function ProfilePage() {
         tabs={[
           { value: "info", label: "Minhas informações" },
           { value: "security", label: "Segurança" },
+          { value: "settings", label: "Configurações" },
         ]}
       />
-      <div className="max-w-3xl">
+      <div className="max-w-4xl">
         {activeTab === "info" ? (
-          <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-7">
-            <div className="mb-7 flex items-center gap-4 border-b border-slate-100 pb-6">
+          <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-8">
+            <div className="mb-8 flex flex-col items-start gap-5 border-b border-slate-100 pb-7 sm:flex-row sm:items-center">
               <Avatar user={user} size="lg" />
               <div>
                 <h2 className="font-display text-lg font-bold text-ink">{user.fullName}</h2>
@@ -49,7 +48,7 @@ export function ProfilePage() {
                 <p className="mt-2 text-xs text-teal-700">{user.email}</p>
               </div>
             </div>
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-2">
               <TextField label="Nome completo" value={name} onChange={setName} required />
               <TextField
                 label="Telefone"
@@ -66,8 +65,9 @@ export function ProfilePage() {
               />
               <TextField label="Perfil de acesso" value={roleLabels[user.role]} readOnly />
             </div>
-            <div className="mt-7 flex justify-end border-t border-slate-100 pt-5">
+            <div className="mt-8 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
               <Button
+                className="w-full sm:w-auto"
                 onClick={async () => {
                   try {
                     await repo.saveProfile({ fullName: name, phone });
@@ -87,18 +87,9 @@ export function ProfilePage() {
               </Button>
             </div>
           </section>
-        ) : (
-          <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-7">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                <LockKeyhole size={18} />
-              </span>
-              <div>
-                <h2 className="font-display font-bold text-ink">Segurança</h2>
-                <p className="text-xs text-slate-400">Atualize sua senha regularmente.</p>
-              </div>
-            </div>
-            <div className="mt-6 space-y-5">
+        ) : activeTab === "security" ? (
+          <section className="max-w-2xl rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-8">
+            <div className="space-y-6">
               <TextField
                 label="Senha atual"
                 value={currentPassword}
@@ -122,32 +113,38 @@ export function ProfilePage() {
                 required
               />
             </div>
-            <Button
-              variant="secondary"
-              className="mt-6 w-full"
-              onClick={async () => {
-                try {
-                  if (newPassword !== confirmation) {
-                    showToast("A confirmação da nova senha não confere.", "error");
-                    return;
+            <div className="mt-8 flex justify-end">
+              <Button
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={async () => {
+                  try {
+                    if (newPassword !== confirmation) {
+                      showToast("A confirmação da nova senha não confere.", "error");
+                      return;
+                    }
+                    await updatePassword(newPassword, currentPassword);
+                    await refresh();
+                    showToast("Senha atualizada com sucesso.");
+                    setCurrentPassword("");
+                    setNewPassword("");
+                    setConfirmation("");
+                  } catch (reason) {
+                    showToast(
+                      reason instanceof Error ? reason.message : passwordUpdateErrorMessage(reason),
+                      "error",
+                    );
                   }
-                  await updatePassword(newPassword, currentPassword);
-                  await refresh();
-                  showToast("Senha atualizada com sucesso.");
-                  setCurrentPassword("");
-                  setNewPassword("");
-                  setConfirmation("");
-                } catch (reason) {
-                  showToast(
-                    reason instanceof Error ? reason.message : passwordUpdateErrorMessage(reason),
-                    "error",
-                  );
-                }
-              }}
-            >
-              Atualizar senha
-            </Button>
+                }}
+              >
+                Atualizar senha
+              </Button>
+            </div>
           </section>
+        ) : (
+          <div className="max-w-xl">
+            <PushNotificationSettings />
+          </div>
         )}
       </div>
     </>

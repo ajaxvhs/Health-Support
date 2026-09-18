@@ -161,13 +161,13 @@ export function AppShell() {
                           ? location.pathname === "/chamados" && !location.search
                           : isActive;
                       return cn(
-                        "group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-semibold transition-[background-color,color,box-shadow] duration-200",
+                        "group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-semibold transition-colors duration-150",
                         link.primary &&
                           "bg-teal-700 text-white shadow-sm ring-1 ring-inset ring-teal-600 hover:bg-teal-800 hover:text-white hover:shadow-md",
                         !link.primary &&
                           (active
-                            ? "bg-teal-50 pl-4 text-teal-900 shadow-sm ring-1 ring-inset ring-teal-100 before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-teal-600 before:content-['']"
-                            : "text-slate-500 hover:bg-slate-50 hover:text-ink hover:shadow-sm"),
+                            ? "bg-teal-50 text-teal-900 shadow-sm ring-1 ring-inset ring-teal-100 before:pointer-events-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-teal-600 before:content-['']"
+                            : "text-slate-500 hover:bg-slate-50 hover:text-ink"),
                       );
                     }}
                   >

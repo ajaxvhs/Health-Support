@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Search, X } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Search, X } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useFloatingPosition } from "./useFloatingPosition";
 
@@ -217,28 +217,47 @@ export function TextField({
   className?: string;
 }) {
   const labelId = useId();
+  const inputId = `${labelId}-input`;
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
   return (
     <div className="block">
       <span id={labelId} className="mb-2 block text-sm font-bold text-ink">
         {label}
         {required && <span className="ml-1 text-teal-700">*</span>}
       </span>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-        placeholder={placeholder}
-        readOnly={readOnly}
-        required={required}
-        autoComplete={autoComplete}
-        inputMode={inputMode}
-        aria-labelledby={labelId}
-        className={cn(
-          "min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-100",
-          readOnly && "bg-slate-50 text-slate-500",
-          className,
+      <div className="relative">
+        <input
+          id={inputId}
+          type={isPassword && showPassword ? "text" : type}
+          value={value}
+          onChange={(event) => onChange?.(event.target.value)}
+          placeholder={placeholder}
+          readOnly={readOnly}
+          required={required}
+          autoComplete={autoComplete}
+          inputMode={inputMode}
+          aria-labelledby={labelId}
+          className={cn(
+            inputClass,
+            "placeholder:text-slate-400",
+            isPassword && "pr-12",
+            readOnly && "cursor-default bg-slate-50 text-slate-500",
+            className,
+          )}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            aria-pressed={showPassword}
+            onClick={() => setShowPassword((visible) => !visible)}
+            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+          >
+            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
         )}
-      />
+      </div>
       {hint && <span className="mt-1.5 block text-xs text-slate-400">{hint}</span>}
     </div>
   );
@@ -270,7 +289,7 @@ export function TopSearch({
         value={currentValue}
         onChange={(event) => update(event.target.value)}
         placeholder={placeholder}
-        className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm outline-none transition hover:border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+        className="min-h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium text-ink outline-none transition placeholder:text-slate-400 hover:border-teal-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
       />
       {currentValue && (
         <button
