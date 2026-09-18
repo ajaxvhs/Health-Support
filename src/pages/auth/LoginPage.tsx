@@ -24,12 +24,9 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
   };
   return (
     <main className="relative flex min-h-[100svh] w-full flex-col overflow-hidden bg-[#eff5f3] px-4 py-6 sm:px-6 sm:py-8">
-      <div className="pointer-events-none absolute -right-32 -top-36 h-96 w-96 rounded-full bg-teal-100/80 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-44 -left-24 h-80 w-80 rounded-full bg-white/70 blur-3xl" />
-      <div className="pointer-events-none absolute left-[8%] top-[16%] h-52 w-52 rounded-full border border-teal-200/35" />
       <div className="pointer-events-none absolute inset-0 bg-dot-grid bg-[length:24px_24px] opacity-[0.22]" />
       <svg
-        className="pointer-events-none absolute bottom-24 left-1/2 hidden h-12 w-64 -translate-x-1/2 text-teal-700/[0.08] sm:block"
+        className="pointer-events-none absolute bottom-24 left-1/2 hidden h-12 w-64 -translate-x-1/2 text-teal-700/[0.14] sm:block"
         viewBox="0 0 256 48"
         fill="none"
         aria-hidden="true"
