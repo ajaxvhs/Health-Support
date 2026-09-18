@@ -117,11 +117,8 @@ export function CatalogsPage() {
         title="Catálogos"
         description="Mantenha as opções utilizadas na abertura dos chamados."
       />
-      <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft sm:p-4">
-        <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Itens gerenciáveis
-        </p>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-2 shadow-soft sm:p-3">
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100/80 p-1 lg:grid-cols-4">
           {[
             { key: "categories", label: "Categorias", icon: Settings2 },
             { key: "units", label: "Unidades", icon: BookOpen },
@@ -132,7 +129,7 @@ export function CatalogsPage() {
               type="button"
               key={item.key}
               onClick={() => setTabAndClear(item.key as CatalogTab)}
-              className={`flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold transition ${tab === item.key ? "bg-teal-50 text-teal-800 ring-1 ring-inset ring-teal-100" : "text-slate-500 hover:bg-slate-50 hover:text-ink"}`}
+              className={`flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition sm:gap-2 sm:px-3 sm:text-sm ${tab === item.key ? "bg-teal-700 text-white shadow-sm" : "text-slate-500 hover:bg-white hover:text-ink"}`}
             >
               <item.icon size={17} />
               <span className="truncate">{item.label}</span>

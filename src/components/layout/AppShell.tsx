@@ -180,7 +180,7 @@ export function AppShell() {
                     />
                     <span className="flex-1 whitespace-nowrap">{link.label}</span>
                     {link.count !== undefined && (
-                      <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 group-[.bg-teal-50]:bg-white group-[.bg-teal-50]:text-teal-700">
+                      <span className="flex h-6 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] text-slate-500 group-[.bg-teal-50]:bg-white group-[.bg-teal-50]:text-teal-700">
                         {link.count}
                       </span>
                     )}

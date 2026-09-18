@@ -45,7 +45,7 @@ export function NotificationPopover({
       id="notifications-popover"
       role="dialog"
       aria-label="Notificações"
-      className="absolute right-0 top-12 z-[110] w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl shadow-slate-900/10"
+      className="fixed left-1/2 top-[5rem] z-[110] w-[calc(100vw-3rem)] max-w-md -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl shadow-slate-900/10 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[min(360px,calc(100vw-2rem))] sm:translate-x-0"
       onClick={(event) => event.stopPropagation()}
     >
       <div className="border-b border-slate-100 px-4 py-3">
