@@ -162,7 +162,7 @@ export function AppShell() {
                           ? location.pathname === "/chamados" && !location.search
                           : isActive;
                       return cn(
-                        "group relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-all duration-200",
+                        "group relative flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold transition-all duration-200",
                         link.primary &&
                           "bg-teal-700 text-white shadow-sm ring-1 ring-inset ring-teal-600 hover:bg-teal-800 hover:text-white hover:shadow-md",
                         !link.primary &&
@@ -179,9 +179,9 @@ export function AppShell() {
                         link.primary ? "text-teal-100" : "text-slate-400 group-hover:text-current",
                       )}
                     />
-                    <span className="flex-1">{link.label}</span>
+                    <span className="flex-1 whitespace-nowrap">{link.label}</span>
                     {link.count !== undefined && (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 group-[.bg-teal-50]:bg-white group-[.bg-teal-50]:text-teal-700">
+                      <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 group-[.bg-teal-50]:bg-white group-[.bg-teal-50]:text-teal-700">
                         {link.count}
                       </span>
                     )}
