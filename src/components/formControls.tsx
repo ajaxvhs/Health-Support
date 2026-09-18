@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Search, X } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Search, X } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useFloatingPosition } from "./useFloatingPosition";
 
@@ -79,6 +79,13 @@ export function SelectField({
     });
   collectOptions(children);
   const selected = options.find((option) => option.value === value);
+  const floatingMenuWidth = menuPosition ? Math.min(menuPosition.width, window.innerWidth - 16) : 0;
+  const floatingMenuLeft = menuPosition
+    ? Math.max(
+        window.scrollX + 8,
+        Math.min(menuPosition.left, window.scrollX + window.innerWidth - floatingMenuWidth - 8),
+      )
+    : 0;
 
   return (
     <div className={cn("relative block", className)}>
@@ -105,7 +112,7 @@ export function SelectField({
         aria-label={label ? undefined : ariaLabel}
         aria-labelledby={label ? labelId : undefined}
       >
-        <span>{selected?.label || "Selecione uma opção"}</span>
+        <span className="min-w-0 truncate">{selected?.label || "Selecione uma opção"}</span>
         <ChevronDown size={16} className={cn("transition-transform", open && "rotate-180")} />
       </button>
       {open &&
@@ -116,16 +123,10 @@ export function SelectField({
             style={{
               position: "absolute",
               top: menuPosition.top,
-              left: Math.max(
-                window.scrollX + 8,
-                Math.min(
-                  menuPosition.left,
-                  window.scrollX + window.innerWidth - menuPosition.width - 8,
-                ),
-              ),
-              width: Math.min(menuPosition.width, window.innerWidth - 16),
+              left: floatingMenuLeft,
+              width: floatingMenuWidth,
             }}
-            className="z-[1000] max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+            className="z-[1000] max-h-60 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
             role="listbox"
           >
             {options.map((option) => (
@@ -136,7 +137,7 @@ export function SelectField({
                 aria-selected={option.value === value}
                 disabled={option.disabled}
                 className={cn(
-                  "block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+                  "block w-full rounded-lg px-3 py-3 text-left text-sm hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
                   option.value === value && "bg-teal-50 font-bold text-teal-800",
                 )}
                 onClick={() => {
@@ -201,7 +202,9 @@ export function TextField({
   readOnly,
   hint,
   autoComplete,
+  autoFocus,
   inputMode,
+  showRequiredIndicator = true,
   className,
 }: {
   label: string;
@@ -213,32 +216,54 @@ export function TextField({
   readOnly?: boolean;
   hint?: string;
   autoComplete?: string;
+  autoFocus?: boolean;
   inputMode?: "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
+  showRequiredIndicator?: boolean;
   className?: string;
 }) {
   const labelId = useId();
+  const inputId = `${labelId}-input`;
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
   return (
     <div className="block">
       <span id={labelId} className="mb-2 block text-sm font-bold text-ink">
         {label}
-        {required && <span className="ml-1 text-teal-700">*</span>}
+        {required && showRequiredIndicator && <span className="ml-1 text-teal-700">*</span>}
       </span>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange?.(event.target.value)}
-        placeholder={placeholder}
-        readOnly={readOnly}
-        required={required}
-        autoComplete={autoComplete}
-        inputMode={inputMode}
-        aria-labelledby={labelId}
-        className={cn(
-          "min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-100",
-          readOnly && "bg-slate-50 text-slate-500",
-          className,
+      <div className="relative">
+        <input
+          id={inputId}
+          type={isPassword && showPassword ? "text" : type}
+          value={value}
+          onChange={(event) => onChange?.(event.target.value)}
+          placeholder={placeholder}
+          readOnly={readOnly}
+          required={required}
+          autoComplete={autoComplete}
+          autoFocus={autoFocus}
+          inputMode={inputMode}
+          aria-labelledby={labelId}
+          className={cn(
+            inputClass,
+            "placeholder:text-slate-400",
+            isPassword && "pr-12",
+            readOnly && "cursor-default bg-slate-50 text-slate-500",
+            className,
+          )}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            aria-pressed={showPassword}
+            onClick={() => setShowPassword((visible) => !visible)}
+            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+          >
+            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
         )}
-      />
+      </div>
       {hint && <span className="mt-1.5 block text-xs text-slate-400">{hint}</span>}
     </div>
   );
@@ -270,7 +295,7 @@ export function TopSearch({
         value={currentValue}
         onChange={(event) => update(event.target.value)}
         placeholder={placeholder}
-        className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm outline-none transition hover:border-slate-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+        className="min-h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium text-ink outline-none transition placeholder:text-slate-400 hover:border-teal-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
       />
       {currentValue && (
         <button

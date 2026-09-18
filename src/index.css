@@ -18,11 +18,22 @@
     min-height: 100%;
   }
   button,
+  button *,
   a,
   input,
   select,
   textarea {
     -webkit-tap-highlight-color: transparent;
+  }
+  button,
+  button * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  a,
+  a * {
+    -webkit-user-select: none;
+    user-select: none;
   }
   ::selection {
     @apply bg-teal-200 text-teal-900;

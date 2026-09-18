@@ -113,7 +113,7 @@ export function FilterToolbar({
           open ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0",
         )}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div className={cn("min-h-0", open ? "overflow-visible" : "overflow-hidden")}>
           <div id={panelId} className="mt-3 border-t border-slate-100 pt-3">
             <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4">
               <div className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2", panelClassName)}>

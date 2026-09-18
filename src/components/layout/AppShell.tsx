@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import {
   Bell,
   Database,
-  HelpCircle,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -135,7 +134,7 @@ export function AppShell() {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[274px] flex-col overflow-hidden border-r border-slate-100 bg-white px-4 py-5 transition-transform md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[232px] flex-col overflow-hidden border-r border-slate-100 bg-white px-4 py-5 transition-transform md:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -162,13 +161,13 @@ export function AppShell() {
                           ? location.pathname === "/chamados" && !location.search
                           : isActive;
                       return cn(
-                        "group relative flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-all duration-200",
+                        "group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-semibold transition-colors duration-150",
                         link.primary &&
                           "bg-teal-700 text-white shadow-sm ring-1 ring-inset ring-teal-600 hover:bg-teal-800 hover:text-white hover:shadow-md",
                         !link.primary &&
                           (active
-                            ? "bg-teal-50 pl-4 text-teal-900 shadow-sm ring-1 ring-inset ring-teal-100 before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-teal-600 before:content-['']"
-                            : "text-slate-500 hover:-translate-y-px hover:bg-slate-50 hover:text-ink hover:shadow-sm"),
+                            ? "bg-teal-50 text-teal-900 shadow-sm ring-1 ring-inset ring-teal-100 before:pointer-events-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-teal-600 before:content-['']"
+                            : "text-slate-500 hover:bg-slate-50 hover:text-ink"),
                       );
                     }}
                   >
@@ -179,9 +178,9 @@ export function AppShell() {
                         link.primary ? "text-teal-100" : "text-slate-400 group-hover:text-current",
                       )}
                     />
-                    <span className="flex-1">{link.label}</span>
+                    <span className="flex-1 whitespace-nowrap">{link.label}</span>
                     {link.count !== undefined && (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 group-[.bg-teal-50]:bg-white group-[.bg-teal-50]:text-teal-700">
+                      <span className="flex h-6 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] text-slate-500 group-[.bg-teal-50]:bg-white group-[.bg-teal-50]:text-teal-700">
                         {link.count}
                       </span>
                     )}
@@ -191,27 +190,16 @@ export function AppShell() {
             </div>
           ))}
         </nav>
-        <div className="rounded-2xl bg-teal-50 p-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-teal-700">
-              <HelpCircle size={15} />
-            </span>
-            <p className="text-xs font-bold text-teal-900">Precisa de ajuda?</p>
-          </div>
-          <p className="mt-2 px-1 text-[11px] leading-4 text-teal-700/80">
-            Abra um chamado e nossa equipe responde em breve.
-          </p>
-        </div>
         <button
           type="button"
           onClick={logout}
-          className="mt-3 flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-500 hover:bg-red-50 hover:text-red-700"
+          className="mt-3 flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700"
         >
           <LogOut size={17} />
           Sair da conta
         </button>
       </aside>
-      <div className="md:pl-[274px]">
+      <div className="md:pl-[232px]">
         <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-slate-100 bg-white/90 px-4 backdrop-blur-md sm:px-8">
           <div className="flex items-center gap-3">
             <button

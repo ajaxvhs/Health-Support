@@ -16,6 +16,19 @@ export function DefinePasswordPage() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
+    if (!newPassword) {
+      showToast("Informe a nova senha.", "error");
+      return;
+    }
+    if (newPassword.length < 8) {
+      showToast("A nova senha precisa ter pelo menos 8 caracteres.", "error");
+      return;
+    }
+    if (!confirmation) {
+      showToast("Confirme a nova senha.", "error");
+      return;
+    }
     if (newPassword !== confirmation) {
       showToast("A confirmação da nova senha não confere.", "error");
       return;
@@ -36,22 +49,24 @@ export function DefinePasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-cream px-5 py-10">
-      <div className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-7 shadow-soft sm:p-10">
+    <div className="flex min-h-[calc(100dvh-8rem)] w-full items-center justify-center">
+      <div className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-6 shadow-soft sm:p-8">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
           <LockKeyhole size={22} />
         </span>
-        <h1 className="mt-5 font-display text-2xl font-bold text-ink">Defina sua senha</h1>
+        <h1 className="mt-4 font-display text-2xl font-bold text-ink">Defina sua senha</h1>
         <p className="mt-2 text-sm leading-6 text-slate-500">
           Por segurança, troque a senha temporária antes de continuar.
         </p>
-        <form onSubmit={submit} className="mt-7 space-y-5">
+        <form noValidate onSubmit={submit} className="mt-6 space-y-4">
           <TextField
             label="Nova senha"
             value={newPassword}
             onChange={setNewPassword}
             type="password"
             required
+            autoFocus
+            autoComplete="new-password"
             hint="Use pelo menos 8 caracteres"
           />
           <TextField
@@ -60,8 +75,9 @@ export function DefinePasswordPage() {
             onChange={setConfirmation}
             type="password"
             required
+            autoComplete="new-password"
           />
-          <Button loading={saving} className="w-full">
+          <Button type="submit" loading={saving} className="min-h-12 w-full text-base">
             Continuar <ArrowRight size={16} />
           </Button>
         </form>

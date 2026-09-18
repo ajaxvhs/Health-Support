@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { Profile, Ticket, TicketEvent, TicketMessage, TicketStatus } from "../types";
+import type { Profile, Ticket, TicketEvent, TicketStatus } from "../types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -41,9 +41,11 @@ export function formatPhone(value: string) {
 }
 export type TicketDateRange = "all" | "today" | "7d" | "30d";
 export type TicketSort = "newest" | "oldest" | "priority";
+export type TicketStatusFilter = TicketStatus | "todos";
 export interface TicketFilters {
   search: string;
-  status: TicketStatus | "todos";
+  status: TicketStatusFilter;
+  statusSelection?: TicketStatus[];
   priorityId: string;
   unitId: string;
   requesterId: string;
@@ -113,9 +115,12 @@ export function filterTickets(
     const unitName = context.unitNames?.[ticket.unitId] ?? "";
     const searchable =
       `${ticket.number} ${ticket.title} ${ticket.description} ${requesterName} ${ticket.requesterName} ${unitName}`.toLowerCase();
+    const statusMatches = filters.statusSelection?.length
+      ? filters.statusSelection.includes(ticket.status)
+      : filters.status === "todos" || ticket.status === filters.status;
     return (
       (!query || searchable.includes(query)) &&
-      (filters.status === "todos" || ticket.status === filters.status) &&
+      statusMatches &&
       (!filters.priorityId || ticket.priorityId === filters.priorityId) &&
       (!filters.unitId || ticket.unitId === filters.unitId) &&
       (!filters.requesterId || ticket.createdBy === filters.requesterId) &&
@@ -132,41 +137,4 @@ export function filterTickets(
     const difference = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     return filters.sort === "newest" ? difference : -difference;
   });
-}
-
-export function averageFirstPublicStaffResponseMinutes(
-  tickets: Ticket[],
-  messages: TicketMessage[],
-  profiles: Profile[],
-) {
-  const staffIds = new Set(
-    profiles.filter((profile) => profile.role !== "solicitante").map((profile) => profile.id),
-  );
-  const responseTimes = tickets.flatMap((ticket) => {
-    const createdAt = new Date(ticket.createdAt).getTime();
-    const firstResponse = messages
-      .filter(
-        (message) =>
-          message.ticketId === ticket.id && !message.isInternal && staffIds.has(message.senderId),
-      )
-      .map((message) => new Date(message.createdAt).getTime())
-      .filter(
-        (createdAtMessage) => Number.isFinite(createdAtMessage) && createdAtMessage >= createdAt,
-      )
-      .sort((a, b) => a - b)[0];
-    return firstResponse === undefined || !Number.isFinite(createdAt)
-      ? []
-      : [Math.max(0, firstResponse - createdAt) / 60000];
-  });
-  return responseTimes.length
-    ? Math.round(responseTimes.reduce((total, value) => total + value, 0) / responseTimes.length)
-    : null;
-}
-
-export function formatResponseTime(minutes: number | null) {
-  if (minutes === null) return "Sem respostas ainda";
-  if (minutes < 60) return `${minutes}min`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes ? `${hours}h ${remainingMinutes}min` : `${hours}h`;
 }

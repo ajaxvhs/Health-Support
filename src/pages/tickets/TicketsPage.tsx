@@ -6,7 +6,7 @@ import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { isStaff as hasStaffAccess } from "../../lib/permissions";
 import { filterTickets, type TicketFilters } from "../../lib/utils";
-import type { AppData } from "../../types";
+import type { AppData, TicketStatus } from "../../types";
 import { TicketRow } from "./TicketRow";
 import { TicketsFilterBar, type TicketFilterView } from "./TicketsFilterBar";
 
@@ -21,7 +21,7 @@ const initialFilters: TicketFilters = {
 };
 const initialFiltersByView: Record<TicketFilterView, TicketFilters> = {
   all: { ...initialFilters },
-  mine: { ...initialFilters },
+  mine: { ...initialFilters, statusSelection: ["aberto", "em_andamento"] },
   queue: { ...initialFilters, sort: "priority" },
 };
 const initialAssignedByView: Record<TicketFilterView, boolean> = {
@@ -154,6 +154,11 @@ export function TicketsPage() {
       ...current,
       [view]: { ...current[view], [key]: value } as TicketFilters,
     }));
+  const updateStatusSelection = (statuses: TicketStatus[]) =>
+    setFiltersByView((current) => ({
+      ...current,
+      [view]: { ...current[view], statusSelection: statuses },
+    }));
   const resetFilters = () => {
     setFiltersByView((current) => ({ ...current, [view]: { ...initialFiltersByView[view] } }));
     setAssignedByView((current) => ({ ...current, [view]: false }));
@@ -241,6 +246,7 @@ export function TicketsPage() {
         assignedToMeOnly={assignedToMeOnly}
         onSearch={(value) => updateFilter("search", value)}
         onFilterChange={updateFilter}
+        onStatusSelectionChange={updateStatusSelection}
         onToggleFilters={() => setShowFilters((open) => !open)}
         onToggleAssigned={setAssignedToMeOnly}
         onResetFilters={resetFilters}

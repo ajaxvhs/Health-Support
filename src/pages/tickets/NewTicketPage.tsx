@@ -57,27 +57,30 @@ export function NewTicketPage() {
         description="Conte para a equipe o que está acontecendo. Campos marcados com * são obrigatórios."
       />
       <aside className="mb-6 rounded-2xl border border-teal-100 bg-teal-50 p-5 sm:p-7">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-teal-700">
-          <BookOpen size={19} />
+        <div className="lg:flex lg:items-center lg:gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-teal-700">
+            <BookOpen size={19} />
+          </div>
+          <h2 className="mt-5 font-display font-bold text-teal-950 lg:mt-0">Antes de enviar</h2>
         </div>
-        <h2 className="mt-5 font-display font-bold text-teal-950">Antes de enviar</h2>
-        <ul className="mt-4 space-y-3 text-sm leading-5 text-teal-900/70">
-          <li className="flex gap-2">
+        <ul className="mt-5 space-y-3 border-t border-teal-200/60 pt-4 text-sm leading-5 text-teal-900/70 lg:grid lg:grid-cols-4 lg:gap-6 lg:space-y-0">
+          <li className="flex gap-2 lg:justify-start lg:text-left">
             <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Confira se a
             unidade está correta.
           </li>
-          <li className="flex gap-2">
-            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Inclua mensagens de
-            erro ou códigos.
+          <li className="flex gap-2 lg:justify-center lg:text-center">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Descreva bem o
+            problema.
           </li>
-          <li className="flex gap-2">
-            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Não inclua senhas
-            no chamado.
+          <li className="flex gap-2 lg:justify-center lg:text-center">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Informe quando o
+            problema começou.
+          </li>
+          <li className="flex gap-2 lg:justify-end lg:text-right">
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Indique o que já
+            foi tentado.
           </li>
         </ul>
-        <div className="mt-6 border-t border-teal-200/60 pt-4 text-xs leading-5 text-teal-800/70">
-          A equipe será avisada e você poderá acompanhar as respostas pela linha do tempo.
-        </div>
       </aside>
       <form onSubmit={submit}>
         <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-7">

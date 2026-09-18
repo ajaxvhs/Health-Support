@@ -49,7 +49,7 @@ export function Dialog({
     >
       <div
         className={cn(
-          "max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-slate-100 bg-white p-6 shadow-xl",
+          "max-h-[calc(100dvh-2rem)] min-h-0 w-full overflow-y-auto rounded-2xl border border-slate-100 bg-white p-4 shadow-xl sm:p-6",
           maxWidth,
         )}
         role={role}
@@ -57,9 +57,9 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id={titleId} className="font-display text-lg font-bold text-ink">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 id={titleId} className="break-words font-display text-lg font-bold text-ink">
               {title}
             </h2>
             {description && (
@@ -72,7 +72,7 @@ export function Dialog({
             type="button"
             aria-label={`Fechar ${title.toLowerCase()}`}
             onClick={onClose}
-            className="cursor-pointer rounded-lg p-2 text-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            className="shrink-0 cursor-pointer rounded-lg p-2 text-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
           >
             <X size={18} />
           </button>

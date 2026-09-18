@@ -37,37 +37,43 @@ export function AdminUserRow({
       <Button
         variant="ghost"
         aria-label={`Editar ${profile.fullName}`}
-        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap bg-slate-50 px-1 py-2 text-[11px] md:min-h-8 md:flex-none md:bg-transparent md:px-2 md:py-0 md:text-xs"
+        title="Editar usuário"
+        className="min-h-10 min-w-0 flex-1 justify-center bg-slate-50 px-1 py-2 lg:h-8 lg:w-8 lg:flex-none lg:bg-transparent lg:px-0 lg:py-0"
         onClick={onEdit}
       >
-        <Pencil size={14} /> Editar
+        <Pencil size={15} />
       </Button>
       <Button
         variant="ghost"
         disabled={protectedUser}
-        title={protectedUser ? "Seu usuário não pode ser desativado" : undefined}
+        title={
+          protectedUser
+            ? "Seu usuário não pode ser desativado"
+            : profile.isActive
+              ? "Desativar usuário"
+              : "Ativar usuário"
+        }
         aria-label={`${profile.isActive ? "Desativar" : "Ativar"} ${profile.fullName}`}
-        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap bg-slate-50 px-1 py-2 text-[11px] md:min-h-8 md:flex-none md:bg-transparent md:px-2 md:py-0 md:text-xs"
+        className="min-h-10 min-w-0 flex-1 justify-center bg-slate-50 px-1 py-2 lg:h-8 lg:w-8 lg:flex-none lg:bg-transparent lg:px-0 lg:py-0"
         onClick={onToggle}
       >
         {profile.isActive ? <Power size={14} /> : <CheckCircle2 size={14} />}{" "}
-        {profile.isActive ? "Desativar" : "Ativar"}
       </Button>
       <Button
         variant="danger"
         disabled={protectedUser}
-        title={protectedUser ? "Seu usuário não pode ser excluído" : undefined}
+        title={protectedUser ? "Seu usuário não pode ser excluído" : "Excluir usuário"}
         aria-label={`Excluir ${profile.fullName}`}
-        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap px-1 py-2 text-[11px] md:min-h-8 md:flex-none md:flex-row md:px-2 md:py-0 md:text-xs"
+        className="min-h-10 min-w-0 flex-1 justify-center px-1 py-2 lg:h-8 lg:w-8 lg:flex-none lg:px-0 lg:py-0"
         onClick={onDelete}
       >
-        <Trash2 size={14} /> Excluir
+        <Trash2 size={15} />
       </Button>
     </>
   );
   return (
-    <div className="mx-3 my-3 rounded-2xl border border-slate-100 p-4 md:mx-0 md:my-0 md:grid md:grid-cols-[36px_minmax(250px,1.55fr)_minmax(145px,1fr)_minmax(145px,0.9fr)_110px_minmax(275px,auto)] md:items-center md:gap-4 md:rounded-none md:border-x-0 md:border-b md:border-t-0 md:px-5 md:py-4">
-      <div className="space-y-4 md:hidden">
+    <div className="mx-3 my-3 rounded-2xl border border-slate-100 p-4 lg:mx-0 lg:my-0 lg:grid lg:grid-cols-[28px_minmax(220px,2fr)_minmax(110px,1fr)_145px_80px_88px] lg:items-center lg:gap-2 lg:rounded-none lg:border-x-0 lg:border-b lg:border-t-0 lg:px-3 lg:py-3 2xl:grid-cols-[36px_minmax(320px,2fr)_minmax(180px,1.1fr)_145px_110px_120px] 2xl:gap-4 2xl:px-5 2xl:py-4">
+      <div className="space-y-4 lg:hidden">
         <div className="flex items-start gap-3">
           <Avatar user={profile} size="md" />
           <div className="min-w-0 flex-1">
@@ -112,14 +118,14 @@ export function AdminUserRow({
               onChange={(value) => onRoleChange(value as Role)}
               ariaLabel={`Perfil de ${profile.fullName}`}
               compact
-              className="mt-1 [&>button]:min-h-11"
+              className="mt-1 [&>button]:min-h-11 [&>button]:rounded-xl [&>button]:px-3 [&>button]:text-sm"
               options={roleOptions}
             />
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3">{actions}</div>
       </div>
-      <div className="hidden md:contents">
+      <div className="hidden lg:contents">
         <input
           type="checkbox"
           aria-label={`Selecionar ${profile.fullName}`}
@@ -144,6 +150,7 @@ export function AdminUserRow({
           onChange={(value) => onRoleChange(value as Role)}
           ariaLabel={`Perfil de ${profile.fullName}`}
           compact
+          className="[&>button]:min-h-10 [&>button]:rounded-xl [&>button]:px-3 [&>button]:text-sm"
           options={roleOptions}
         />
         <div className="flex justify-center">{status}</div>

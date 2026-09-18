@@ -22,8 +22,8 @@ async function getActiveRegistration(): Promise<ServiceWorkerRegistration> {
   if (retry?.active) return retry;
   throw new Error(
     import.meta.env.DEV
-      ? "As notificações funcionam na versão publicada. Gere o build e teste pelo preview ou pela Vercel."
-      : "A instalação do portal ainda não terminou. Aguarde alguns segundos e tente novamente.",
+      ? "Notificações disponíveis apenas em versões publicadas."
+      : "Não foi possível preparar as notificações agora. Aguarde alguns segundos e tente novamente.",
   );
 }
 
