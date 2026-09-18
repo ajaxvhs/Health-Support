@@ -12,13 +12,13 @@ function UserModal({
   description,
   onClose,
   children,
-  maxWidth = "max-w-2xl",
+  maxWidth = "max-w-lg",
 }: {
   title: string;
   description: string;
   onClose: () => void;
   children: ReactNode;
-  maxWidth?: "max-w-lg" | "max-w-2xl";
+  maxWidth?: "max-w-lg";
 }) {
   return (
     <Dialog title={title} description={description} onClose={onClose} maxWidth={maxWidth}>
@@ -50,7 +50,7 @@ function UserFormLayout({
     <>
       <UserFormTabs value={tab} onChange={onTabChange} includeSecurity />
       <div className="h-[23rem] overflow-y-auto sm:h-[14rem]">{children}</div>
-      <div className="mt-6 flex justify-end gap-3">{actions}</div>
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">{actions}</div>
     </>
   );
 
