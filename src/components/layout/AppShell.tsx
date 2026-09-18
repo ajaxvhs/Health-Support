@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import {
   Bell,
   Database,
-  HelpCircle,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -191,17 +190,6 @@ export function AppShell() {
             </div>
           ))}
         </nav>
-        <div className="rounded-2xl bg-teal-50 p-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-teal-700">
-              <HelpCircle size={15} />
-            </span>
-            <p className="text-xs font-bold text-teal-900">Precisa de ajuda?</p>
-          </div>
-          <p className="mt-2 px-1 text-[11px] leading-4 text-teal-700/80">
-            Abra um chamado e nossa equipe responde em breve.
-          </p>
-        </div>
         <button
           type="button"
           onClick={logout}
