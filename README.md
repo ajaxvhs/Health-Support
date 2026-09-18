@@ -92,6 +92,27 @@ npm run build         # gera a versão de produção
 - `/admin/auditoria`: histórico de alterações
 - `/perfil`: dados e senha do usuário
 
+## Atualizações e deploy
+
+Para instalar e configurar notificações Web Push com Vercel e Supabase serverless,
+consulte [PUSH_SETUP.md](./PUSH_SETUP.md).
+
+O PWA avisa quando uma versão nova está pronta. O usuário deve salvar seu
+trabalho antes de clicar em **Atualizar**; **Depois** mantém a versão atual.
+O service worker novo aguarda confirmação antes de assumir as páginas.
+
+Na Vercel, `vercel.json` configura revalidação do HTML e do service worker,
+cache imutável dos assets com hash e exclui `/assets/` do fallback da SPA.
+Falhas de módulos permitem uma recarga automática por aba a cada cinco minutos,
+somente online, sem apagar caches ou a sessão. Erros persistentes exibem uma
+tela com opção de tentar novamente.
+
+A retenção de assets de deploys anteriores depende da hospedagem e não é
+garantida por esses headers. Antes de publicar, validar com duas builds:
+abrir a primeira, publicar a segunda, confirmar que o aviso aparece e que
+**Depois** preserva o formulário; **Atualizar** deve abrir a versão nova.
+Verificar também navegação offline e falha persistente de chunk sem loop.
+
 ## Segurança
 
 - Arquivos `.env` não devem ser commitados.

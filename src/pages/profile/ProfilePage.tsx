@@ -7,6 +7,7 @@ import { useToast } from "../../context/useToast";
 import { passwordUpdateErrorMessage, updatePassword } from "../../lib/auth";
 import { roleLabels } from "../../types";
 import { formatPhone } from "../../lib/utils";
+import { PushNotificationSettings } from "../../components/PushNotificationSettings";
 
 export function ProfilePage() {
   const { user, data, repo, refresh } = useApp();
@@ -25,6 +26,7 @@ export function ProfilePage() {
         title="Meu perfil"
         description="Mantenha seus dados de contato atualizados."
       />
+      <PushNotificationSettings />
       <PillTabs
         ariaLabel="Seções do perfil"
         value={activeTab}

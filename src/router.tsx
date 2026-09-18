@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ComponentType } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppProvider } from "./AppProvider";
 import { LoadingScreen } from "./components/LoadingScreen";
@@ -7,40 +7,60 @@ import { LoginRoute } from "./routes/LoginRoute";
 import { ProtectedAppLayout } from "./routes/ProtectedAppLayout";
 import { PublicOnlyRoute } from "./routes/PublicOnlyRoute";
 
-const AccessDeniedPage = lazy(() =>
+import { RouteErrorPage } from "./components/RouteErrorPage";
+import { claimChunkRecovery, isChunkLoadError } from "./lib/chunkRecovery";
+
+function lazyWithRecovery<T extends ComponentType<object>>(load: () => Promise<{ default: T }>) {
+  return lazy(async () => {
+    try {
+      return await load();
+    } catch (error) {
+      if (isChunkLoadError(error) && navigator.onLine) {
+        try {
+          if (claimChunkRecovery(window.sessionStorage)) window.location.reload();
+        } catch {
+          // Storage may be unavailable; retain the original error for the fallback.
+        }
+      }
+      throw error;
+    }
+  });
+}
+
+const AccessDeniedPage = lazyWithRecovery(() =>
   import("./pages/access/AccessDeniedPage").then((module) => ({
     default: module.AccessDeniedPage,
   })),
 );
-const AdminUsersPage = lazy(() =>
+const AdminUsersPage = lazyWithRecovery(() =>
   import("./pages/admin/AdminUsersPage").then((module) => ({ default: module.AdminUsersPage })),
 );
-const AuditPage = lazy(() =>
+const AuditPage = lazyWithRecovery(() =>
   import("./pages/admin/AuditPage").then((module) => ({ default: module.AuditPage })),
 );
-const CatalogsPage = lazy(() =>
+const CatalogsPage = lazyWithRecovery(() =>
   import("./pages/admin/CatalogsPage").then((module) => ({ default: module.CatalogsPage })),
 );
-const DefinePasswordPage = lazy(() =>
+const DefinePasswordPage = lazyWithRecovery(() =>
   import("./pages/auth/DefinePasswordPage").then((module) => ({
     default: module.DefinePasswordPage,
   })),
 );
-const DashboardPage = lazy(() =>
+const DashboardPage = lazyWithRecovery(() =>
   import("./pages/dashboard/DashboardPage").then((module) => ({ default: module.DashboardPage })),
 );
-const ProfilePage = lazy(() =>
+const ProfilePage = lazyWithRecovery(() =>
   import("./pages/profile/ProfilePage").then((module) => ({ default: module.ProfilePage })),
 );
-const NewTicketPage = lazy(() =>
+const NewTicketPage = lazyWithRecovery(() =>
   import("./pages/tickets/NewTicketPage").then((module) => ({ default: module.NewTicketPage })),
 );
-const TicketDetailPage = lazy(() =>
+const TicketDetailPage = lazyWithRecovery(() =>
   import("./pages/tickets/TicketDetailPage").then((module) => ({
     default: module.TicketDetailPage,
   })),
 );
-const TicketsPage = lazy(() =>
+const TicketsPage = lazyWithRecovery(() =>
   import("./pages/tickets/TicketsPage").then((module) => ({ default: module.TicketsPage })),
 );
 
@@ -48,6 +68,7 @@ const routeFallback = <LoadingScreen label="Carregando sessão..." />;
 
 export const router = createBrowserRouter([
   {
+    errorElement: <RouteErrorPage />,
     element: (
       <Suspense fallback={routeFallback}>
         <AppProvider />

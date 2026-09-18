@@ -20,7 +20,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
+      workbox: {
+        importScripts: ["/push-sw.js"],
+        skipWaiting: false,
+        clientsClaim: false,
+        navigateFallbackDenylist: [/^\/assets\//],
+      },
       includeAssets: ["favicon.svg"],
       manifest: {
         name: "Suporte Saúde",

@@ -9,6 +9,10 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ["public/push-sw.js"],
+    languageOptions: { globals: globals.serviceworker },
+  },
+  {
     files: ["**/*.{ts,tsx}"],
     languageOptions: { globals: { ...globals.browser, ...globals.es2020 } },
     plugins: { "react-hooks": reactHooks, "react-refresh": reactRefresh },
