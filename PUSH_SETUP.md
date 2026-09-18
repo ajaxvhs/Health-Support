@@ -3,8 +3,9 @@
 ## Arquitetura
 
 O frontend permanece na Vercel. Supabase Postgres guarda inscrições e uma fila;
-Supabase Cron chama a Edge Function `send-push` para enviar Web Push. Não há
-servidor dedicado. O service worker exibe um aviso genérico e abre `/chamados`,
+o banco chama a Edge Function `send-push` assim que uma notificação é criada.
+Supabase Cron também executa a função a cada minuto como fallback para retries.
+Não há servidor dedicado. O service worker exibe o aviso e abre o chamado,
 onde as rotas autenticadas e RLS continuam controlando o acesso.
 
 Novos chamados avisam administradores e atendentes ativos, exceto o autor, com
@@ -23,7 +24,8 @@ liberar o envio.
 - Edge Function `send-push` publicada. POST sem o segredo retorna 401.
 - Vault com `push_dispatch_url` e `push_dispatch_secret`; chave pública disponível em
   `push_public_config` para o frontend (sem necessidade de variável na Vercel).
-- Cron `send-push-every-minute` agendado a cada minuto via `dispatch_push_queue()`.
+- Trigger dispara `dispatch_push_queue()` assim que uma notificação entra na fila.
+- Cron `send-push-every-minute` executa a cada minuto via `dispatch_push_queue()` como fallback.
 
 ## Passo restante: publicar o frontend
 
@@ -37,6 +39,7 @@ liberar o envio.
 ## Operação
 
 - Cada chamada reserva até 10 entregas, com lease de cinco minutos e até cinco tentativas.
+- O disparo imediato é assíncrono via `pg_net`; o Cron cobre falhas ou indisponibilidade temporária.
 - Erros 404/410 removem inscrições expiradas. Outras falhas são tentadas novamente.
 - Eventos com mais de um dia não são enviados. Monitorar e remover periodicamente
   linhas expiradas ou com cinco tentativas de `push_queue` usando acesso administrativo.
