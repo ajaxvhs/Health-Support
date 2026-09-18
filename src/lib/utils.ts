@@ -41,9 +41,11 @@ export function formatPhone(value: string) {
 }
 export type TicketDateRange = "all" | "today" | "7d" | "30d";
 export type TicketSort = "newest" | "oldest" | "priority";
+export type TicketStatusFilter = TicketStatus | "todos";
 export interface TicketFilters {
   search: string;
-  status: TicketStatus | "todos";
+  status: TicketStatusFilter;
+  statusSelection?: TicketStatus[];
   priorityId: string;
   unitId: string;
   requesterId: string;
@@ -113,9 +115,12 @@ export function filterTickets(
     const unitName = context.unitNames?.[ticket.unitId] ?? "";
     const searchable =
       `${ticket.number} ${ticket.title} ${ticket.description} ${requesterName} ${ticket.requesterName} ${unitName}`.toLowerCase();
+    const statusMatches = filters.statusSelection?.length
+      ? filters.statusSelection.includes(ticket.status)
+      : filters.status === "todos" || ticket.status === filters.status;
     return (
       (!query || searchable.includes(query)) &&
-      (filters.status === "todos" || ticket.status === filters.status) &&
+      statusMatches &&
       (!filters.priorityId || ticket.priorityId === filters.priorityId) &&
       (!filters.unitId || ticket.unitId === filters.unitId) &&
       (!filters.requesterId || ticket.createdBy === filters.requesterId) &&

@@ -1,7 +1,8 @@
-import { UserRound } from "lucide-react";
+import { Check, ChevronDown, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { FilterField, FilterToolbar, type FilterChip } from "../../components/filters";
 import { CustomSelect } from "../../components/ui";
-import type { TicketFilters } from "../../lib/utils";
+import type { TicketFilters, TicketStatusFilter } from "../../lib/utils";
 import { statusMeta, type AppData, type TicketStatus } from "../../types";
 
 export type TicketFilterView = "all" | "mine" | "queue";
@@ -15,6 +16,7 @@ interface TicketsFilterBarProps {
   assignedToMeOnly: boolean;
   onSearch: (value: string) => void;
   onFilterChange: (key: keyof TicketFilters, value: string) => void;
+  onStatusSelectionChange: (statuses: TicketStatus[]) => void;
   onToggleFilters: () => void;
   onToggleAssigned: (active: boolean) => void;
   onResetFilters: () => void;
@@ -35,8 +37,9 @@ function getActiveFilterChips(
   assignedToMeOnly: boolean,
   {
     onFilterChange,
+    onStatusSelectionChange,
     onToggleAssigned,
-  }: Pick<TicketsFilterBarProps, "onFilterChange" | "onToggleAssigned">,
+  }: Pick<TicketsFilterBarProps, "onFilterChange" | "onStatusSelectionChange" | "onToggleAssigned">,
 ) {
   const chips: FilterChip[] = [];
   if (filters.search.trim())
@@ -45,7 +48,13 @@ function getActiveFilterChips(
       label: `Busca: ${filters.search.trim()}`,
       onRemove: () => onFilterChange("search", ""),
     });
-  if (filters.status !== "todos")
+  if (view === "mine" && filters.statusSelection?.length)
+    chips.push({
+      key: "status",
+      label: `Status: ${filters.statusSelection.map((status) => statusMeta[status].label).join(", ")}`,
+      onRemove: () => onStatusSelectionChange([]),
+    });
+  else if (filters.status !== "todos")
     chips.push({
       key: "status",
       label: `Status: ${statusMeta[filters.status as TicketStatus].label}`,
@@ -94,12 +103,14 @@ export function TicketsFilterBar({
   assignedToMeOnly,
   onSearch,
   onFilterChange,
+  onStatusSelectionChange,
   onToggleFilters,
   onToggleAssigned,
   onResetFilters,
 }: TicketsFilterBarProps) {
   const chips = getActiveFilterChips(view, filters, data, isStaff, assignedToMeOnly, {
     onFilterChange,
+    onStatusSelectionChange,
     onToggleAssigned,
   });
   const sortOptions = [
@@ -121,17 +132,24 @@ export function TicketsFilterBar({
         panelClassName="lg:grid-cols-4"
       >
         <FilterField label="Status">
-          <CustomSelect
-            ariaLabel="Filtrar por status"
-            value={filters.status}
-            onChange={(value) => onFilterChange("status", value)}
-            options={[
-              { value: "todos", label: "Todos os status" },
-              ...(Object.entries(statusMeta) as Array<[TicketStatus, { label: string }]>).map(
-                ([value, meta]) => ({ value, label: meta.label }),
-              ),
-            ]}
-          />
+          {view === "mine" ? (
+            <StatusMultiSelect
+              selected={filters.statusSelection ?? []}
+              onChange={onStatusSelectionChange}
+            />
+          ) : (
+            <CustomSelect
+              ariaLabel="Filtrar por status"
+              value={filters.status}
+              onChange={(value) => onFilterChange("status", value)}
+              options={[
+                { value: "todos", label: "Todos os status" },
+                ...(Object.entries(statusMeta) as Array<[TicketStatus, { label: string }]>).map(
+                  ([value, meta]) => ({ value: value as TicketStatusFilter, label: meta.label }),
+                ),
+              ]}
+            />
+          )}
         </FilterField>
         <FilterField label="Prioridade">
           <CustomSelect
@@ -197,5 +215,80 @@ export function TicketsFilterBar({
         </FilterField>
       </FilterToolbar>
     </section>
+  );
+}
+
+function StatusMultiSelect({
+  selected,
+  onChange,
+}: {
+  selected: TicketStatus[];
+  onChange: (statuses: TicketStatus[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const statuses = Object.entries(statusMeta) as Array<[TicketStatus, { label: string }]>;
+  const selectedLabel = selected.length
+    ? selected.map((status) => statusMeta[status].label).join(", ")
+    : "Todos os status";
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        className="flex min-h-12 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 text-left text-sm font-medium text-ink outline-none transition hover:border-teal-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Filtrar por status"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="min-w-0 truncate">{selectedLabel}</span>
+        <ChevronDown size={16} className={open ? "shrink-0 rotate-180" : "shrink-0"} />
+      </button>
+      {open && (
+        <div
+          className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+          role="listbox"
+          aria-multiselectable="true"
+        >
+          {statuses.map(([value, meta]) => {
+            const checked = selected.includes(value);
+            return (
+              <button
+                key={value}
+                type="button"
+                role="option"
+                aria-selected={checked}
+                className="flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg px-3 text-left text-sm font-medium text-slate-600 transition hover:bg-teal-50 hover:text-teal-900"
+                onClick={() =>
+                  onChange(
+                    checked ? selected.filter((status) => status !== value) : [...selected, value],
+                  )
+                }
+              >
+                {meta.label}
+                {checked && <Check size={16} className="text-teal-700" aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

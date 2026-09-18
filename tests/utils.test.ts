@@ -27,7 +27,12 @@ const staff: Profile = {
   unitId: "unit-a",
   isActive: true,
 };
-const ticket = (id: string, createdAt: string, priorityId = "low"): Ticket => ({
+const ticket = (
+  id: string,
+  createdAt: string,
+  priorityId = "low",
+  status: Ticket["status"] = "aberto",
+): Ticket => ({
   id,
   number: Number(id.replace("t-", "")),
   title: id === "t-1" ? "Rede indisponivel" : "Impressora",
@@ -35,7 +40,7 @@ const ticket = (id: string, createdAt: string, priorityId = "low"): Ticket => ({
   unitId: "unit-a",
   categoryId: "cat",
   priorityId,
-  status: "aberto",
+  status,
   createdBy: requester.id,
   requesterName: requester.fullName,
   requesterPhone: "",
@@ -96,6 +101,28 @@ describe("metricas e filtros de chamados", () => {
       { unitNames: { "unit-a": "Unidade A" }, now: Date.parse("2025-01-10T15:00:00.000Z") },
     );
     expect(result.map((item) => item.id)).toEqual(["t-1"]);
+  });
+
+  it("mantem chamados abertos e em andamento no filtro de chamados abertos", () => {
+    const result = filterTickets(
+      [
+        ticket("t-1", "2025-01-10T10:00:00.000Z", "low", "aberto"),
+        ticket("t-2", "2025-01-09T10:00:00.000Z", "low", "em_andamento"),
+        ticket("t-3", "2025-01-08T10:00:00.000Z", "low", "resolvido"),
+        ticket("t-4", "2025-01-07T10:00:00.000Z", "low", "fechado"),
+      ],
+      {
+        search: "",
+        status: "todos",
+        statusSelection: ["aberto", "em_andamento"],
+        priorityId: "",
+        unitId: "",
+        requesterId: "",
+        dateRange: "all",
+        sort: "newest",
+      },
+    );
+    expect(result.map((item) => item.id)).toEqual(["t-1", "t-2"]);
   });
 
   it("filtra auditoria por ator, ação, texto e intervalo de data", () => {
