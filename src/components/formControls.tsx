@@ -137,7 +137,8 @@ export function SelectField({
                 aria-selected={option.value === value}
                 disabled={option.disabled}
                 className={cn(
-                  "block w-full rounded-lg px-3 py-3 text-left text-sm hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+                  "block w-full rounded-lg px-3 text-left text-sm hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+                  compact ? "min-h-10 py-2" : "py-3",
                   option.value === value && "bg-teal-50 font-bold text-teal-800",
                 )}
                 onClick={() => {
