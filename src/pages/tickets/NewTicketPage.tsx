@@ -56,41 +56,43 @@ export function NewTicketPage() {
         title="Abrir novo chamado"
         description="Conte para a equipe o que está acontecendo. Campos marcados com * são obrigatórios."
       />
-      <aside className="mb-6 rounded-2xl border border-teal-100 bg-teal-50 p-5 sm:p-7">
+      <aside className="mb-6 rounded-2xl border border-brand-muted bg-brand-soft p-5 sm:p-7">
         <div className="lg:flex lg:items-center lg:gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-teal-700">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface text-brand">
             <BookOpen size={19} />
           </div>
-          <h2 className="mt-5 font-display font-bold text-teal-950 lg:mt-0">Antes de enviar</h2>
+          <h2 className="mt-5 font-display font-bold text-brand-contrast lg:mt-0">
+            Antes de enviar
+          </h2>
         </div>
-        <ul className="mt-5 space-y-3 border-t border-teal-200/60 pt-4 text-sm leading-5 text-teal-900/70 lg:grid lg:grid-cols-4 lg:gap-6 lg:space-y-0">
+        <ul className="mt-5 space-y-3 border-t border-brand-border/60 pt-4 text-sm leading-5 text-brand-contrast/70 lg:grid lg:grid-cols-4 lg:gap-6 lg:space-y-0">
           <li className="flex gap-2 lg:justify-start lg:text-left">
-            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Confira se a
-            unidade está correta.
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-brand" /> Confira se a unidade
+            está correta.
           </li>
           <li className="flex gap-2 lg:justify-center lg:text-center">
-            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Descreva bem o
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-brand" /> Descreva bem o
             problema.
           </li>
           <li className="flex gap-2 lg:justify-center lg:text-center">
-            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Informe quando o
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-brand" /> Informe quando o
             problema começou.
           </li>
           <li className="flex gap-2 lg:justify-end lg:text-right">
-            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-700" /> Indique o que já
-            foi tentado.
+            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-brand" /> Indique o que já foi
+            tentado.
           </li>
         </ul>
       </aside>
       <form onSubmit={submit}>
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-7">
-          <div className="mb-7 flex items-center gap-3 border-b border-slate-100 pb-5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700">
+        <div className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-7">
+          <div className="mb-7 flex items-center gap-3 border-b border-line-soft pb-5">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
               <MessageCircle size={19} />
             </span>
             <div>
               <h2 className="font-display font-bold text-ink">Sobre o problema</h2>
-              <p className="text-xs text-slate-400">Quanto mais detalhes, mais rápida a solução.</p>
+              <p className="text-xs text-subtle">Quanto mais detalhes, mais rápida a solução.</p>
             </div>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
@@ -148,7 +150,7 @@ export function NewTicketPage() {
           </div>
           <div className="mt-5 block">
             <span className="mb-2 block text-sm font-bold text-ink">
-              Descrição do problema<span className="ml-1 text-teal-700">*</span>
+              Descrição do problema<span className="ml-1 text-brand">*</span>
             </span>
             <textarea
               value={description}
@@ -156,9 +158,9 @@ export function NewTicketPage() {
               rows={6}
               placeholder="Explique o que aconteceu, quando começou e o que você já tentou..."
               aria-label="Descrição do problema"
-              className="w-full resize-y rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm leading-6 text-ink outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+              className="w-full resize-y rounded-xl border border-line bg-surface px-3.5 py-3 text-sm leading-6 text-ink outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"
             />
-            <span className="mt-1.5 block text-xs text-slate-400">Mínimo de 10 caracteres</span>
+            <span className="mt-1.5 block text-xs text-subtle">Mínimo de 10 caracteres</span>
           </div>
           <FormActions
             cancel={

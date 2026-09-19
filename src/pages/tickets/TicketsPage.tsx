@@ -53,14 +53,14 @@ function TicketsViewSwitcher({
       <div
         role="tablist"
         aria-label="Visualização dos chamados"
-        className="grid w-full grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:inline-flex sm:w-auto sm:flex-wrap"
+        className="grid w-full grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1 shadow-sm sm:inline-flex sm:w-auto sm:flex-wrap"
       >
         <button
           type="button"
           role="tab"
           aria-selected={view === "queue"}
           onClick={() => onChange("queue")}
-          className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition sm:px-3.5 ${view === "queue" ? "bg-teal-700 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-ink"}`}
+          className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition sm:px-3.5 ${view === "queue" ? "bg-brand-strong text-on-brand shadow-sm" : "text-muted hover:bg-surface-soft hover:text-ink"}`}
         >
           <ClipboardList size={14} /> Fila de atendimento
         </button>
@@ -69,15 +69,15 @@ function TicketsViewSwitcher({
           role="tab"
           aria-selected={view === "all"}
           onClick={() => onChange("all")}
-          className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition sm:px-3.5 ${view === "all" ? "bg-teal-700 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-ink"}`}
+          className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition sm:px-3.5 ${view === "all" ? "bg-brand-strong text-on-brand shadow-sm" : "text-muted hover:bg-surface-soft hover:text-ink"}`}
         >
           <TicketIcon size={14} /> Todos os chamados
         </button>
       </div>
       {view === "queue" && (
         <div className="grid w-full grid-cols-2 gap-2 text-center sm:w-[240px]">
-          <div className="rounded-xl bg-red-50 px-3 py-2">
-            <strong className="block text-lg text-red-600">
+          <div className="rounded-xl bg-danger-soft px-3 py-2">
+            <strong className="block text-lg text-danger">
               {
                 data.tickets.filter(
                   (ticket) =>
@@ -87,13 +87,13 @@ function TicketsViewSwitcher({
                 ).length
               }
             </strong>
-            <span className="text-[10px] font-bold text-red-700">Sem responsável</span>
+            <span className="text-[10px] font-bold text-danger-strong">Sem responsável</span>
           </div>
-          <div className="rounded-xl bg-amber-50 px-3 py-2">
-            <strong className="block text-lg text-amber-600">
+          <div className="rounded-xl bg-caution-soft px-3 py-2">
+            <strong className="block text-lg text-caution">
               {data.tickets.filter((ticket) => ticket.status === "em_andamento").length}
             </strong>
-            <span className="text-[10px] font-bold text-amber-700">Em atendimento</span>
+            <span className="text-[10px] font-bold text-caution-strong">Em atendimento</span>
           </div>
         </div>
       )}
@@ -251,9 +251,9 @@ export function TicketsPage() {
         onToggleAssigned={setAssignedToMeOnly}
         onResetFilters={resetFilters}
       />
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-soft">
+      <div className="overflow-hidden rounded-2xl border border-line-soft bg-surface shadow-soft">
         {tickets.length ? (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-line-soft">
             {tickets.map((ticket) => (
               <TicketRow
                 key={ticket.id}

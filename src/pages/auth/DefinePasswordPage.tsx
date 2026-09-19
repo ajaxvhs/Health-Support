@@ -50,12 +50,12 @@ export function DefinePasswordPage() {
 
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] w-full items-center justify-center">
-      <div className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-6 shadow-soft sm:p-8">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+      <div className="w-full max-w-md rounded-3xl border border-line-soft bg-surface p-6 shadow-soft sm:p-8">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong">
           <LockKeyhole size={22} />
         </span>
         <h1 className="mt-4 font-display text-2xl font-bold text-ink">Defina sua senha</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+        <p className="mt-2 text-sm leading-6 text-secondary">
           Por segurança, troque a senha temporária antes de continuar.
         </p>
         <form noValidate onSubmit={submit} className="mt-6 space-y-4">

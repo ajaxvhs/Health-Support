@@ -133,7 +133,7 @@ export function TicketsFilterBar({
   ];
 
   return (
-    <section className="mb-5 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft sm:p-4">
+    <section className="mb-5 rounded-2xl border border-line-soft bg-surface p-3 shadow-soft sm:p-4">
       <FilterToolbar
         search={filters.search}
         onSearch={onSearch}
@@ -265,7 +265,7 @@ function StatusMultiSelect({
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        className="flex min-h-12 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 text-left text-sm font-medium text-ink outline-none transition hover:border-teal-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+        className="flex min-h-12 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3.5 text-left text-sm font-medium text-ink outline-none transition hover:border-brand-border focus:border-brand focus:ring-2 focus:ring-brand-soft"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="Filtrar por status"
@@ -276,7 +276,7 @@ function StatusMultiSelect({
       </button>
       {open && (
         <div
-          className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+          className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 rounded-xl border border-line bg-surface p-1 shadow-xl"
           role="listbox"
           aria-multiselectable="true"
         >
@@ -288,7 +288,7 @@ function StatusMultiSelect({
                 type="button"
                 role="option"
                 aria-selected={checked}
-                className="flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg px-3 text-left text-sm font-medium text-slate-600 transition hover:bg-teal-50 hover:text-teal-900"
+                className="flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg px-3 text-left text-sm font-medium text-secondary transition hover:bg-brand-soft hover:text-brand-contrast"
                 onClick={() =>
                   onChange(
                     checked ? selected.filter((status) => status !== value) : [...selected, value],
@@ -296,7 +296,7 @@ function StatusMultiSelect({
                 }
               >
                 {meta.label}
-                {checked && <Check size={16} className="text-teal-700" aria-hidden="true" />}
+                {checked && <Check size={16} className="text-brand" aria-hidden="true" />}
               </button>
             );
           })}

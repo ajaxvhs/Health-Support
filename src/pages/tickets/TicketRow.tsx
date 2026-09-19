@@ -22,7 +22,7 @@ export function TicketRow({
     const openTicket = () => navigate(`/chamados/${ticket.id}`);
     return (
       <div
-        className="flex cursor-pointer flex-col gap-4 p-5 transition hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 sm:flex-row sm:items-center"
+        className="flex cursor-pointer flex-col gap-4 p-5 transition hover:bg-surface-soft focus-visible:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand sm:flex-row sm:items-center"
         role="link"
         tabIndex={0}
         onClick={(event) => {
@@ -37,10 +37,10 @@ export function TicketRow({
         }}
       >
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="font-mono text-xs font-bold text-slate-400">#{ticket.number}</span>
+          <span className="font-mono text-xs font-bold text-subtle">#{ticket.number}</span>
           <div className="min-w-0">
             <span className="block truncate text-sm font-bold text-ink">{ticket.title}</span>
-            <p className="mt-1 truncate text-xs text-slate-400">
+            <p className="mt-1 truncate text-xs text-subtle">
               {unitName(data, ticket.unitId)} · {categoryName(data, ticket.categoryId)} ·{" "}
               {ticket.requesterName}
             </p>
@@ -52,12 +52,12 @@ export function TicketRow({
         </div>
         <div className="flex items-center justify-between gap-3 sm:w-[190px] sm:justify-end">
           {assigned ? (
-            <span className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <span className="flex items-center gap-2 text-xs font-semibold text-secondary">
               <Avatar user={assigned} size="sm" />
               {assigned.fullName.split(" ")[0]}
             </span>
           ) : (
-            <span className="text-xs font-semibold text-orange-600">Sem responsável</span>
+            <span className="text-xs font-semibold text-warning">Sem responsável</span>
           )}
           {!ticket.assignedTo && (
             <Button className="min-h-8 px-3 text-xs" onClick={onClaim}>
@@ -71,14 +71,12 @@ export function TicketRow({
   return (
     <Link
       to={`/chamados/${ticket.id}`}
-      className="flex items-center gap-3 px-5 py-4 transition hover:bg-slate-50 sm:px-6"
+      className="flex items-center gap-3 px-5 py-4 transition hover:bg-surface-soft sm:px-6"
     >
-      <span className="hidden w-12 text-xs font-bold text-slate-400 sm:block">
-        #{ticket.number}
-      </span>
+      <span className="hidden w-12 text-xs font-bold text-subtle sm:block">#{ticket.number}</span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-bold text-ink">{ticket.title}</span>
-        <span className="mt-1 block text-xs text-slate-400">
+        <span className="mt-1 block text-xs text-subtle">
           {unitName(data, ticket.unitId)} · {categoryName(data, ticket.categoryId)} ·{" "}
           {relativeDate(ticket.updatedAt)}
         </span>
@@ -87,10 +85,10 @@ export function TicketRow({
         <TicketPriorityBadge priority={ticket.priorityId} data={data} />
       </span>
       <TicketStatusBadge status={ticket.status} />
-      <span className="hidden w-24 text-right text-xs text-slate-400 lg:block">
+      <span className="hidden w-24 text-right text-xs text-subtle lg:block">
         {assigned?.fullName.split(" ")[0] ?? "Sem responsável"}
       </span>
-      <ChevronRight size={16} className="text-slate-300" />
+      <ChevronRight size={16} className="text-line-strong" />
     </Link>
   );
 }

@@ -38,15 +38,15 @@ export function ProfilePage() {
       />
       <div className="max-w-4xl">
         {activeTab === "info" ? (
-          <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-8">
-            <div className="mb-8 flex flex-col items-start gap-5 border-b border-slate-100 pb-7 sm:flex-row sm:items-center">
+          <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-8">
+            <div className="mb-8 flex flex-col items-start gap-5 border-b border-line-soft pb-7 sm:flex-row sm:items-center">
               <Avatar user={user} size="lg" />
               <div>
                 <h2 className="font-display text-lg font-bold text-ink">{user.fullName}</h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-muted">
                   {roleLabels[user.role]} · {unitName(data, user.unitId)}
                 </p>
-                <p className="mt-2 text-xs text-teal-700">{user.email}</p>
+                <p className="mt-2 text-xs text-brand">{user.email}</p>
               </div>
             </div>
             <div className="grid gap-6 sm:grid-cols-2">
@@ -66,7 +66,7 @@ export function ProfilePage() {
               />
               <TextField label="Perfil de acesso" value={roleLabels[user.role]} readOnly />
             </div>
-            <div className="mt-8 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
+            <div className="mt-8 flex flex-col gap-3 border-t border-line-soft pt-6 sm:flex-row sm:justify-end">
               <Button
                 className="w-full sm:w-auto"
                 onClick={async () => {
@@ -89,7 +89,7 @@ export function ProfilePage() {
             </div>
           </section>
         ) : activeTab === "security" ? (
-          <section className="max-w-2xl rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-8">
+          <section className="max-w-2xl rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-8">
             <div className="space-y-6">
               <TextField
                 label="Senha atual"
