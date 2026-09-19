@@ -66,3 +66,12 @@ npm run build
 - Mudancas de comportamento devem incluir ou atualizar testes em `tests/`.
 - Antes de concluir, rode typecheck, testes, lint, format check e build; investigue
   falhas em vez de mascarar erros ou alterar configuracoes apenas para passar.
+
+## Commits
+
+- Siga o guia de commits em `~/Projetos/Cofre/Health Support/09 - Guia de commits.md`.
+- Depois de cada commit, execute `git show --format=fuller --stat HEAD` e confira
+  titulo, corpo, arquivos e verificacoes antes de continuar.
+- Use quebras de linha reais no corpo da mensagem; nao passe `\\n` literal em
+  argumentos `-m`.
+- Se a mensagem ficar malformada, corrija o commit antes de criar o proximo.
