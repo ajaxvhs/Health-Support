@@ -25,13 +25,13 @@ export function Button({
   return (
     <button
       className={cn(
-        "relative inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-[background-color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "relative inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-[background-color,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         variant === "primary" &&
-          "bg-teal-700 text-white shadow-sm hover:bg-teal-800 hover:shadow-md active:bg-teal-900",
+          "bg-brand-strong text-on-brand shadow-sm hover:bg-brand-deep hover:shadow-md active:bg-brand-darker",
         variant === "secondary" &&
-          "border border-slate-200 bg-white text-ink hover:border-teal-300 hover:bg-teal-50",
-        variant === "ghost" && "text-slate-600 hover:bg-slate-100 hover:text-ink",
-        variant === "danger" && "bg-red-50 text-red-700 hover:bg-red-100",
+          "border border-line-strong bg-surface text-ink hover:border-brand-hover hover:bg-brand-soft",
+        variant === "ghost" && "text-secondary hover:bg-surface-muted hover:text-ink",
+        variant === "danger" && "bg-danger-soft text-danger-strong hover:bg-danger-border",
         className,
       )}
       {...props}
@@ -65,13 +65,13 @@ export function Badge({
   dot?: boolean;
 }) {
   const tones: Record<string, string> = {
-    blue: "bg-blue-50 text-blue-700 ring-blue-100",
-    amber: "bg-amber-50 text-amber-700 ring-amber-100",
-    violet: "bg-violet-50 text-violet-700 ring-violet-100",
-    green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-    slate: "bg-slate-100 text-slate-600 ring-slate-200",
-    orange: "bg-orange-50 text-orange-700 ring-orange-100",
-    red: "bg-red-50 text-red-700 ring-red-100",
+    blue: "bg-info-soft text-info-strong ring-info-border",
+    amber: "bg-caution-soft text-caution-strong ring-caution-border",
+    violet: "bg-violet-soft text-violet-strong ring-violet-border",
+    green: "bg-success-soft text-success-strong ring-success-border",
+    slate: "bg-surface-muted text-secondary ring-line",
+    orange: "bg-warning-soft text-warning-strong ring-warning-border",
+    red: "bg-danger-soft text-danger-strong ring-danger-border",
   };
   return (
     <span
@@ -90,7 +90,7 @@ export function Avatar({ user, size = "md" }: { user?: Profile; size?: "sm" | "m
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-xl bg-teal-100 font-bold text-teal-800",
+        "inline-flex shrink-0 items-center justify-center rounded-xl bg-brand-muted font-bold text-brand-contrast",
         size === "sm" && "h-8 w-8 rounded-lg text-[10px]",
         size === "md" && "h-10 w-10 text-xs",
         size === "lg" && "h-16 w-16 rounded-2xl text-lg",
@@ -113,12 +113,12 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center">
-      <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface px-6 py-16 text-center">
+      <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong">
         <Icon size={25} />
       </span>
       <h3 className="font-display text-lg font-bold text-ink">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">{text}</p>
+      <p className="mt-2 max-w-sm text-sm leading-6 text-secondary">{text}</p>
       {action && <div className="mt-5">{action}</div>}
     </div>
   );
@@ -138,13 +138,13 @@ export function PageHeader({
   return (
     <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-teal-700">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-brand-strong">
           {eyebrow}
         </p>
         <h1 className="font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">
           {title}
         </h1>
-        {description && <p className="mt-2 max-w-2xl text-sm text-slate-500">{description}</p>}
+        {description && <p className="mt-2 max-w-2xl text-sm text-secondary">{description}</p>}
       </div>
       {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
     </div>
@@ -153,7 +153,7 @@ export function PageHeader({
 
 export function FormActions({ cancel, children }: { cancel: ReactNode; children: ReactNode }) {
   return (
-    <div className="mt-7 flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
+    <div className="mt-7 flex flex-col-reverse gap-3 border-t border-line-soft pt-5 sm:flex-row sm:justify-end">
       <div className="w-full sm:w-auto">{cancel}</div>
       <div className="w-full sm:w-auto">{children}</div>
     </div>
@@ -216,15 +216,15 @@ export function StatCard({
   compact?: boolean;
 }) {
   const tones = {
-    teal: "bg-teal-50 text-teal-700",
-    orange: "bg-orange-50 text-orange-600",
-    violet: "bg-violet-50 text-violet-600",
-    blue: "bg-blue-50 text-blue-600",
+    teal: "bg-stat-teal-soft text-stat-teal",
+    orange: "bg-stat-orange-soft text-stat-orange",
+    violet: "bg-stat-violet-soft text-stat-violet",
+    blue: "bg-stat-blue-soft text-stat-blue",
   };
   return (
     <div
       className={cn(
-        "h-full rounded-2xl border border-slate-100 bg-white shadow-soft",
+        "h-full rounded-2xl border border-line-soft bg-surface shadow-soft",
         compact ? "p-4" : "p-5",
       )}
     >
@@ -239,7 +239,7 @@ export function StatCard({
           <Icon size={compact ? 17 : 19} />
         </span>
         {detail && (
-          <span className="min-w-0 text-right text-[11px] font-bold text-emerald-600">
+          <span className="min-w-0 text-right text-[11px] font-bold text-success-strong">
             {detail}
           </span>
         )}
@@ -247,7 +247,7 @@ export function StatCard({
       <p className={cn("font-bold text-ink", compact ? "mt-3 text-xl" : "mt-5 text-2xl")}>
         {value}
       </p>
-      <p className="mt-1 text-sm text-slate-500">{label}</p>
+      <p className="mt-1 text-sm text-secondary">{label}</p>
     </div>
   );
 }
@@ -267,7 +267,7 @@ export function PillTabs({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="mb-6 flex w-full gap-1 rounded-2xl border border-slate-200 bg-slate-100/80 p-1 sm:w-fit"
+      className="mb-6 flex w-full gap-1 rounded-2xl border border-line bg-surface-muted/80 p-1 sm:w-fit"
     >
       {tabs.map((tab) => (
         <button
@@ -277,8 +277,8 @@ export function PillTabs({
           aria-selected={value === tab.value}
           onClick={() => onChange(tab.value)}
           className={cn(
-            "min-h-10 flex-1 rounded-xl px-4 text-sm font-bold text-slate-500 transition hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 sm:flex-none",
-            value === tab.value && "bg-white text-teal-800 shadow-sm ring-1 ring-slate-200",
+            "min-h-10 flex-1 rounded-xl px-4 text-sm font-bold text-muted transition hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-focus sm:flex-none",
+            value === tab.value && "bg-surface text-brand-contrast shadow-sm ring-1 ring-line",
           )}
         >
           {tab.label}

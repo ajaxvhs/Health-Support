@@ -24,9 +24,9 @@ export function PushNotificationSettings() {
     };
   }, [supported]);
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-soft sm:p-6">
+    <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-6">
       <h2 className="font-bold text-ink">Notificações neste dispositivo</h2>
-      <p className="mt-3 text-justify text-sm leading-6 text-slate-500">
+      <p className="mt-3 text-justify text-sm leading-6 text-muted">
         Receba avisos de novos chamados e respostas mesmo quando o portal não estiver aberto. A
         disponibilidade depende do dispositivo, navegador e permissões de notificação.
       </p>

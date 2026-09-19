@@ -37,9 +37,9 @@ function Logo() {
       <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl" />
       <div>
         <p className="font-display text-[16px] font-bold tracking-[-0.03em] text-ink">
-          Suporte<span className="text-teal-700"> Saúde</span>
+          Suporte<span className="text-brand-strong"> Saúde</span>
         </p>
-        <p className="text-[10px] font-medium uppercase tracking-[.14em] text-teal-700">
+        <p className="text-[10px] font-medium uppercase tracking-[.14em] text-brand-strong">
           Atendimento de TI
         </p>
       </div>
@@ -123,7 +123,7 @@ export function AppShell() {
   const unreadNotificationCount = notifications.filter((notification) => !notification.read).length;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-canvas">
       <div
         className={cn(
           "fixed inset-0 z-40 bg-ink/30 transition-opacity md:hidden",
@@ -134,7 +134,7 @@ export function AppShell() {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[232px] flex-col overflow-hidden border-r border-slate-100 bg-white px-4 py-5 transition-transform md:transform-none md:transition-none",
+          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[232px] flex-col overflow-hidden border-r border-line-soft bg-surface px-4 py-5 transition-transform md:transform-none md:transition-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -144,7 +144,7 @@ export function AppShell() {
         <nav className="scrollbar-none mt-9 min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain">
           {navigationFor(user, data).map((group) => (
             <div key={group.title}>
-              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[.17em] text-slate-400">
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[.17em] text-subtle">
                 {group.title}
               </p>
               <div className="space-y-1">
@@ -163,11 +163,11 @@ export function AppShell() {
                       return cn(
                         "group relative flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-semibold transition-colors duration-150 [&>*]:pointer-events-none",
                         link.primary &&
-                          "bg-teal-700 text-white shadow-sm ring-1 ring-inset ring-teal-600 hover:bg-teal-800 hover:text-white hover:shadow-md",
+                          "bg-brand-strong text-on-brand shadow-sm ring-1 ring-inset ring-brand hover:bg-brand-deep hover:text-on-brand hover:shadow-md",
                         !link.primary &&
                           (active
-                            ? "bg-teal-50 text-teal-900 shadow-sm ring-1 ring-inset ring-teal-100 before:pointer-events-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-teal-600 before:content-['']"
-                            : "text-slate-500 hover:bg-slate-50 hover:text-ink"),
+                            ? "bg-brand-soft text-brand-contrast shadow-sm ring-1 ring-inset ring-brand-border before:pointer-events-none before:absolute before:bottom-2 before:left-0 before:top-2 before:w-1 before:rounded-r-full before:bg-brand before:content-['']"
+                            : "text-secondary hover:bg-surface-soft hover:text-ink"),
                       );
                     }}
                   >
@@ -175,12 +175,12 @@ export function AppShell() {
                       size={17}
                       className={cn(
                         "shrink-0",
-                        link.primary ? "text-teal-100" : "text-slate-400 group-hover:text-current",
+                        link.primary ? "text-on-brand/80" : "text-subtle group-hover:text-current",
                       )}
                     />
                     <span className="flex-1 whitespace-nowrap">{link.label}</span>
                     {link.count !== undefined && (
-                      <span className="flex h-6 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] text-slate-500 group-[.bg-teal-50]:bg-white group-[.bg-teal-50]:text-teal-700">
+                      <span className="flex h-6 w-7 shrink-0 items-center justify-center rounded-full bg-surface-muted text-[10px] text-muted group-[.bg-brand-soft]:bg-surface group-[.bg-brand-soft]:text-brand-strong">
                         {link.count}
                       </span>
                     )}
@@ -193,25 +193,25 @@ export function AppShell() {
         <button
           type="button"
           onClick={logout}
-          className="mt-3 flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-semibold text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700 [&>*]:pointer-events-none"
+          className="mt-3 flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-semibold text-secondary transition-colors hover:bg-danger-soft hover:text-danger-strong [&>*]:pointer-events-none"
         >
           <LogOut size={17} />
           Sair da conta
         </button>
       </aside>
       <div className="md:pl-[232px]">
-        <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-slate-100 bg-white/90 px-4 backdrop-blur-md sm:px-8">
+        <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-line-soft bg-surface/90 px-4 backdrop-blur-md sm:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 md:hidden"
+              className="rounded-xl p-2 text-secondary hover:bg-surface-muted md:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Abrir menu"
             >
               <Menu size={22} />
             </button>
-            <div className="hidden h-8 w-px bg-slate-200 sm:block" />
-            <span className="hidden text-xs font-medium text-slate-400 sm:block">
+            <div className="hidden h-8 w-px bg-line-strong sm:block" />
+            <span className="hidden text-xs font-medium text-subtle sm:block">
               Portal interno · Secretaria de Saúde
             </span>
           </div>
@@ -219,7 +219,7 @@ export function AppShell() {
             <div ref={notificationsRef} className="relative">
               <button
                 type="button"
-                className="relative rounded-xl p-2 text-slate-400 hover:bg-slate-50 hover:text-ink"
+                className="relative rounded-xl p-2 text-subtle hover:bg-surface-soft hover:text-ink"
                 aria-label="Notificações"
                 aria-expanded={notificationsOpen}
                 aria-controls="notifications-popover"
@@ -227,7 +227,7 @@ export function AppShell() {
               >
                 <Bell size={19} />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-orange-500 px-1 text-center text-[9px] font-bold leading-4 text-white ring-2 ring-white">
+                  <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-warning-strong px-1 text-center text-[9px] font-bold leading-4 text-ink ring-2 ring-surface">
                     {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
                   </span>
                 )}
@@ -247,18 +247,18 @@ export function AppShell() {
                 onDeleteAll={removeAll}
               />
             </div>
-            <div className="hidden h-8 w-px bg-slate-200 sm:block" />
+            <div className="hidden h-8 w-px bg-line-strong sm:block" />
             <button
               type="button"
               onClick={() => navigate("/perfil")}
-              className="flex cursor-pointer items-center gap-2 rounded-xl p-1.5 pr-2 text-left hover:bg-slate-50"
+              className="flex cursor-pointer items-center gap-2 rounded-xl p-1.5 pr-2 text-left hover:bg-surface-soft"
             >
               <Avatar user={user} size="sm" />
               <span className="hidden leading-tight sm:block">
                 <strong className="block max-w-[150px] truncate text-sm font-bold text-ink">
                   {user.fullName}
                 </strong>
-                <small className="text-[11px] text-slate-400">{roleLabels[user.role]}</small>
+                <small className="text-[11px] text-subtle">{roleLabels[user.role]}</small>
               </span>
             </button>
           </div>
