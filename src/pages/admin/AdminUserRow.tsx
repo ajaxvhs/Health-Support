@@ -39,7 +39,7 @@ export function AdminUserRow({
         variant="ghost"
         aria-label={`Editar ${profile.fullName}`}
         title="Editar usuário"
-        className="h-10 w-10 shrink-0 bg-slate-50 p-0"
+        className="h-10 w-10 shrink-0 bg-surface-soft p-0"
         onClick={onEdit}
       >
         <Pencil size={15} />
@@ -55,7 +55,7 @@ export function AdminUserRow({
               : "Ativar usuário"
         }
         aria-label={`${profile.isActive ? "Desativar" : "Ativar"} ${profile.fullName}`}
-        className="h-10 w-10 shrink-0 bg-slate-50 p-0"
+        className="h-10 w-10 shrink-0 bg-surface-soft p-0"
         onClick={onToggle}
       >
         {profile.isActive ? <Power size={14} /> : <CheckCircle2 size={14} />}{" "}
@@ -75,7 +75,7 @@ export function AdminUserRow({
   return (
     <div
       className={cn(
-        "mx-3 my-3 rounded-2xl border border-slate-100 p-4",
+        "mx-3 my-3 rounded-2xl border border-line-soft p-4",
         "lg:mx-0 lg:my-0 lg:grid lg:grid-cols-[28px_minmax(0,1.65fr)_minmax(0,1fr)_148px_80px_132px] lg:items-center lg:gap-2 lg:rounded-none lg:border-x-0 lg:border-b lg:border-t-0 lg:px-3 lg:py-3",
         "xl:grid-cols-[36px_minmax(280px,2fr)_minmax(150px,1.1fr)_148px_90px_132px] xl:gap-4 xl:px-5 xl:py-4",
       )}
@@ -85,39 +85,39 @@ export function AdminUserRow({
           <Avatar user={profile} size="md" />
           <div className="min-w-0 flex-1">
             <p className="break-words text-sm font-bold leading-5 text-ink">{profile.fullName}</p>
-            <p className="mt-0.5 break-all text-xs text-slate-500">@{profile.username}</p>
+            <p className="mt-0.5 break-all text-xs text-muted">@{profile.username}</p>
             <div className="mt-2">{status}</div>
           </div>
-          <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-slate-50">
+          <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-surface-soft">
             <input
               type="checkbox"
               aria-label={`Selecionar ${profile.fullName}`}
               checked={selected}
               disabled={protectedUser}
               onChange={(event) => onSelect(event.target.checked)}
-              className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+              className="h-4 w-4 cursor-pointer rounded border-line-strong text-brand focus:ring-brand disabled:cursor-not-allowed disabled:opacity-40"
             />
           </label>
         </div>
-        <div className="space-y-3 rounded-xl bg-slate-50/70 p-3">
+        <div className="space-y-3 rounded-xl bg-surface-soft/70 p-3">
           <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-subtle">
               E-mail
             </span>
-            <p className="mt-1 break-all text-xs leading-5 text-slate-600">
+            <p className="mt-1 break-all text-xs leading-5 text-secondary">
               {profile.email || "Não informado"}
             </p>
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-subtle">
               Unidade
             </span>
-            <p className="mt-1 break-words text-xs font-semibold leading-5 text-slate-600">
+            <p className="mt-1 break-words text-xs font-semibold leading-5 text-secondary">
               {unitName(data, profile.unitId)}
             </p>
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-subtle">
               Perfil
             </span>
             <CustomSelect
@@ -130,7 +130,7 @@ export function AdminUserRow({
             />
           </div>
         </div>
-        <div className="flex justify-center gap-2 border-t border-slate-100 pt-3">{actions}</div>
+        <div className="flex justify-center gap-2 border-t border-line-soft pt-3">{actions}</div>
       </div>
       <div className="hidden lg:contents">
         <input
@@ -139,17 +139,17 @@ export function AdminUserRow({
           checked={selected}
           disabled={protectedUser}
           onChange={(event) => onSelect(event.target.checked)}
-          className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500 disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-4 w-4 cursor-pointer rounded border-line-strong text-brand focus:ring-brand disabled:cursor-not-allowed disabled:opacity-40"
         />
         <div className="flex min-w-0 items-center gap-3">
           <Avatar user={profile} size="sm" />
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-ink">{profile.fullName}</p>
-            <p className="truncate text-xs text-slate-500">@{profile.username}</p>
-            <p className="truncate text-xs text-slate-400">{profile.email}</p>
+            <p className="truncate text-xs text-muted">@{profile.username}</p>
+            <p className="truncate text-xs text-subtle">{profile.email}</p>
           </div>
         </div>
-        <span className="min-w-0 truncate text-center text-xs text-slate-500">
+        <span className="min-w-0 truncate text-center text-xs text-muted">
           {unitName(data, profile.unitId)}
         </span>
         <CustomSelect

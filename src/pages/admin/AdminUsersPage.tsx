@@ -127,7 +127,7 @@ export function AdminUsersPage() {
             </Button>
           }
         />
-        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-soft sm:gap-4 sm:p-4">
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-line-soft bg-surface p-3 shadow-soft sm:gap-4 sm:p-4">
           <TopSearch
             value={search}
             onSearch={updateSearch}
@@ -135,7 +135,7 @@ export function AdminUsersPage() {
             className="w-full min-w-0 max-w-none flex-[1_1_24rem]"
           />
           <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
-            <span className="shrink-0 text-xs text-slate-400">
+            <span className="shrink-0 text-xs text-subtle">
               {users.length} usuários cadastrados
             </span>
             {selected.length > 0 && (
@@ -147,8 +147,8 @@ export function AdminUsersPage() {
             )}
           </div>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-soft">
-          <div className="hidden border-b border-slate-100 bg-slate-50/60 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 lg:grid lg:grid-cols-[28px_minmax(0,1.65fr)_minmax(0,1fr)_148px_80px_132px] lg:gap-2 xl:grid-cols-[36px_minmax(280px,2fr)_minmax(150px,1.1fr)_148px_90px_132px] xl:gap-4 xl:px-5 xl:py-3">
+        <div className="overflow-hidden rounded-2xl border border-line-soft bg-surface shadow-soft">
+          <div className="hidden border-b border-line-soft bg-surface-soft/60 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-subtle lg:grid lg:grid-cols-[28px_minmax(0,1.65fr)_minmax(0,1fr)_148px_80px_132px] lg:gap-2 xl:grid-cols-[36px_minmax(280px,2fr)_minmax(150px,1.1fr)_148px_90px_132px] xl:gap-4 xl:px-5 xl:py-3">
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -161,7 +161,7 @@ export function AdminUsersPage() {
                       : [...new Set([...selected, ...visibleIds])],
                   )
                 }
-                className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                className="h-4 w-4 cursor-pointer rounded border-line-strong text-brand focus:ring-brand"
               />
             </div>
             <span>Usuário</span>
@@ -234,7 +234,7 @@ export function AdminUsersPage() {
             />
           ))}
           {users.length > 0 && (
-            <div className="grid gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-5">
+            <div className="grid gap-3 border-t border-line-soft px-4 py-3 text-xs text-muted sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-5">
               <span className="sm:justify-self-start">
                 Exibindo {pageStart + 1}-{pageEnd} de {users.length} usuários
               </span>
@@ -244,7 +244,7 @@ export function AdminUsersPage() {
                   aria-label="Página anterior"
                   disabled={currentPage === 1}
                   onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronLeft size={16} />
                 </button>
@@ -266,8 +266,8 @@ export function AdminUsersPage() {
                       className={cn(
                         "flex h-10 w-10 items-center justify-center rounded-lg font-semibold transition",
                         item === currentPage
-                          ? "bg-teal-700 text-white"
-                          : "text-slate-500 hover:bg-slate-50 hover:text-ink",
+                          ? "bg-brand-strong text-on-brand"
+                          : "text-muted hover:bg-surface-soft hover:text-ink",
                       )}
                     >
                       {item}
@@ -279,7 +279,7 @@ export function AdminUsersPage() {
                   aria-label="Próxima página"
                   disabled={currentPage === pageCount}
                   onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-50 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronRight size={16} />
                 </button>
