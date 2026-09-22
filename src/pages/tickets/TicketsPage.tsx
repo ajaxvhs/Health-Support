@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
-import { ClipboardList, Filter, Plus, RefreshCw, Ticket as TicketIcon } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Filter,
+  Plus,
+  RefreshCw,
+  Ticket as TicketIcon,
+} from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button, EmptyState, PageHeader } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { isStaff as hasStaffAccess } from "../../lib/permissions";
-import { filterTickets, type TicketFilters } from "../../lib/utils";
+import { getPagination, getPaginationItems } from "../../lib/pagination";
+import { cn, filterTickets, type TicketFilters } from "../../lib/utils";
 import type { AppData, TicketStatus } from "../../types";
 import { TicketRow } from "./TicketRow";
 import { TicketsFilterBar, type TicketFilterView } from "./TicketsFilterBar";
@@ -21,7 +30,7 @@ const initialFilters: TicketFilters = {
 };
 const initialFiltersByView: Record<TicketFilterView, TicketFilters> = {
   all: { ...initialFilters },
-  mine: { ...initialFilters, statusSelection: ["aberto", "em_andamento"] },
+  mine: { ...initialFilters },
   queue: { ...initialFilters, sort: "priority" },
 };
 const initialAssignedByView: Record<TicketFilterView, boolean> = {
@@ -113,6 +122,7 @@ export function TicketsPage() {
   const [assignedByView, setAssignedByView] = useState(initialAssignedByView);
   const [showFilters, setShowFilters] = useState(false);
   const [refreshingQueue, setRefreshingQueue] = useState(false);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const nextView = viewFromSearchParams(searchParams, isStaff);
@@ -149,26 +159,44 @@ export function TicketsPage() {
     requesterNames,
     priorityOrder,
   });
-  const updateFilter = (key: keyof TicketFilters, value: string) =>
+  const {
+    page: currentPage,
+    pageCount,
+    start: pageStart,
+    end: pageEnd,
+  } = getPagination(page, tickets.length);
+  const pageTickets = tickets.slice(pageStart, pageEnd);
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
+  const updateFilter = (key: keyof TicketFilters, value: string) => {
+    setPage(1);
     setFiltersByView((current) => ({
       ...current,
       [view]: { ...current[view], [key]: value } as TicketFilters,
     }));
-  const updateStatusSelection = (statuses: TicketStatus[]) =>
+  };
+  const updateStatusSelection = (statuses: TicketStatus[]) => {
+    setPage(1);
     setFiltersByView((current) => ({
       ...current,
       [view]: { ...current[view], statusSelection: statuses },
     }));
+  };
   const resetFilters = () => {
+    setPage(1);
     setFiltersByView((current) => ({ ...current, [view]: { ...initialFiltersByView[view] } }));
     setAssignedByView((current) => ({ ...current, [view]: false }));
   };
   const changeView = (nextView: TicketFilterView) => {
+    setPage(1);
     setView(nextView);
     setSearchParams(nextView === "queue" ? {} : { visao: nextView === "all" ? "todos" : "meus" });
   };
-  const setAssignedToMeOnly = (active: boolean) =>
+  const setAssignedToMeOnly = (active: boolean) => {
+    setPage(1);
     setAssignedByView((current) => ({ ...current, [view]: active }));
+  };
   const claim = async (ticketId: string) => {
     try {
       await repo.claim(ticketId);
@@ -254,7 +282,7 @@ export function TicketsPage() {
       <div className="overflow-hidden rounded-2xl border border-line-soft bg-surface shadow-soft">
         {tickets.length ? (
           <div className="divide-y divide-line-soft">
-            {tickets.map((ticket) => (
+            {pageTickets.map((ticket) => (
               <TicketRow
                 key={ticket.id}
                 ticket={ticket}
@@ -270,6 +298,60 @@ export function TicketsPage() {
             title="Nenhum chamado encontrado"
             text="Tente ajustar sua busca ou seus filtros."
           />
+        )}
+        {tickets.length > 0 && (
+          <div className="grid gap-3 border-t border-line-soft px-4 py-3 text-xs text-muted sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-5">
+            <span className="sm:justify-self-start">
+              Exibindo {pageStart + 1}-{pageEnd} de {tickets.length} chamados
+            </span>
+            <div className="flex items-center justify-center gap-1 sm:justify-self-center">
+              <button
+                type="button"
+                aria-label="Página anterior"
+                disabled={currentPage === 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {getPaginationItems(currentPage, pageCount).map((item, index) =>
+                item === "ellipsis" ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex h-10 w-10 items-center justify-center"
+                  >
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    aria-label={`Ir para a página ${item}`}
+                    aria-current={item === currentPage ? "page" : undefined}
+                    onClick={() => setPage(item)}
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-lg font-semibold transition",
+                      item === currentPage
+                        ? "bg-brand-strong text-on-brand"
+                        : "text-muted hover:bg-surface-soft hover:text-ink",
+                    )}
+                  >
+                    {item}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                aria-label="Próxima página"
+                disabled={currentPage === pageCount}
+                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            <span aria-hidden="true" className="hidden sm:block" />
+          </div>
         )}
       </div>
     </>

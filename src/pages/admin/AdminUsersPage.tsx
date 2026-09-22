@@ -9,6 +9,7 @@ import {
 } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { unitName } from "../../lib/selectors";
+import { getPagination, getPaginationItems } from "../../lib/pagination";
 import { cn } from "../../lib/utils";
 import { useToast } from "../../context/useToast";
 import type { Profile } from "../../types";
@@ -23,17 +24,6 @@ type ConfirmState = {
   variant?: "primary" | "danger";
   action: () => Promise<void>;
 } | null;
-
-const PAGE_SIZE = 10;
-type PageItem = number | "ellipsis";
-function pageItems(currentPage: number, pageCount: number): PageItem[] {
-  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
-  if (currentPage <= 4) return [1, 2, 3, 4, 5, "ellipsis", pageCount];
-  if (currentPage >= pageCount - 3) {
-    return [1, "ellipsis", pageCount - 4, pageCount - 3, pageCount - 2, pageCount - 1, pageCount];
-  }
-  return [1, "ellipsis", currentPage - 1, currentPage, currentPage + 1, "ellipsis", pageCount];
-}
 
 export function AdminUsersPage() {
   const app = useApp();
@@ -53,12 +43,14 @@ export function AdminUsersPage() {
         .toLowerCase()
         .includes(query),
   );
-  const pageCount = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
   const [page, setPage] = useState(1);
-  const currentPage = Math.min(page, pageCount);
-  const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const pageUsers = users.slice(pageStart, pageStart + PAGE_SIZE);
-  const pageEnd = Math.min(pageStart + PAGE_SIZE, users.length);
+  const {
+    page: currentPage,
+    pageCount,
+    start: pageStart,
+    end: pageEnd,
+  } = getPagination(page, users.length);
+  const pageUsers = users.slice(pageStart, pageEnd);
   const visibleIds = pageUsers
     .filter((profile) => profile.id !== app.user.id)
     .map((profile) => profile.id);
@@ -248,7 +240,7 @@ export function AdminUsersPage() {
                 >
                   <ChevronLeft size={16} />
                 </button>
-                {pageItems(currentPage, pageCount).map((item, index) =>
+                {getPaginationItems(currentPage, pageCount).map((item, index) =>
                   item === "ellipsis" ? (
                     <span
                       key={`ellipsis-${index}`}
