@@ -51,7 +51,7 @@ export function DefinePasswordPage() {
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] w-full items-center justify-center">
       <div className="w-full max-w-md rounded-3xl border border-line-soft bg-surface p-6 shadow-soft sm:p-8">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-contrast">
           <LockKeyhole size={22} />
         </span>
         <h1 className="mt-4 font-display text-2xl font-bold text-ink">Defina sua senha</h1>

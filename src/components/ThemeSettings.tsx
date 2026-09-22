@@ -6,11 +6,10 @@ import type { ThemePreference } from "../lib/theme";
 const options: Array<{
   value: ThemePreference;
   label: string;
-  description: string;
   icon: typeof Sun;
 }> = [
-  { value: "light", label: "Claro", description: "Tema claro", icon: Sun },
-  { value: "dark", label: "Escuro", description: "Tema escuro", icon: Moon },
+  { value: "light", label: "Claro", icon: Sun },
+  { value: "dark", label: "Escuro", icon: Moon },
 ];
 
 export function ThemeSettings() {
@@ -22,7 +21,7 @@ export function ThemeSettings() {
         Escolha como o portal deve aparecer neste dispositivo.
       </p>
       <div className="mt-5 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Tema do portal">
-        {options.map(({ value, label, description, icon: Icon }) => (
+        {options.map(({ value, label, icon: Icon }) => (
           <button
             key={value}
             type="button"
@@ -38,7 +37,6 @@ export function ThemeSettings() {
           >
             <Icon size={18} aria-hidden="true" />
             <span className="text-xs font-bold">{label}</span>
-            <span className="text-[10px] text-subtle">{description}</span>
           </button>
         ))}
       </div>

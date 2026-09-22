@@ -205,7 +205,7 @@ export function AuditPage() {
                       {event.detail}{" "}
                       {ticket && (
                         <Link
-                          className="font-bold text-brand-strong hover:underline"
+                          className="font-bold text-brand hover:underline"
                           to={`/chamados/${ticket.id}`}
                         >
                           #{ticket.number}

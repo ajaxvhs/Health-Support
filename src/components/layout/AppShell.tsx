@@ -37,9 +37,9 @@ function Logo() {
       <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl" />
       <div>
         <p className="font-display text-[16px] font-bold tracking-[-0.03em] text-ink">
-          Suporte<span className="text-brand-strong"> Saúde</span>
+          Suporte<span className="text-brand"> Saúde</span>
         </p>
-        <p className="text-[10px] font-medium uppercase tracking-[.14em] text-brand-strong">
+        <p className="text-[11px] font-semibold uppercase tracking-[.09em] text-brand">
           Atendimento de TI
         </p>
       </div>
@@ -144,7 +144,7 @@ export function AppShell() {
         <nav className="scrollbar-none mt-9 min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain">
           {navigationFor(user, data).map((group) => (
             <div key={group.title}>
-              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[.17em] text-subtle">
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[.17em] text-muted">
                 {group.title}
               </p>
               <div className="space-y-1">
@@ -180,7 +180,7 @@ export function AppShell() {
                     />
                     <span className="flex-1 whitespace-nowrap">{link.label}</span>
                     {link.count !== undefined && (
-                      <span className="flex h-6 w-7 shrink-0 items-center justify-center rounded-full bg-surface-muted text-[10px] text-muted group-[.bg-brand-soft]:bg-surface group-[.bg-brand-soft]:text-brand-strong">
+                      <span className="flex h-6 w-7 shrink-0 items-center justify-center rounded-full bg-surface-muted text-[10px] text-muted group-[.bg-brand-soft]:bg-surface group-[.bg-brand-soft]:text-ink">
                         {link.count}
                       </span>
                     )}
@@ -227,7 +227,7 @@ export function AppShell() {
               >
                 <Bell size={19} />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-warning-strong px-1 text-center text-[9px] font-bold leading-4 text-ink ring-2 ring-surface">
+                  <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-brand-strong px-1 text-center text-[9px] font-bold leading-4 text-on-brand ring-2 ring-surface">
                     {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
                   </span>
                 )}

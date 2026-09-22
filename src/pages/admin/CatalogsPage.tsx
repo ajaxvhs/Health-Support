@@ -333,7 +333,7 @@ function CatalogRow({
     <div className="mx-3 my-3 rounded-2xl border border-line-soft p-4 md:mx-0 md:my-0 md:grid md:grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] md:items-center md:gap-4 md:rounded-none md:border-x-0 md:border-b md:border-t-0 md:px-5 md:py-4">
       <div className="space-y-4 md:hidden">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xs font-bold text-brand-strong">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xs font-bold text-brand-contrast">
             {item.code ? item.code.slice(0, 2) : <Settings2 size={16} />}
           </span>
           <div className="min-w-0 flex-1">
@@ -369,7 +369,7 @@ function CatalogRow({
           className="h-4 w-4 cursor-pointer rounded border-line-strong text-brand-strong focus:ring-brand-focus"
         />
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xs font-bold text-brand-strong">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xs font-bold text-brand-contrast">
             {item.code ? item.code.slice(0, 2) : <Settings2 size={16} />}
           </span>
           <div className="min-w-0">

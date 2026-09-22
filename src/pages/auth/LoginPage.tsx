@@ -41,13 +41,13 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
             <div className="flex items-center gap-3">
               <img src="/favicon.svg" alt="" className="h-10 w-10 rounded-xl" />
               <span className="font-display text-[22px] font-bold tracking-[-0.04em] text-ink">
-                Suporte<span className="text-brand-strong"> Saúde</span>
+                Suporte<span className="text-brand"> Saúde</span>
               </span>
             </div>
           </div>
 
           <div className="mt-8 text-center">
-            <p className="text-xs font-bold uppercase tracking-[.16em] text-brand-strong">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-brand">
               Portal interno
             </p>
             <h1 className="mt-2 font-display text-[27px] font-bold tracking-tight text-ink">
@@ -87,7 +87,7 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
                   type="button"
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                   onClick={() => setShowPassword((visible) => !visible)}
-                  className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-subtle transition hover:bg-surface-muted hover:text-brand-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-focus"
+                  className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-subtle transition hover:bg-surface-muted hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-focus"
                 >
                   {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>

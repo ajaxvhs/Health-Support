@@ -114,7 +114,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line-strong bg-surface px-6 py-16 text-center">
-      <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-strong">
+      <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand-contrast">
         <Icon size={25} />
       </span>
       <h3 className="font-display text-lg font-bold text-ink">{title}</h3>
@@ -138,7 +138,7 @@ export function PageHeader({
   return (
     <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-brand-strong">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-brand">
           {eyebrow}
         </p>
         <h1 className="font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">

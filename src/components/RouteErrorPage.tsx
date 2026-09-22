@@ -13,7 +13,7 @@ export function RouteErrorPage() {
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-caution-soft text-caution-strong">
           <AlertTriangle size={24} aria-hidden="true" />
         </div>
-        <p className="mt-6 text-[11px] font-bold uppercase tracking-[.16em] text-brand-strong">
+        <p className="mt-6 text-[11px] font-bold uppercase tracking-[.16em] text-brand">
           Portal de suporte
         </p>
         <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">

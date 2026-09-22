@@ -184,7 +184,7 @@ export function DateRangePicker({
                       isToday &&
                         !isStart &&
                         !isEnd &&
-                        "font-bold text-brand-strong ring-1 ring-brand-focus",
+                        "font-bold text-brand ring-1 ring-brand-focus",
                       isToday && (isStart || isEnd) && "ring-2 ring-brand-hover ring-offset-1",
                       isStart &&
                         "rounded-l-lg bg-brand-strong font-bold text-on-brand hover:bg-brand-strong",
