@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Check, Send } from "lucide-react";
+import { Check, LoaderCircle, Send } from "lucide-react";
 import { Avatar, Badge, Button } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
@@ -125,8 +125,13 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
               <span>Nota interna (somente equipe)</span>
             </label>
           )}
-          <Button className="sm:ml-auto" loading={sending}>
-            <Send size={15} /> Enviar mensagem
+          <Button className="sm:ml-auto" disabled={sending} aria-busy={sending}>
+            {sending ? (
+              <LoaderCircle size={15} className="shrink-0 animate-spin" aria-hidden="true" />
+            ) : (
+              <Send size={15} aria-hidden="true" />
+            )}
+            Enviar mensagem
           </Button>
         </div>
       </form>
