@@ -90,17 +90,17 @@ export function DateRangePicker({
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "flex h-12 w-full items-center gap-2 rounded-xl border bg-white px-3 text-left text-xs outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100",
-          open ? "border-teal-600 ring-2 ring-teal-100" : "border-slate-200",
-          !from && "text-slate-400",
+          "flex h-12 w-full items-center gap-2 rounded-xl border bg-surface px-3 text-left text-xs outline-none transition focus:border-brand-focus focus:ring-2 focus:ring-brand-soft",
+          open ? "border-brand-focus ring-2 ring-brand-soft" : "border-line-strong",
+          !from && "text-subtle",
         )}
       >
-        <CalendarDays size={16} className="shrink-0 text-slate-400" />
+        <CalendarDays size={16} className="shrink-0 text-subtle" />
         <span className="min-w-0 flex-1 truncate">{displayValue}</span>
         {from && (
           <X
             size={15}
-            className="shrink-0 text-slate-400 hover:text-slate-700"
+            className="shrink-0 text-subtle hover:text-secondary"
             onClick={(event) => {
               event.stopPropagation();
               onChange("", "");
@@ -109,7 +109,7 @@ export function DateRangePicker({
         )}
         <ChevronDown
           size={15}
-          className={cn("shrink-0 text-slate-400 transition-transform", open && "rotate-180")}
+          className={cn("shrink-0 text-subtle transition-transform", open && "rotate-180")}
         />
       </button>
       {open &&
@@ -128,7 +128,7 @@ export function DateRangePicker({
                 ),
               ),
             }}
-            className="z-[1000] w-[min(21rem,calc(100vw-2rem))] rounded-2xl border border-slate-100 bg-white p-4 shadow-xl"
+            className="z-[1000] w-[min(21rem,calc(100vw-2rem))] rounded-2xl border border-line-soft bg-surface p-4 shadow-xl"
             role="dialog"
             aria-label="Selecionar período"
           >
@@ -139,7 +139,7 @@ export function DateRangePicker({
                 onClick={() =>
                   setMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))
                 }
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                className="rounded-lg p-2 text-secondary hover:bg-surface-muted"
               >
                 <ChevronLeft size={17} />
               </button>
@@ -152,12 +152,12 @@ export function DateRangePicker({
                 onClick={() =>
                   setMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))
                 }
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+                className="rounded-lg p-2 text-secondary hover:bg-surface-muted"
               >
                 <ChevronRight size={17} />
               </button>
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-slate-400">
+            <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-subtle">
               {weekdays.map((day) => (
                 <span key={day} className="py-1">
                   {day}
@@ -178,16 +178,18 @@ export function DateRangePicker({
                     onClick={() => chooseDay(day)}
                     className={cn(
                       "relative h-9 rounded-lg text-xs transition",
-                      !isCurrentMonth && "text-slate-300",
-                      isCurrentMonth && "text-slate-700 hover:bg-teal-50",
-                      inRange && "rounded-none bg-teal-50 text-teal-800",
+                      !isCurrentMonth && "text-subtle",
+                      isCurrentMonth && "text-secondary hover:bg-brand-soft",
+                      inRange && "rounded-none bg-brand-soft text-brand-contrast",
                       isToday &&
                         !isStart &&
                         !isEnd &&
-                        "font-bold text-teal-700 ring-1 ring-teal-600",
-                      isToday && (isStart || isEnd) && "ring-2 ring-teal-300 ring-offset-1",
-                      isStart && "rounded-l-lg bg-teal-700 font-bold text-white hover:bg-teal-700",
-                      isEnd && "rounded-r-lg bg-teal-700 font-bold text-white hover:bg-teal-700",
+                        "font-bold text-brand ring-1 ring-brand-focus",
+                      isToday && (isStart || isEnd) && "ring-2 ring-brand-hover ring-offset-1",
+                      isStart &&
+                        "rounded-l-lg bg-brand-strong font-bold text-on-brand hover:bg-brand-strong",
+                      isEnd &&
+                        "rounded-r-lg bg-brand-strong font-bold text-on-brand hover:bg-brand-strong",
                       isStart && isEnd && "rounded-lg",
                     )}
                   >
@@ -196,7 +198,7 @@ export function DateRangePicker({
                       <span
                         className={cn(
                           "absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full",
-                          isStart || isEnd ? "bg-white" : "bg-teal-700",
+                          isStart || isEnd ? "bg-on-brand" : "bg-brand-strong",
                         )}
                       />
                     )}
@@ -204,7 +206,7 @@ export function DateRangePicker({
                 );
               })}
             </div>
-            <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] text-slate-400">
+            <p className="mt-3 border-t border-line-soft pt-3 text-[11px] text-subtle">
               {from && !to ? "Selecione a data final" : "Selecione a data inicial e a data final"}
             </p>
           </div>,

@@ -84,14 +84,14 @@ function UserFormTabs({
     ...(includeSecurity ? [{ value: "security" as const, label: "Segurança" }] : []),
   ];
   return (
-    <div className="mt-5 flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">
+    <div className="mt-5 flex gap-1 overflow-x-auto rounded-xl bg-surface-muted p-1">
       {tabs.map((tab) => (
         <button
           key={tab.value}
           type="button"
           onClick={() => onChange(tab.value)}
           aria-selected={value === tab.value}
-          className={`min-h-10 min-w-0 flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-bold transition ${value === tab.value ? "bg-white text-ink shadow-sm" : "text-slate-500 hover:text-ink"}`}
+          className={`min-h-10 min-w-0 flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-bold transition ${value === tab.value ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}
         >
           {tab.label}
         </button>
@@ -335,7 +335,7 @@ export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: 
         </div>
       ) : (
         <div className="mt-5 space-y-4">
-          <p className="text-sm leading-6 text-slate-500">
+          <p className="text-sm leading-6 text-secondary">
             Redefina a senha sem exigir a senha atual. O usuário deverá trocar essa senha no próximo
             acesso.
           </p>

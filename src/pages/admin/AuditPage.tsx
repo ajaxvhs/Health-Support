@@ -132,10 +132,10 @@ export function AuditPage() {
           compact
         />
       </div>
-      <section className="relative rounded-2xl border border-slate-100 bg-white shadow-soft">
-        <div className="relative z-20 border-b border-slate-100 px-5 py-5 sm:px-7">
+      <section className="relative rounded-2xl border border-line-soft bg-surface shadow-soft">
+        <div className="relative z-20 border-b border-line-soft px-5 py-5 sm:px-7">
           <h2 className="font-display font-bold text-ink">Atividade recente</h2>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-subtle">
             Filtre por responsável, período, ação ou texto.
           </p>
           <div className="mt-4">
@@ -191,7 +191,7 @@ export function AuditPage() {
             </FilterToolbar>
           </div>
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-line-soft">
           {events.length ? (
             events.map((event) => {
               const actor = userById(data, event.actorId);
@@ -200,19 +200,19 @@ export function AuditPage() {
                 <div key={event.id} className="flex items-start gap-3 px-5 py-4 sm:px-7">
                   <Avatar user={actor} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-secondary">
                       <strong className="text-ink">{actor?.fullName ?? "Usuário removido"}</strong>{" "}
                       {event.detail}{" "}
                       {ticket && (
                         <Link
-                          className="font-bold text-teal-700 hover:underline"
+                          className="font-bold text-brand hover:underline"
                           to={`/chamados/${ticket.id}`}
                         >
                           #{ticket.number}
                         </Link>
                       )}
                     </p>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-subtle">
                       {formatDate(event.createdAt, true)} · {eventLabels[event.type] ?? event.type}
                     </p>
                   </div>

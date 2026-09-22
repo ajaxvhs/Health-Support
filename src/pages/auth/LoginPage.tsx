@@ -23,13 +23,10 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
     }
   };
   return (
-    <main className="relative flex min-h-[100svh] w-full flex-col overflow-hidden bg-[#eff5f3] px-4 py-6 sm:px-6 sm:py-8">
-      <div className="pointer-events-none absolute -right-32 -top-36 h-96 w-96 rounded-full bg-teal-100/80 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-44 -left-24 h-80 w-80 rounded-full bg-white/70 blur-3xl" />
-      <div className="pointer-events-none absolute left-[8%] top-[16%] h-52 w-52 rounded-full border border-teal-200/35" />
+    <main className="relative flex min-h-[100svh] w-full flex-col overflow-hidden bg-canvas-soft px-4 py-6 sm:px-6 sm:py-8">
       <div className="pointer-events-none absolute inset-0 bg-dot-grid bg-[length:24px_24px] opacity-[0.22]" />
       <svg
-        className="pointer-events-none absolute bottom-24 left-1/2 hidden h-12 w-64 -translate-x-1/2 text-teal-700/[0.08] sm:block"
+        className="pointer-events-none absolute bottom-24 left-1/2 hidden h-12 w-64 -translate-x-1/2 text-brand-strong/[0.14] sm:block"
         viewBox="0 0 256 48"
         fill="none"
         aria-hidden="true"
@@ -38,25 +35,25 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
       </svg>
 
       <div className="relative z-10 flex flex-1 items-center justify-center">
-        <section className="relative w-full max-w-[472px] overflow-hidden rounded-[20px] border border-slate-200/80 bg-white p-8 shadow-soft sm:p-10">
-          <div className="absolute left-8 right-8 top-0 h-1.5 rounded-b-full bg-teal-700 sm:left-10 sm:right-10" />
+        <section className="relative w-full max-w-[472px] overflow-hidden rounded-[20px] border border-line/80 bg-surface p-8 shadow-soft sm:p-10">
+          <div className="absolute left-8 right-8 top-0 h-1.5 rounded-b-full bg-brand-strong sm:left-10 sm:right-10" />
           <div className="flex justify-center">
             <div className="flex items-center gap-3">
               <img src="/favicon.svg" alt="" className="h-10 w-10 rounded-xl" />
               <span className="font-display text-[22px] font-bold tracking-[-0.04em] text-ink">
-                Suporte<span className="text-teal-700"> Saúde</span>
+                Suporte<span className="text-brand"> Saúde</span>
               </span>
             </div>
           </div>
 
           <div className="mt-8 text-center">
-            <p className="text-xs font-bold uppercase tracking-[.16em] text-teal-700">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-brand">
               Portal interno
             </p>
             <h1 className="mt-2 font-display text-[27px] font-bold tracking-tight text-ink">
               Bem-vindo de volta
             </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className="mt-2 text-sm leading-6 text-secondary">
               Entre para acessar seus chamados de suporte.
             </p>
           </div>
@@ -84,13 +81,13 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
                   placeholder="••••••••"
                   autoComplete="current-password"
                   aria-label="Senha"
-                  className="min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3.5 pr-12 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                  className="min-h-12 w-full rounded-xl border border-line-strong bg-surface px-3.5 pr-12 text-sm text-ink outline-none transition placeholder:text-subtle focus:border-brand-focus focus:ring-2 focus:ring-brand-soft"
                 />
                 <button
                   type="button"
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                   onClick={() => setShowPassword((visible) => !visible)}
-                  className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                  className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-subtle transition hover:bg-surface-muted hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-focus"
                 >
                   {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
@@ -102,14 +99,14 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
             </Button>
           </form>
 
-          <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500">
-            <LockKeyhole size={13} className="text-slate-400" />
+          <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-secondary">
+            <LockKeyhole size={13} className="text-subtle" />
             Acesso restrito a usuários autorizados
           </p>
         </section>
       </div>
 
-      <footer className="relative z-10 shrink-0 pt-6 text-center text-xs text-slate-400">
+      <footer className="relative z-10 shrink-0 pt-6 text-center text-xs text-subtle">
         Secretaria Municipal de Saúde <span className="px-1">•</span> v1.0.0
       </footer>
     </main>

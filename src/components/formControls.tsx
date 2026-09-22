@@ -13,7 +13,7 @@ import { cn } from "../lib/utils";
 import { useFloatingPosition } from "./useFloatingPosition";
 
 const inputClass =
-  "min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-ink outline-none transition hover:border-teal-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-100";
+  "min-h-12 w-full rounded-xl border border-line bg-surface px-3.5 text-sm font-medium text-ink outline-none transition hover:border-brand-hover focus:border-brand-focus focus:ring-2 focus:ring-brand-muted";
 
 export interface SelectOption {
   value: string;
@@ -95,7 +95,7 @@ export function SelectField({
           className={cn("mb-2 block text-sm font-bold text-ink", compact && "sr-only")}
         >
           {label}
-          {required && <span className="ml-1 text-teal-700">*</span>}
+          {required && <span className="ml-1 text-brand">*</span>}
         </span>
       )}
       <button
@@ -126,7 +126,7 @@ export function SelectField({
               left: floatingMenuLeft,
               width: floatingMenuWidth,
             }}
-            className="z-[1000] max-h-60 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+            className="z-[1000] max-h-60 space-y-1 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-xl"
             role="listbox"
           >
             {options.map((option) => (
@@ -137,8 +137,9 @@ export function SelectField({
                 aria-selected={option.value === value}
                 disabled={option.disabled}
                 className={cn(
-                  "block w-full rounded-lg px-3 py-3 text-left text-sm hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
-                  option.value === value && "bg-teal-50 font-bold text-teal-800",
+                  "block w-full rounded-lg px-3 text-left text-sm hover:bg-brand-soft disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+                  compact ? "min-h-10 py-2" : "py-3",
+                  option.value === value && "bg-brand-soft font-bold text-brand-contrast",
                 )}
                 onClick={() => {
                   if (option.disabled) return;
@@ -229,7 +230,7 @@ export function TextField({
     <div className="block">
       <span id={labelId} className="mb-2 block text-sm font-bold text-ink">
         {label}
-        {required && showRequiredIndicator && <span className="ml-1 text-teal-700">*</span>}
+        {required && showRequiredIndicator && <span className="ml-1 text-brand">*</span>}
       </span>
       <div className="relative">
         <input
@@ -246,9 +247,9 @@ export function TextField({
           aria-labelledby={labelId}
           className={cn(
             inputClass,
-            "placeholder:text-slate-400",
+            "placeholder:text-subtle",
             isPassword && "pr-12",
-            readOnly && "cursor-default bg-slate-50 text-slate-500",
+            readOnly && "cursor-default bg-surface-soft text-muted",
             className,
           )}
         />
@@ -258,13 +259,13 @@ export function TextField({
             aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
             aria-pressed={showPassword}
             onClick={() => setShowPassword((visible) => !visible)}
-            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-subtle transition hover:bg-surface-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
           </button>
         )}
       </div>
-      {hint && <span className="mt-1.5 block text-xs text-slate-400">{hint}</span>}
+      {hint && <span className="mt-1.5 block text-xs text-subtle">{hint}</span>}
     </div>
   );
 }
@@ -289,20 +290,20 @@ export function TopSearch({
 
   return (
     <div className={cn("relative max-w-sm", className)}>
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" size={17} />
       <input
         aria-label="Buscar"
         value={currentValue}
         onChange={(event) => update(event.target.value)}
         placeholder={placeholder}
-        className="min-h-12 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm font-medium text-ink outline-none transition placeholder:text-slate-400 hover:border-teal-300 focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+        className="min-h-12 w-full rounded-xl border border-line-strong bg-surface pl-10 pr-10 text-sm font-medium text-ink outline-none transition placeholder:text-subtle hover:border-brand-hover focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"
       />
       {currentValue && (
         <button
           type="button"
           aria-label="Limpar busca"
           onClick={() => update("")}
-          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-subtle hover:bg-surface-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
           <X size={16} />
         </button>

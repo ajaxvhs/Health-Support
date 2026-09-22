@@ -128,6 +128,10 @@ export function filterTickets(
     );
   });
   return [...filtered].sort((a, b) => {
+    const aIsOpen = a.status === "aberto" || a.status === "em_andamento";
+    const bIsOpen = b.status === "aberto" || b.status === "em_andamento";
+    if (aIsOpen !== bIsOpen) return aIsOpen ? -1 : 1;
+
     if (filters.sort === "priority") {
       return (
         (context.priorityOrder?.[a.priorityId] ?? Number.MAX_SAFE_INTEGER) -

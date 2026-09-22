@@ -39,10 +39,10 @@ function Toast({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => void }
   return (
     <div
       className={cn(
-        "pointer-events-auto flex w-full items-start gap-3 rounded-2xl border bg-white px-4 py-3.5 shadow-float animate-toast-in",
-        toast.kind === "success" && "border-emerald-100",
-        toast.kind === "error" && "border-red-100",
-        toast.kind === "info" && "border-blue-100",
+        "pointer-events-auto flex w-full items-start gap-3 rounded-2xl border bg-surface px-4 py-3.5 shadow-float animate-toast-in",
+        toast.kind === "success" && "border-success-border",
+        toast.kind === "error" && "border-danger-border",
+        toast.kind === "info" && "border-info-border",
       )}
       role={toast.kind === "error" ? "alert" : "status"}
     >
@@ -50,16 +50,16 @@ function Toast({ toast, onDismiss }: { toast: ToastItem; onDismiss: () => void }
         size={19}
         className={cn(
           "mt-0.5 shrink-0",
-          toast.kind === "success" && "text-emerald-600",
-          toast.kind === "error" && "text-red-600",
-          toast.kind === "info" && "text-blue-600",
+          toast.kind === "success" && "text-success-strong",
+          toast.kind === "error" && "text-danger-strong",
+          toast.kind === "info" && "text-info-strong",
         )}
       />
       <p className="flex-1 text-sm font-semibold leading-5 text-ink">{toast.message}</p>
       <button
         type="button"
         onClick={onDismiss}
-        className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-ink"
+        className="rounded-lg p-1 text-subtle transition hover:bg-surface-muted hover:text-ink"
         aria-label="Fechar aviso"
       >
         <X size={16} />

@@ -29,11 +29,11 @@ export function AppUpdateNotice() {
 
   return (
     <aside
-      className="fixed bottom-4 left-4 right-4 z-[150] rounded-2xl border border-teal-100 bg-white p-4 shadow-xl sm:left-auto sm:max-w-sm"
+      className="fixed bottom-4 left-4 right-4 z-[150] rounded-2xl border border-brand-border bg-surface p-4 shadow-xl sm:left-auto sm:max-w-sm"
       role="status"
     >
       <p className="font-bold text-ink">Nova versão disponível</p>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-1 text-sm text-secondary">
         Conclua ou salve o que estiver preenchendo antes de atualizar.
       </p>
       <div className="mt-3 flex justify-end gap-2">

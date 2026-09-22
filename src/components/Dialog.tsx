@@ -41,7 +41,7 @@ export function Dialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-ink/40 p-4"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-overlay/40 p-4 backdrop-blur-sm"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -49,7 +49,7 @@ export function Dialog({
     >
       <div
         className={cn(
-          "max-h-[calc(100dvh-2rem)] min-h-0 w-full overflow-y-auto rounded-2xl border border-slate-100 bg-white p-4 shadow-xl sm:p-6",
+          "max-h-[calc(100dvh-2rem)] min-h-0 w-full overflow-y-auto rounded-2xl border border-line-soft bg-surface p-4 shadow-xl sm:p-6",
           maxWidth,
         )}
         role={role}
@@ -63,7 +63,7 @@ export function Dialog({
               {title}
             </h2>
             {description && (
-              <p id={descriptionId} className="mt-1 text-sm leading-6 text-slate-500">
+              <p id={descriptionId} className="mt-1 text-sm leading-6 text-secondary">
                 {description}
               </p>
             )}
@@ -72,7 +72,7 @@ export function Dialog({
             type="button"
             aria-label={`Fechar ${title.toLowerCase()}`}
             onClick={onClose}
-            className="shrink-0 cursor-pointer rounded-lg p-2 text-slate-400 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            className="shrink-0 cursor-pointer rounded-lg p-2 text-subtle hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-focus"
           >
             <X size={18} />
           </button>

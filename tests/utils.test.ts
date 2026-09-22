@@ -87,6 +87,37 @@ describe("metricas e filtros de chamados", () => {
     expect(result.map((item) => item.id)).toEqual(["t-1", "t-2"]);
   });
 
+  it("mantem chamados abertos antes dos encerrados e aplica a ordenacao dentro de cada grupo", () => {
+    const tickets = [
+      ticket("t-1", "2025-01-10T10:00:00.000Z", "high", "fechado"),
+      ticket("t-2", "2025-01-01T10:00:00.000Z", "low", "aberto"),
+      ticket("t-3", "2025-01-05T10:00:00.000Z", "low", "resolvido"),
+      ticket("t-4", "2025-01-08T10:00:00.000Z", "high", "em_andamento"),
+    ];
+    const filters = {
+      search: "",
+      status: "todos" as const,
+      priorityId: "",
+      unitId: "",
+      requesterId: "",
+      dateRange: "all" as const,
+      sort: "newest" as const,
+    };
+
+    expect(filterTickets(tickets, filters).map((item) => item.id)).toEqual([
+      "t-4",
+      "t-2",
+      "t-1",
+      "t-3",
+    ]);
+    expect(filterTickets(tickets, { ...filters, sort: "oldest" }).map((item) => item.id)).toEqual([
+      "t-2",
+      "t-4",
+      "t-3",
+      "t-1",
+    ]);
+  });
+
   it("filtra auditoria por ator, ação, texto e intervalo de data", () => {
     const events = [
       {

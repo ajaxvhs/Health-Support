@@ -21,7 +21,7 @@ export function FilterField({
 }) {
   return (
     <div className={cn("block min-w-0", className)}>
-      <span className="mb-1.5 block text-xs font-semibold text-slate-500">{label}</span>
+      <span className="mb-1.5 block text-xs font-semibold text-muted">{label}</span>
       {children}
     </div>
   );
@@ -69,7 +69,7 @@ export function FilterToolbar({
           <SlidersHorizontal size={16} />
           <span>Filtros</span>
           {chips.length > 0 && (
-            <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">
+            <span className="rounded-full bg-on-brand/20 px-1.5 py-0.5 text-[10px]">
               {chips.length}
             </span>
           )}
@@ -78,7 +78,7 @@ export function FilterToolbar({
 
       {chips.length > 0 && (
         <div
-          className="mt-3 flex min-h-8 min-w-0 flex-wrap items-center gap-2 border-t border-slate-100 pt-3"
+          className="mt-3 flex min-h-8 min-w-0 flex-wrap items-center gap-2 border-t border-line-soft pt-3"
           aria-label="Filtros ativos"
         >
           {chips.map((chip) => (
@@ -86,7 +86,7 @@ export function FilterToolbar({
               key={chip.key}
               type="button"
               onClick={chip.onRemove}
-              className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border border-teal-100 bg-teal-50 px-3 text-[11px] font-bold text-teal-800 transition hover:border-teal-200 hover:bg-teal-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-full border border-brand-border bg-brand-soft px-3 text-[11px] font-bold text-brand-contrast transition hover:border-brand-border hover:bg-brand-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               aria-label={`Remover filtro ${chip.label}`}
             >
               {chip.icon}
@@ -98,7 +98,7 @@ export function FilterToolbar({
             type="button"
             variant="ghost"
             onClick={onClear}
-            className="min-h-8 px-2 text-[11px] font-bold text-slate-500 hover:text-teal-700"
+            className="min-h-8 px-2 text-[11px] font-bold text-muted hover:text-brand"
             aria-label="Limpar filtros ativos"
           >
             <RotateCcw size={13} /> Limpar filtros
@@ -114,8 +114,8 @@ export function FilterToolbar({
         )}
       >
         <div className={cn("min-h-0", open ? "overflow-visible" : "overflow-hidden")}>
-          <div id={panelId} className="mt-3 border-t border-slate-100 pt-3">
-            <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:p-4">
+          <div id={panelId} className="mt-3 border-t border-line-soft pt-3">
+            <div className="rounded-xl border border-line-soft bg-surface-soft/60 p-3 sm:p-4">
               <div className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2", panelClassName)}>
                 {children}
               </div>

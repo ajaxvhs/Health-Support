@@ -5,6 +5,7 @@ import {
   Plus,
   Ticket as TicketIcon,
   UserCheck,
+  UserX,
   Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -110,8 +111,8 @@ export function DashboardPage() {
                 mine.filter((ticket) => !ticket.assignedTo && ticket.status !== "fechado").length
               }
               detail="Na fila agora"
-              icon={TicketIcon}
-              tone="orange"
+              icon={UserX}
+              tone="teal"
             />
             <StatCard
               label="Atribuídos a mim"
@@ -128,18 +129,18 @@ export function DashboardPage() {
         )}
       </div>
       <div className="mt-7">
-        <section className="rounded-2xl border border-slate-100 bg-white shadow-soft">
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+        <section className="rounded-2xl border border-line-soft bg-surface shadow-soft">
+          <div className="flex items-center justify-between border-b border-line-soft px-5 py-4 sm:px-6">
             <div>
               <h2 className="font-display font-bold text-ink">Chamados recentes</h2>
-              <p className="mt-1 text-xs text-slate-400">Últimas atualizações do atendimento</p>
+              <p className="mt-1 text-xs text-subtle">Últimas atualizações do atendimento</p>
             </div>
-            <Link to="/chamados" className="text-xs font-bold text-teal-700 hover:underline">
+            <Link to="/chamados" className="text-xs font-bold text-brand hover:underline">
               Ver todos
             </Link>
           </div>
           {recent.length ? (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-line-soft">
               {recent.map((ticket) => (
                 <TicketRow key={ticket.id} ticket={ticket} data={data} />
               ))}

@@ -1,5 +1,6 @@
 export type Role = "admin" | "atendente" | "solicitante";
 export type TicketStatus = "aberto" | "em_andamento" | "resolvido" | "fechado";
+export const ticketStatuses = ["aberto", "em_andamento", "resolvido", "fechado"] as const;
 export type CatalogKind = "categories" | "units" | "priorities" | "statuses";
 
 export interface Unit {

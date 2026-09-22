@@ -117,8 +117,8 @@ export function CatalogsPage() {
         title="Catálogos"
         description="Mantenha as opções utilizadas na abertura dos chamados."
       />
-      <div className="mb-6 rounded-2xl border border-slate-100 bg-white p-2 shadow-soft sm:p-3">
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100/80 p-1 lg:grid-cols-4">
+      <div className="mb-6 rounded-2xl border border-line-soft bg-surface p-2 shadow-soft sm:p-3">
+        <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-muted/80 p-1 lg:grid-cols-4">
           {[
             { key: "categories", label: "Categorias", icon: Settings2 },
             { key: "units", label: "Unidades", icon: BookOpen },
@@ -129,7 +129,7 @@ export function CatalogsPage() {
               type="button"
               key={item.key}
               onClick={() => setTabAndClear(item.key as CatalogTab)}
-              className={`flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition sm:gap-2 sm:px-3 sm:text-sm ${tab === item.key ? "bg-teal-700 text-white shadow-sm" : "text-slate-500 hover:bg-white hover:text-ink"}`}
+              className={`flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition sm:gap-2 sm:px-3 sm:text-sm ${tab === item.key ? "bg-brand-strong text-on-brand shadow-sm" : "text-muted hover:bg-surface hover:text-ink"}`}
             >
               <item.icon size={17} />
               <span className="truncate">{item.label}</span>
@@ -137,9 +137,9 @@ export function CatalogsPage() {
           ))}
         </div>
       </div>
-      <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-soft">
+      <section className="overflow-hidden rounded-2xl border border-line-soft bg-surface shadow-soft">
         <div className="min-w-0 md:min-w-[950px]">
-          <div className="flex flex-col gap-5 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <div className="flex flex-col gap-5 border-b border-line-soft p-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
             <div>
               <h2 className="font-display font-bold text-ink">
                 {tab === "categories"
@@ -150,7 +150,7 @@ export function CatalogsPage() {
                       ? "Prioridades controladas"
                       : "Status do fluxo"}
               </h2>
-              <p className="mt-1 text-xs text-slate-400">{items.length} itens no catálogo</p>
+              <p className="mt-1 text-xs text-subtle">{items.length} itens no catálogo</p>
             </div>
             <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-2">
               <TopSearch
@@ -160,7 +160,7 @@ export function CatalogsPage() {
                 className="w-full max-w-none sm:w-[32rem]"
               />
               <div className="flex items-center justify-between gap-4 sm:contents">
-                <label className="flex min-h-10 items-center gap-2 px-1 text-xs font-semibold text-slate-500 md:hidden">
+                <label className="flex min-h-10 items-center gap-2 px-1 text-xs font-semibold text-muted md:hidden">
                   <input
                     type="checkbox"
                     aria-label="Selecionar todos os itens exibidos"
@@ -172,7 +172,7 @@ export function CatalogsPage() {
                           : [...new Set([...selected, ...items.map((item) => item.id)])],
                       )
                     }
-                    className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                    className="h-4 w-4 cursor-pointer rounded border-line-strong text-brand-strong focus:ring-brand-focus"
                   />
                   Selecionar todos
                 </label>
@@ -193,7 +193,7 @@ export function CatalogsPage() {
               )}
             </div>
           </div>
-          <div className="hidden grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] gap-4 border-b border-slate-100 bg-slate-50/60 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 md:grid md:px-7">
+          <div className="hidden grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] gap-4 border-b border-line-soft bg-surface-soft/60 px-5 py-3 text-[10px] font-bold uppercase tracking-wider text-subtle md:grid md:px-7">
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -206,7 +206,7 @@ export function CatalogsPage() {
                       : [...new Set([...selected, ...items.map((item) => item.id)])],
                   )
                 }
-                className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+                className="h-4 w-4 cursor-pointer rounded border-line-strong text-brand-strong focus:ring-brand-focus"
               />
             </div>
             <span>Item</span>
@@ -301,11 +301,11 @@ function CatalogRow({
     </Badge>
   );
   const mobileActions = (
-    <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3">
+    <div className="grid grid-cols-3 gap-2 border-t border-line-soft pt-3">
       <Button
         variant="ghost"
         aria-label={`Editar ${item.name}`}
-        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap bg-slate-50 px-1 py-2 text-[11px]"
+        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap bg-surface-soft px-1 py-2 text-[11px]"
         onClick={onEdit}
       >
         <Pencil size={14} /> Editar
@@ -313,7 +313,7 @@ function CatalogRow({
       <Button
         variant="ghost"
         aria-label={`${item.isActive ? "Desativar" : "Ativar"} ${item.name}`}
-        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap bg-slate-50 px-1 py-2 text-[11px]"
+        className="min-h-10 min-w-0 flex-1 flex-row gap-1 whitespace-nowrap bg-surface-soft px-1 py-2 text-[11px]"
         onClick={onToggle}
       >
         {item.isActive ? <Power size={14} /> : <CheckCircle2 size={14} />}{" "}
@@ -330,31 +330,31 @@ function CatalogRow({
     </div>
   );
   return (
-    <div className="mx-3 my-3 rounded-2xl border border-slate-100 p-4 md:mx-0 md:my-0 md:grid md:grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] md:items-center md:gap-4 md:rounded-none md:border-x-0 md:border-b md:border-t-0 md:px-5 md:py-4">
+    <div className="mx-3 my-3 rounded-2xl border border-line-soft p-4 md:mx-0 md:my-0 md:grid md:grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] md:items-center md:gap-4 md:rounded-none md:border-x-0 md:border-b md:border-t-0 md:px-5 md:py-4">
       <div className="space-y-4 md:hidden">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-xs font-bold text-teal-700">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xs font-bold text-brand-contrast">
             {item.code ? item.code.slice(0, 2) : <Settings2 size={16} />}
           </span>
           <div className="min-w-0 flex-1">
             <p className="break-words text-sm font-bold leading-5 text-ink">{item.name}</p>
             <div className="mt-2">{status}</div>
           </div>
-          <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-slate-50">
+          <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-surface-soft">
             <input
               type="checkbox"
               aria-label={`Selecionar ${item.name}`}
               checked={selected}
               onChange={(event) => onSelect(event.target.checked)}
-              className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+              className="h-4 w-4 cursor-pointer rounded border-line-strong text-brand-strong focus:ring-brand-focus"
             />
           </label>
         </div>
-        <div className="min-w-0 rounded-xl bg-slate-50/70 p-3">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="min-w-0 rounded-xl bg-surface-soft/70 p-3">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-subtle">
             Descrição
           </span>
-          <p className="mt-1 break-words text-xs leading-5 text-slate-600">
+          <p className="mt-1 break-words text-xs leading-5 text-secondary">
             {item.description ?? item.code ?? "Disponível no formulário de chamados"}
           </p>
         </div>
@@ -366,15 +366,15 @@ function CatalogRow({
           aria-label={`Selecionar ${item.name}`}
           checked={selected}
           onChange={(event) => onSelect(event.target.checked)}
-          className="h-4 w-4 cursor-pointer rounded border-slate-300 text-teal-700 focus:ring-teal-500"
+          className="h-4 w-4 cursor-pointer rounded border-line-strong text-brand-strong focus:ring-brand-focus"
         />
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-xs font-bold text-teal-700">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xs font-bold text-brand-contrast">
             {item.code ? item.code.slice(0, 2) : <Settings2 size={16} />}
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-ink">{item.name}</p>
-            <p className="truncate text-xs text-slate-400">
+            <p className="truncate text-xs text-subtle">
               {item.description ?? item.code ?? "Disponível no formulário de chamados"}
             </p>
           </div>

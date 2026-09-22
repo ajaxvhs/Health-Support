@@ -1,0 +1,148 @@
+:root {
+  --color-canvas: 246 248 247;
+  --color-canvas-soft: 239 245 243;
+  --color-surface: 255 255 255;
+  --color-on-brand: 255 255 255;
+  --color-surface-soft: 248 250 252;
+  --color-surface-muted: 241 245 249;
+  --color-line: 226 232 240;
+  --color-line-soft: 241 245 249;
+  --color-line-strong: 203 213 225;
+  --color-text-primary: 24 49 47;
+  --color-text-secondary: 71 85 105;
+  --color-text-muted: 100 116 139;
+  --color-text-subtle: 148 163 184;
+  --color-brand-soft: 239 252 249;
+  --color-brand-muted: 217 245 239;
+  --color-brand-border: 181 233 223;
+  --color-brand-hover: 94 234 212;
+  --color-brand-focus: 15 139 118;
+  --color-brand-base: 20 168 140;
+  --color-brand: 12 112 98;
+  --color-brand-strong: 12 112 98;
+  --color-brand-deep: 13 88 79;
+  --color-brand-darker: 19 78 74;
+  --color-brand-contrast: 13 88 79;
+  --color-danger-soft: 254 242 242;
+  --color-danger-border: 254 226 226;
+  --color-danger: 220 38 38;
+  --color-danger-strong: 185 28 28;
+  --color-warning-soft: 255 247 237;
+  --color-warning-border: 254 215 170;
+  --color-warning: 234 88 12;
+  --color-warning-strong: 194 65 12;
+  --color-caution-soft: 255 251 235;
+  --color-caution-border: 254 243 199;
+  --color-caution: 245 158 11;
+  --color-caution-strong: 180 83 9;
+  --color-success-soft: 236 253 245;
+  --color-success-border: 167 243 208;
+  --color-success: 5 150 105;
+  --color-success-strong: 4 120 87;
+  --color-info-soft: 239 246 255;
+  --color-info-border: 191 219 254;
+  --color-info: 37 99 235;
+  --color-info-strong: 29 78 216;
+  --color-violet-soft: 245 243 255;
+  --color-violet-border: 221 214 254;
+  --color-violet: 124 58 237;
+  --color-violet-strong: 109 40 217;
+  --color-stat-teal-soft: 239 252 249;
+  --color-stat-teal: 12 112 98;
+  --color-stat-orange-soft: 255 247 237;
+  --color-stat-orange: 234 88 12;
+  --color-stat-violet-soft: 245 243 255;
+  --color-stat-violet: 124 58 237;
+  --color-stat-blue-soft: 239 246 255;
+  --color-stat-blue: 37 99 235;
+  --color-overlay: 24 49 47;
+  --shadow-soft: 0 8px 32px rgb(24 49 47 / 7%);
+  --shadow-lift: 0 14px 40px rgb(24 49 47 / 12%);
+  --shadow-float: 0 14px 36px rgb(15 23 42 / 14%);
+  --shadow-xl: 0 14px 36px rgb(15 23 42 / 14%);
+  --color-autofill-text: 24 49 47;
+  --color-autofill-surface: 239 252 249;
+  --color-autofill-line: 143 214 202;
+  --color-scrollbar: 200 216 212;
+}
+
+.dark {
+  --color-canvas: 13 25 24;
+  --color-canvas-soft: 13 25 24;
+  --color-surface: 20 37 34;
+  --color-on-brand: 255 255 255;
+  --color-surface-soft: 17 32 30;
+  --color-surface-muted: 26 48 45;
+  --color-line: 41 67 63;
+  --color-line-soft: 41 67 63;
+  --color-line-strong: 41 67 63;
+  --color-text-primary: 228 241 238;
+  --color-text-secondary: 193 209 205;
+  --color-text-muted: 167 181 194;
+  --color-text-subtle: 148 163 184;
+  --color-brand-soft: 23 61 55;
+  --color-brand-muted: 32 86 77;
+  --color-brand-border: 40 98 87;
+  --color-brand-hover: 52 125 110;
+  --color-brand-focus: 95 208 187;
+  --color-brand-base: 20 168 140;
+  --color-brand: 95 208 187;
+  --color-brand-strong: 12 112 98;
+  --color-brand-deep: 10 70 63;
+  --color-brand-darker: 7 51 47;
+  --color-brand-contrast: 167 231 218;
+  --color-danger-soft: 43 28 32;
+  --color-danger-border: 106 59 69;
+  --color-danger: 240 140 154;
+  --color-danger-strong: 240 140 154;
+  --color-warning-soft: 60 47 31;
+  --color-warning-border: 105 80 42;
+  --color-warning: 242 194 125;
+  --color-warning-strong: 242 194 125;
+  --color-caution-soft: 60 47 31;
+  --color-caution-border: 105 80 42;
+  --color-caution: 242 194 125;
+  --color-caution-strong: 242 194 125;
+  --color-success-soft: 23 61 55;
+  --color-success-border: 40 98 87;
+  --color-success: 125 211 199;
+  --color-success-strong: 125 211 199;
+  --color-info-soft: 23 61 55;
+  --color-info-border: 40 98 87;
+  --color-info: 125 211 199;
+  --color-info-strong: 167 231 218;
+  --color-violet-soft: 23 61 55;
+  --color-violet-border: 40 98 87;
+  --color-violet: 125 211 199;
+  --color-violet-strong: 167 231 218;
+  --color-stat-teal-soft: 23 61 55;
+  --color-stat-teal: 125 211 199;
+  --color-stat-orange-soft: 23 61 55;
+  --color-stat-orange: 125 211 199;
+  --color-stat-violet-soft: 23 61 55;
+  --color-stat-violet: 125 211 199;
+  --color-stat-blue-soft: 23 61 55;
+  --color-stat-blue: 125 211 199;
+  --color-overlay: 0 0 0;
+  --shadow-soft: 0 8px 32px rgb(0 0 0 / 24%);
+  --shadow-lift: 0 14px 40px rgb(0 0 0 / 32%);
+  --shadow-float: 0 14px 36px rgb(0 0 0 / 38%);
+  --shadow-xl: 0 14px 36px rgb(0 0 0 / 38%);
+  --color-autofill-text: 228 241 238;
+  --color-autofill-surface: 20 37 34;
+  --color-autofill-line: 52 125 110;
+  --color-scrollbar: 41 67 63;
+}
+
+@layer base {
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: rgb(var(--color-autofill-text));
+    -webkit-box-shadow: 0 0 0 1000px rgb(var(--color-autofill-surface)) inset;
+    box-shadow: 0 0 0 1000px rgb(var(--color-autofill-surface)) inset;
+    border-color: rgb(var(--color-autofill-line));
+    transition: background-color 9999s ease-in-out 0s;
+  }
+}
