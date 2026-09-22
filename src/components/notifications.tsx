@@ -69,7 +69,7 @@ export function NotificationPopover({
           {unreadCount > 0 && (
             <button
               type="button"
-              className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-bold text-brand-strong hover:bg-brand-soft"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-bold text-brand hover:bg-brand-soft"
               aria-label="Marcar tudo como lido"
               onClick={onMarkAll}
             >
@@ -88,7 +88,7 @@ export function NotificationPopover({
           )}
         </div>
       </div>
-      <div className="max-h-80 overflow-y-auto p-2">
+      <div className="max-h-80 overflow-y-auto p-2 flex flex-col gap-2">
         {notifications.length ? (
           notifications.map((notification) => (
             <div

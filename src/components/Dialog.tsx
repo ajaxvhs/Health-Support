@@ -41,7 +41,7 @@ export function Dialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-overlay/40 p-4"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-overlay/40 p-4 backdrop-blur-sm"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
