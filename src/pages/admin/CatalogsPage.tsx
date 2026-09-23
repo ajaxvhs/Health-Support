@@ -10,6 +10,7 @@ import {
 } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
+import { errorMessage, refreshAfterMutation, refreshAndNotify } from "../../lib/utils";
 import type { AppData, CatalogItem, CatalogKind } from "../../types";
 import { CreateCatalogDialog, EditCatalogDialog } from "./CatalogDialogs";
 
@@ -47,14 +48,16 @@ export function CatalogsPage() {
   const finish = async (action: () => Promise<void>) => {
     try {
       await action();
-      await refresh();
-      setSelected([]);
     } catch (reason) {
-      showToast(
-        reason instanceof Error ? reason.message : "Não foi possível concluir a ação.",
-        "error",
-      );
+      showToast(errorMessage(reason, "Não foi possível concluir a ação."), "error");
+      return;
     }
+    setSelected([]);
+    if (!(await refreshAfterMutation(refresh)))
+      showToast(
+        "A alteração foi salva, mas a lista não sincronizou. Atualize quando a conexão voltar.",
+        "info",
+      );
   };
   const bulkAction = (value: string) => {
     if (!value || !selected.length) return;
@@ -86,9 +89,8 @@ export function CatalogsPage() {
   const createItem = async (itemName: string, description: string) => {
     if (tab !== "categories" && tab !== "units") return;
     await repo.addCatalog(tab, itemName, description);
-    await refresh();
-    showToast("Item adicionado ao catálogo.");
     setCreating(false);
+    await refreshAndNotify(refresh, showToast, "Item adicionado ao catálogo.");
   };
   const requestDelete = (item: CatalogItem) => {
     const referenced = isCatalogReferenced(data, tab, item);

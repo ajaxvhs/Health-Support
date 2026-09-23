@@ -4,7 +4,7 @@ import { AppContext } from "./context/AppContext";
 import { restoreUserSession, signOut } from "./lib/auth";
 import { SupabaseRepository } from "./lib/repository";
 import { getSupabaseClient } from "./lib/supabase/client";
-import type { AppData, Profile } from "./types";
+import type { AppData, Profile, Ticket, TicketMessage } from "./types";
 
 const emptyData: AppData = {
   profiles: [],
@@ -66,9 +66,47 @@ export function AppProvider({ children }: { children?: ReactNode }) {
     setUser(null);
     setData(emptyData);
   };
+  const mergeTicket = (ticket: Ticket) =>
+    setData((current) => ({
+      ...current,
+      tickets: [ticket, ...current.tickets.filter((item) => item.id !== ticket.id)],
+    }));
+  const mergeMessage = (message: TicketMessage) =>
+    setData((current) => ({
+      ...current,
+      messages: [...current.messages.filter((item) => item.id !== message.id), message].sort(
+        (a, b) => +new Date(a.createdAt) - +new Date(b.createdAt),
+      ),
+    }));
+  const updateCurrentProfile = (
+    values: Partial<Pick<Profile, "fullName" | "phone" | "mustChangePassword">>,
+  ) => {
+    const currentUserId = user?.id;
+    if (!currentUserId) return;
+    setUser((current) => (current ? { ...current, ...values } : current));
+    setData((current) => ({
+      ...current,
+      profiles: current.profiles.map((profile) =>
+        profile.id === currentUserId ? { ...profile, ...values } : profile,
+      ),
+    }));
+  };
 
   return (
-    <AppContext.Provider value={{ repo, user, data, refresh, checkingSession, login, logout }}>
+    <AppContext.Provider
+      value={{
+        repo,
+        user,
+        data,
+        refresh,
+        checkingSession,
+        login,
+        logout,
+        mergeTicket,
+        mergeMessage,
+        updateCurrentProfile,
+      }}
+    >
       {children ?? <Outlet />}
     </AppContext.Provider>
   );

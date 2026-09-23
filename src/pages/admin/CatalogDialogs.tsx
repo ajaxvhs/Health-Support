@@ -4,6 +4,8 @@ import { Dialog } from "../../components/Dialog";
 import { Button, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
+import { refreshAndNotify } from "../../lib/utils";
+import { errorMessage } from "../../lib/utils";
 import type { CatalogItem, CatalogKind } from "../../types";
 
 export function CreateCatalogDialog({
@@ -29,10 +31,7 @@ export function CreateCatalogDialog({
     try {
       await onCreate(name, description);
     } catch (reason) {
-      showToast(
-        reason instanceof Error ? reason.message : "Não foi possível adicionar o item.",
-        "error",
-      );
+      showToast(errorMessage(reason, "Não foi possível adicionar o item."), "error");
     } finally {
       setSaving(false);
     }
@@ -101,14 +100,10 @@ export function EditCatalogDialog({
     setSaving(true);
     try {
       await repo.renameCatalog(kind, item.id, name, description);
-      await refresh();
-      showToast("Item atualizado com sucesso.");
       onClose();
+      await refreshAndNotify(refresh, showToast, "Item atualizado com sucesso.");
     } catch (reason) {
-      showToast(
-        reason instanceof Error ? reason.message : "Não foi possível atualizar o item.",
-        "error",
-      );
+      showToast(errorMessage(reason, "Não foi possível atualizar o item."), "error");
     } finally {
       setSaving(false);
     }

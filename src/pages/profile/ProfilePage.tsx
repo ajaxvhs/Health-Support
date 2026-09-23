@@ -5,12 +5,12 @@ import { unitName } from "../../lib/selectors";
 import { useToast } from "../../context/useToast";
 import { passwordUpdateErrorMessage, updatePassword } from "../../lib/auth";
 import { roleLabels } from "../../types";
-import { formatPhone } from "../../lib/utils";
+import { errorMessage, formatPhone, refreshAndNotify } from "../../lib/utils";
 import { PushNotificationSettings } from "../../components/PushNotificationSettings";
 import { ThemeSettings } from "../../components/ThemeSettings";
 
 export function ProfilePage() {
-  const { user, data, repo, refresh } = useApp();
+  const { user, data, repo, refresh, updateCurrentProfile } = useApp();
   const { showToast } = useToast();
   const [name, setName] = useState(user.fullName);
   const [phone, setPhone] = useState(formatPhone(user.phone));
@@ -72,13 +72,11 @@ export function ProfilePage() {
                 onClick={async () => {
                   try {
                     await repo.saveProfile({ fullName: name, phone });
-                    await refresh();
-                    showToast("Dados do perfil atualizados.");
+                    updateCurrentProfile({ fullName: name.trim(), phone: phone.trim() });
+                    await refreshAndNotify(refresh, showToast, "Dados do perfil atualizados.");
                   } catch (reason) {
                     showToast(
-                      reason instanceof Error
-                        ? reason.message
-                        : "Não foi possível atualizar o perfil.",
+                      errorMessage(reason, "Não foi possível atualizar o perfil."),
                       "error",
                     );
                   }
@@ -125,16 +123,18 @@ export function ProfilePage() {
                       return;
                     }
                     await updatePassword(newPassword, currentPassword);
-                    await refresh();
-                    showToast("Senha atualizada com sucesso.");
+                    updateCurrentProfile({ mustChangePassword: false });
+                    await refreshAndNotify(
+                      refresh,
+                      showToast,
+                      "Senha atualizada com sucesso.",
+                      "Senha atualizada. Entre novamente se a sessão não sincronizar.",
+                    );
                     setCurrentPassword("");
                     setNewPassword("");
                     setConfirmation("");
                   } catch (reason) {
-                    showToast(
-                      reason instanceof Error ? reason.message : passwordUpdateErrorMessage(reason),
-                      "error",
-                    );
+                    showToast(passwordUpdateErrorMessage(reason), "error");
                   }
                 }}
               >

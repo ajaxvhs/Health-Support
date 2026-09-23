@@ -2,6 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AppData,
   AppNotification,
+  AdminUserActionRequest,
+  AdminUserDeleteOutcome,
+  BulkUserDeleteResult,
   CatalogKind,
   CatalogItem,
   Profile,
@@ -14,8 +17,11 @@ import type {
 } from "../types";
 import { assertMessageAllowed, assertStatusChangeAllowed } from "./ticketPolicy";
 import { isStaff } from "./permissions";
+import { requireMutationResult } from "./mutationContracts";
 
 type Row = Record<string, unknown>;
+type CreateUserInput = Extract<AdminUserActionRequest, { action: "create" }>;
+type UpdateUserInput = Extract<AdminUserActionRequest, { action: "update" }>;
 const catalogTables: Record<CatalogKind, string> = {
   categories: "ticket_categories",
   units: "units",
@@ -67,6 +73,11 @@ const ticket = (r: Row): Ticket => ({
   createdAt: r.created_at as string,
   updatedAt: r.updated_at as string,
 });
+const ticketFromRow = (r: Row) => {
+  const relation = r.ticket_statuses as Row | null;
+  if (typeof relation?.slug !== "string") throw new Error("O status do chamado não foi retornado.");
+  return ticket({ ...r, status_slug: relation.slug });
+};
 const message = (r: Row): TicketMessage => ({
   id: r.id as string,
   ticketId: r.ticket_id as string,
@@ -89,6 +100,21 @@ export class SupabaseRepository {
   constructor(client: SupabaseClient) {
     this.client = client;
   }
+  private async getStatusId(status: TicketStatus) {
+    const { data, error } = await this.client
+      .from("ticket_statuses")
+      .select("id")
+      .eq("slug", status)
+      .eq("is_active", true)
+      .single();
+    const row = requireMutationResult(
+      { data: data as Row | null, error },
+      `Não foi possível confirmar o status "${status}". Tente novamente.`,
+    );
+    if (typeof row.id !== "string" || !row.id)
+      throw new Error(`O status "${status}" não está disponível neste momento.`);
+    return row.id;
+  }
   async getData(): Promise<AppData> {
     const [profiles, units, categories, priorities, statuses, tickets, messages, events] =
       await Promise.all([
@@ -110,7 +136,7 @@ export class SupabaseRepository {
     let profileRows = (profiles.data ?? []) as Row[];
     const current = await this.getCurrentUser();
     if (current?.role === "admin") {
-      const listed = await this.invokeUserAction("list", {});
+      const listed = await this.invokeUserAction<{ users: Row[] }>({ action: "list" });
       profileRows = (listed.users ?? profileRows) as Row[];
     }
     return {
@@ -119,9 +145,7 @@ export class SupabaseRepository {
       categories: (categories.data ?? []).map((r) => catalog(r as Row)),
       priorities: (priorities.data ?? []).map((r) => catalog(r as Row)),
       statuses: (statuses.data ?? []).map((r) => catalog(r as Row)),
-      tickets: (tickets.data ?? []).map((r) =>
-        ticket({ ...(r as Row), status_slug: ((r as Row).ticket_statuses as Row).slug }),
-      ),
+      tickets: (tickets.data ?? []).map((r) => ticketFromRow(r as Row)),
       messages: (messages.data ?? []).map((r) => message(r as Row)),
       events: (events.data ?? []).map((r) => event(r as Row)),
     };
@@ -196,6 +220,7 @@ export class SupabaseRepository {
       throw new Error("O título precisa ter pelo menos 5 caracteres.");
     if (input.description.trim().length < 10)
       throw new Error("Descreva o problema com pelo menos 10 caracteres.");
+    const statusId = await this.getStatusId("aberto");
     const { data, error } = await this.client
       .from("tickets")
       .insert({
@@ -204,9 +229,7 @@ export class SupabaseRepository {
         unit_id: input.unitId,
         category_id: input.categoryId,
         priority_id: input.priorityId,
-        status_id: (
-          await this.client.from("ticket_statuses").select("id").eq("slug", "aberto").single()
-        ).data?.id,
+        status_id: statusId,
         created_by: user.id,
         requester_name_snapshot: user.fullName,
         requester_phone_snapshot: user.phone,
@@ -214,7 +237,7 @@ export class SupabaseRepository {
       .select("*, ticket_statuses!inner(slug)")
       .single();
     if (error || !data) throw error ?? new Error("Não foi possível criar o chamado.");
-    return ticket({ ...(data as Row), status_slug: ((data as Row).ticket_statuses as Row).slug });
+    return ticketFromRow(data as Row);
   }
   async addMessage(ticketId: string, text: string, internal: boolean) {
     const user = await this.getCurrentUser();
@@ -239,28 +262,35 @@ export class SupabaseRepository {
   async claim(id: string) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("Sessão expirada.");
-    const { error } = await this.client
+    const statusId = await this.getStatusId("em_andamento");
+    const result = await this.client
       .from("tickets")
       .update({
         assigned_to: user.id,
-        status_id: (
-          await this.client.from("ticket_statuses").select("id").eq("slug", "em_andamento").single()
-        ).data?.id,
+        status_id: statusId,
       })
       .eq("id", id)
-      .is("assigned_to", null);
-    if (error) throw error;
+      .is("assigned_to", null)
+      .select("*, ticket_statuses!inner(slug)")
+      .maybeSingle();
+    return ticketFromRow(
+      requireMutationResult(result, "O chamado não está mais disponível para assumir.") as Row,
+    );
   }
   async assign(id: string, userId: string) {
-    const status = userId ? "em_andamento" : undefined;
-    const { data: statusRow } = status
-      ? await this.client.from("ticket_statuses").select("id").eq("slug", status).single()
-      : { data: null };
-    const { error } = await this.client
+    const statusId = userId ? await this.getStatusId("em_andamento") : undefined;
+    const result = await this.client
       .from("tickets")
-      .update({ assigned_to: userId || null, ...(statusRow ? { status_id: statusRow.id } : {}) })
-      .eq("id", id);
-    if (error) throw error;
+      .update({ assigned_to: userId || null, ...(statusId ? { status_id: statusId } : {}) })
+      .eq("id", id)
+      .select("*, ticket_statuses!inner(slug)")
+      .maybeSingle();
+    return ticketFromRow(
+      requireMutationResult(
+        result,
+        "O chamado não pôde ser atualizado. Atualize a página e tente novamente.",
+      ) as Row,
+    );
   }
   async changeStatus(id: string, status: TicketStatus, resolutionNotes?: string) {
     const user = await this.getCurrentUser();
@@ -270,15 +300,11 @@ export class SupabaseRepository {
     assertStatusChangeAllowed(user, target, status);
     if (status === "resolvido" && !resolutionNotes?.trim())
       throw new Error("Informe a descrição da solução antes de resolver.");
-    const { data: row } = await this.client
-      .from("ticket_statuses")
-      .select("id")
-      .eq("slug", status)
-      .single();
-    const { error } = await this.client
+    const statusId = await this.getStatusId(status);
+    const result = await this.client
       .from("tickets")
       .update({
-        status_id: row?.id,
+        status_id: statusId,
         ...(status === "resolvido"
           ? {
               resolution_notes: resolutionNotes?.trim(),
@@ -287,8 +313,15 @@ export class SupabaseRepository {
           : {}),
         ...(status === "fechado" ? { closed_at: new Date().toISOString() } : {}),
       })
-      .eq("id", id);
-    if (error) throw error;
+      .eq("id", id)
+      .select("*, ticket_statuses!inner(slug)")
+      .maybeSingle();
+    return ticketFromRow(
+      requireMutationResult(
+        result,
+        "O chamado não pôde ser atualizado. Atualize a página e tente novamente.",
+      ) as Row,
+    );
   }
   async updatePriority(id: string, priorityId: string) {
     const user = await this.getCurrentUser();
@@ -299,24 +332,34 @@ export class SupabaseRepository {
       throw new Error("Assuma o chamado antes de atualizá-lo.");
     if (!data.priorities.some((item) => item.id === priorityId && item.isActive))
       throw new Error("Prioridade inválida ou inativa.");
-    const { error } = await this.client
+    const result = await this.client
       .from("tickets")
       .update({ priority_id: priorityId })
-      .eq("id", id);
-    if (error) throw error;
+      .eq("id", id)
+      .select("*, ticket_statuses!inner(slug)")
+      .maybeSingle();
+    return ticketFromRow(
+      requireMutationResult(
+        result,
+        "O chamado não pôde ser atualizado. Atualize a página e tente novamente.",
+      ) as Row,
+    );
   }
   async saveProfile(input: Pick<Profile, "fullName" | "phone">) {
     const user = await this.getCurrentUser();
     if (!user) throw new Error("Sessão expirada.");
-    const { error } = await this.client
-      .from("profiles")
-      .update({ full_name: input.fullName.trim(), phone: input.phone.trim() })
-      .eq("id", user.id);
-    if (error) throw error;
+    const { data, error } = await this.client.rpc("update_own_profile", {
+      p_full_name: input.fullName.trim(),
+      p_phone: input.phone.trim(),
+    });
+    requireMutationResult(
+      { data: data === true ? true : null, error },
+      "Não foi possível atualizar o perfil. Verifique o acesso e tente novamente.",
+    );
   }
-  async invokeUserAction(action: string, payload: Row) {
+  async invokeUserAction<T = Row>(request: AdminUserActionRequest): Promise<T> {
     const { data, error } = await this.client.functions.invoke("admin-users", {
-      body: { action, ...payload },
+      body: request,
     });
     if (error) {
       const context = "context" in error ? error.context : undefined;
@@ -327,31 +370,35 @@ export class SupabaseRepository {
       throw new Error("Não foi possível concluir a operação administrativa.");
     }
     if (data?.error) throw new Error(data.error);
-    return data;
+    return data as T;
   }
-  async createUser(input: Row) {
-    return this.invokeUserAction("create", input);
+  async createUser(input: Omit<CreateUserInput, "action">) {
+    return this.invokeUserAction<{ id: string }>({ action: "create", ...input });
   }
-  async updateUser(id: string, input: Row) {
-    return this.invokeUserAction("update", { id, ...input });
+  async updateUser(id: string, input: Omit<UpdateUserInput, "action" | "id">) {
+    return this.invokeUserAction<{ outcome: "updated"; id: string }>({
+      action: "update",
+      ...input,
+      id,
+    });
   }
   async toggleUser(id: string) {
-    return this.invokeUserAction("toggle", { id });
+    return this.invokeUserAction<{ outcome: "updated"; id: string }>({ action: "toggle", id });
   }
-  async deleteUser(id: string) {
-    return this.invokeUserAction("delete", { id });
+  async deleteUser(id: string): Promise<AdminUserDeleteOutcome> {
+    return this.invokeUserAction<AdminUserDeleteOutcome>({ action: "delete", id });
   }
   async resetUserPassword(id: string, password: string) {
-    return this.invokeUserAction("reset_password", { id, password });
+    return this.invokeUserAction<{ ok: true }>({ action: "reset_password", id, password });
   }
   async changeRole(id: string, role: Role) {
-    return this.invokeUserAction("update", { id, role });
+    return this.updateUser(id, { role });
   }
   async bulkSetUsersActive(ids: string[], isActive: boolean) {
-    return this.invokeUserAction("bulk_toggle", { ids, isActive });
+    return this.invokeUserAction<{ updated: string[] }>({ action: "bulk_toggle", ids, isActive });
   }
-  async bulkDeleteUsers(ids: string[]) {
-    return this.invokeUserAction("bulk_delete", { ids });
+  async bulkDeleteUsers(ids: string[]): Promise<BulkUserDeleteResult> {
+    return this.invokeUserAction<BulkUserDeleteResult>({ action: "bulk_delete", ids });
   }
   async addCatalog(kind: "categories" | "units", name: string, description = "") {
     const table = kind === "units" ? "units" : "ticket_categories";
@@ -371,26 +418,57 @@ export class SupabaseRepository {
       name: name.trim(),
       ...(kind === "categories" ? { description: description.trim() || null } : {}),
     };
-    const { error } = await this.client.from(table).update(values).eq("id", id);
-    if (error) throw error;
+    const result = await this.client
+      .from(table)
+      .update(values)
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
+    requireMutationResult(
+      result,
+      "O item do catálogo não foi encontrado ou não pôde ser atualizado.",
+    );
   }
   async setCatalogActive(kind: CatalogKind, id: string, isActive: boolean) {
     const table = catalogTables[kind];
-    const { error } = await this.client.from(table).update({ is_active: isActive }).eq("id", id);
-    if (error) throw error;
+    const result = await this.client
+      .from(table)
+      .update({ is_active: isActive })
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
+    requireMutationResult(
+      result,
+      "O item do catálogo não foi encontrado ou não pôde ser atualizado.",
+    );
   }
   async deleteCatalog(kind: CatalogKind, id: string) {
     const table = catalogTables[kind];
-    const { error } = await this.client.from(table).delete().eq("id", id);
-    if (!error) return "deleted" as const;
-    if (error.code !== "23503") throw error;
-    await this.setCatalogActive(kind, id, false);
-    return "deactivated" as const;
+    const { data, error } = await this.client
+      .from(table)
+      .delete()
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
+    if (error?.code === "23503") {
+      await this.setCatalogActive(kind, id, false);
+      return "deactivated" as const;
+    }
+    requireMutationResult(
+      { data: data as Row | null, error },
+      "O item do catálogo não foi encontrado ou não pôde ser excluído.",
+    );
+    return "deleted" as const;
   }
   async bulkSetCatalogActive(kind: CatalogKind, ids: string[], isActive: boolean) {
     const table = catalogTables[kind];
-    const { error } = await this.client.from(table).update({ is_active: isActive }).in("id", ids);
-    if (error) throw error;
+    const result = await this.client
+      .from(table)
+      .update({ is_active: isActive })
+      .in("id", ids)
+      .select("id");
+    const rows = requireMutationResult(result, "Nenhum item do catálogo foi atualizado.");
+    if (rows.length === 0) throw new Error("Nenhum item do catálogo foi atualizado.");
   }
   async bulkDeleteCatalog(kind: CatalogKind, ids: string[]) {
     await Promise.all(ids.map((id) => this.deleteCatalog(kind, id)));

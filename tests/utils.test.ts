@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { filterAuditEvents, filterTickets } from "../src/lib/utils";
+import {
+  errorMessage,
+  filterAuditEvents,
+  filterTickets,
+  refreshAndNotify,
+  refreshAfterMutation,
+  resolutionValueForTicket,
+} from "../src/lib/utils";
 import type { Profile, Ticket } from "../src/types";
 
 const requester: Profile = {
@@ -146,5 +153,52 @@ describe("metricas e filtros de chamados", () => {
         to: "2025-01-11T23:59",
       }),
     ).toHaveLength(1);
+  });
+});
+
+describe("mensagens de erro do repository", () => {
+  it("mapeia códigos conhecidos sem expor detalhes do banco", () => {
+    expect(errorMessage({ code: "23503", message: "internal table detail" }, "Falha.")).toBe(
+      "Este item está vinculado a outros registros e não pode ser excluído.",
+    );
+    expect(errorMessage({ code: "UNKNOWN", message: "internal table detail" }, "Falha.")).toBe(
+      "Falha.",
+    );
+  });
+
+  it("preserva erros de domínio já normalizados", () => {
+    expect(errorMessage(new Error("Sessão expirada."), "Falha.")).toBe("Sessão expirada.");
+  });
+});
+
+describe("rascunhos e sincronização de mutações", () => {
+  it("mantém texto apagado como rascunho e não transporta rascunho entre chamados", () => {
+    const draft = { ticketId: "ticket-a", value: "" };
+    expect(resolutionValueForTicket("ticket-a", "Solução salva", draft)).toBe("");
+    expect(resolutionValueForTicket("ticket-b", "Outra solução", draft)).toBe("Outra solução");
+  });
+
+  it("distingue refresh concluído de falha após uma mutação", async () => {
+    await expect(refreshAfterMutation(async () => {})).resolves.toBe(true);
+    await expect(
+      refreshAfterMutation(async () => Promise.reject(new Error("offline"))),
+    ).resolves.toBe(false);
+  });
+
+  it("notifica separadamente a gravação e a falha posterior de sincronização", async () => {
+    const notifications: Array<{ message: string; kind?: string }> = [];
+    await refreshAndNotify(
+      async () => Promise.reject(new Error("offline")),
+      (message, kind) => notifications.push({ message, kind }),
+      "Chamado criado.",
+    );
+
+    expect(notifications).toEqual([
+      {
+        message:
+          "A alteração foi salva, mas a tela não sincronizou. Atualize quando a conexão voltar.",
+        kind: "info",
+      },
+    ]);
   });
 });

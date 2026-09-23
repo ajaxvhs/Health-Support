@@ -5,7 +5,7 @@ import { Button, SelectField, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { roleOptions, type Profile, type Role } from "../../types";
-import { formatPhone } from "../../lib/utils";
+import { errorMessage, formatPhone, refreshAndNotify } from "../../lib/utils";
 
 function UserModal({
   title,
@@ -136,13 +136,10 @@ export function CreateUserForm({ onClose }: { onClose: () => void }) {
     setSaving(true);
     try {
       await repo.createUser({ fullName, username, email, phone, temporaryPassword, unitId, role });
-      await refresh();
-      showToast("Usuário criado com senha temporária.");
       onClose();
+      await refreshAndNotify(refresh, showToast, "Usuário criado com senha temporária.");
     } catch (reason) {
-      const message =
-        reason instanceof Error ? reason.message : "Não foi possível criar o usuário.";
-      showToast(message, "error");
+      showToast(errorMessage(reason, "Não foi possível criar o usuário."), "error");
     } finally {
       setSaving(false);
     }
@@ -232,13 +229,10 @@ export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: 
     setSaving(true);
     try {
       await repo.updateUser(profile.id, { fullName, username, email, phone, unitId, role });
-      await refresh();
-      showToast("Usuário atualizado.");
       onClose();
+      await refreshAndNotify(refresh, showToast, "Usuário atualizado.");
     } catch (reason) {
-      const message =
-        reason instanceof Error ? reason.message : "Não foi possível atualizar o usuário.";
-      showToast(message, "error");
+      showToast(errorMessage(reason, "Não foi possível atualizar o usuário."), "error");
     } finally {
       setSaving(false);
     }
@@ -260,15 +254,14 @@ export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: 
               onClick={async () => {
                 try {
                   await repo.resetUserPassword(profile.id, resetPassword);
-                  await refresh();
-                  showToast("Senha redefinida. O usuário deverá trocá-la no próximo acesso.");
                   setResetPassword("");
+                  await refreshAndNotify(
+                    refresh,
+                    showToast,
+                    "Senha redefinida. O usuário deverá trocá-la no próximo acesso.",
+                  );
                 } catch (reason) {
-                  const message =
-                    reason instanceof Error
-                      ? reason.message
-                      : "Não foi possível redefinir a senha.";
-                  showToast(message, "error");
+                  showToast(errorMessage(reason, "Não foi possível redefinir a senha."), "error");
                 }
               }}
             >

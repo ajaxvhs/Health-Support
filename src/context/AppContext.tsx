@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import { SupabaseRepository } from "../lib/repository";
-import type { AppData, Profile } from "../types";
+import type { AppData, Profile, Ticket, TicketMessage } from "../types";
 
 export interface AppContextValue {
   data: AppData;
@@ -10,6 +10,11 @@ export interface AppContextValue {
   checkingSession: boolean;
   login: (profile: Profile) => Promise<void>;
   logout: () => Promise<void>;
+  mergeTicket: (ticket: Ticket) => void;
+  mergeMessage: (message: TicketMessage) => void;
+  updateCurrentProfile: (
+    values: Partial<Pick<Profile, "fullName" | "phone" | "mustChangePassword">>,
+  ) => void;
 }
 
 export const AppContext = createContext<AppContextValue | null>(null);

@@ -10,7 +10,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { unitName } from "../../lib/selectors";
 import { getPagination, getPaginationItems } from "../../lib/pagination";
-import { cn } from "../../lib/utils";
+import { cn, errorMessage, refreshAfterMutation } from "../../lib/utils";
 import { useToast } from "../../context/useToast";
 import type { Profile } from "../../types";
 import { AdminUserRow } from "./AdminUserRow";
@@ -67,14 +67,16 @@ export function AdminUsersPage() {
   const finish = async (action: () => Promise<void>) => {
     try {
       await action();
-      await refresh();
-      setSelected([]);
     } catch (reason) {
-      showToast(
-        reason instanceof Error ? reason.message : "Não foi possível concluir a ação.",
-        "error",
-      );
+      showToast(errorMessage(reason, "Não foi possível concluir a ação."), "error");
+      return;
     }
+    setSelected([]);
+    if (!(await refreshAfterMutation(refresh)))
+      showToast(
+        "A alteração foi salva, mas a lista não sincronizou. Atualize quando a conexão voltar.",
+        "info",
+      );
   };
   const request = (next: ConfirmState) => setConfirm(next);
   const bulkAction = (actionType: string) => {
@@ -97,11 +99,32 @@ export function AdminUsersPage() {
           : "Ativar selecionados",
       variant: deleting ? "danger" : "primary",
       action: () =>
-        finish(() =>
-          deleting
-            ? repo.bulkDeleteUsers(ids)
-            : repo.bulkSetUsersActive(ids, actionType === "activate"),
-        ),
+        finish(async () => {
+          if (deleting) {
+            const { outcomes } = await repo.bulkDeleteUsers(ids);
+            const deleted = outcomes.filter((item) => item.outcome === "deleted").length;
+            const deactivated = outcomes.filter((item) => item.outcome === "deactivated").length;
+            const failed = outcomes.filter((item) => item.outcome === "failed").length;
+            const summary = [
+              deleted ? `${deleted} excluído(s)` : "",
+              deactivated ? `${deactivated} desativado(s) para preservar histórico` : "",
+              failed ? `${failed} não concluído(s)` : "",
+            ]
+              .filter(Boolean)
+              .join("; ");
+            showToast(
+              summary || "Nenhum usuário foi alterado.",
+              failed === outcomes.length ? "error" : failed ? "info" : "success",
+            );
+          } else {
+            await repo.bulkSetUsersActive(ids, actionType === "activate");
+            showToast(
+              actionType === "activate"
+                ? "Usuários ativados."
+                : "Usuários desativados para preservar o histórico.",
+            );
+          }
+        }),
     });
   };
   const confirmAction = (next: Exclude<ConfirmState, null>) => request(next);
@@ -215,7 +238,7 @@ export function AdminUsersPage() {
                     finish(async () => {
                       const result = await repo.deleteUser(profile.id);
                       showToast(
-                        result === "deactivated"
+                        result.outcome === "deactivated"
                           ? "Usuário desativado para preservar o histórico."
                           : "Usuário excluído.",
                       );

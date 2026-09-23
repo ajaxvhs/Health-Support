@@ -16,4 +16,9 @@ describe("mensagens de atualização de senha", () => {
       "Não foi possível atualizar a senha.",
     );
   });
+
+  it("lida com erros nulos ou primitivos sem falhar", () => {
+    expect(passwordUpdateErrorMessage(null)).toBe("Não foi possível atualizar a senha.");
+    expect(passwordUpdateErrorMessage("erro de rede")).toBe("Não foi possível atualizar a senha.");
+  });
 });

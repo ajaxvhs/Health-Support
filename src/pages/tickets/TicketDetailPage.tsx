@@ -15,17 +15,26 @@ import { useApp } from "../../context/AppContext";
 import { categoryName, unitName, userById } from "../../lib/selectors";
 import { useToast } from "../../context/useToast";
 import { can, isStaff } from "../../lib/permissions";
-import { formatDate, relativeDate } from "../../lib/utils";
+import {
+  errorMessage,
+  formatDate,
+  refreshAndNotify,
+  relativeDate,
+  resolutionValueForTicket,
+} from "../../lib/utils";
 import { statusMeta, type Profile, type TicketStatus } from "../../types";
 import { TicketConversation } from "./TicketConversation";
 
 export function TicketDetailPage() {
   const { id } = useParams();
-  const { data, user, repo, refresh } = useApp();
+  const { data, user, repo, refresh, mergeTicket } = useApp();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const ticket = data.tickets.find((item) => item.id === id);
-  const [resolution, setResolution] = useState("");
+  const [resolutionDraft, setResolutionDraft] = useState<{
+    ticketId: string;
+    value: string;
+  } | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
   if (!ticket)
     return (
@@ -51,6 +60,7 @@ export function TicketDetailPage() {
         }
       />
     );
+  const resolution = resolutionValueForTicket(ticket.id, ticket.resolutionNotes, resolutionDraft);
   const assigned = userById(data, ticket.assignedTo);
   const requester = userById(data, ticket.createdBy);
   const canStaff = isStaff(user.role);
@@ -59,13 +69,15 @@ export function TicketDetailPage() {
     .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
   const statusChange = async (next: TicketStatus) => {
     try {
-      await repo.changeStatus(ticket.id, next, next === "resolvido" ? resolution : undefined);
-      await refresh();
-      showToast(`Status alterado para ${statusMeta[next].label}.`);
+      const updated = await repo.changeStatus(
+        ticket.id,
+        next,
+        next === "resolvido" ? resolution : undefined,
+      );
+      mergeTicket(updated);
+      await refreshAndNotify(refresh, showToast, `Status alterado para ${statusMeta[next].label}.`);
     } catch (reason) {
-      const message =
-        reason instanceof Error ? reason.message : "Não foi possível atualizar o status.";
-      showToast(message, "error");
+      showToast(errorMessage(reason, "Não foi possível atualizar o status."), "error");
     }
   };
   return (
@@ -98,13 +110,11 @@ export function TicketDetailPage() {
             <Button
               onClick={async () => {
                 try {
-                  await repo.claim(ticket.id);
-                  await refresh();
-                  showToast("Chamado assumido com sucesso.");
+                  const updated = await repo.claim(ticket.id);
+                  mergeTicket(updated);
+                  await refreshAndNotify(refresh, showToast, "Chamado assumido com sucesso.");
                 } catch (reason) {
-                  const message =
-                    reason instanceof Error ? reason.message : "Não foi possível assumir.";
-                  showToast(message, "error");
+                  showToast(errorMessage(reason, "Não foi possível assumir."), "error");
                 }
               }}
             >
@@ -175,19 +185,17 @@ export function TicketDetailPage() {
                       value={ticket.assignedTo ?? ""}
                       onChange={async (value) => {
                         try {
-                          await repo.assign(ticket.id, value);
-                          await refresh();
-                          showToast(
-                            value
-                              ? "Chamado atribuído com sucesso."
-                              : "Chamado liberado para a fila.",
-                          );
+                          const updated = await repo.assign(ticket.id, value);
+                          mergeTicket(updated);
+                          const actionMessage = value
+                            ? "Chamado atribuído com sucesso."
+                            : "Chamado liberado para a fila.";
+                          await refreshAndNotify(refresh, showToast, actionMessage);
                         } catch (reason) {
-                          const message =
-                            reason instanceof Error
-                              ? reason.message
-                              : "Não foi possível atribuir o chamado.";
-                          showToast(message, "error");
+                          showToast(
+                            errorMessage(reason, "Não foi possível atribuir o chamado."),
+                            "error",
+                          );
                         }
                       }}
                     >
@@ -207,15 +215,18 @@ export function TicketDetailPage() {
                         className="mt-2 min-h-8 px-2 text-xs"
                         onClick={async () => {
                           try {
-                            await repo.assign(ticket.id, "");
-                            await refresh();
-                            showToast("Chamado liberado para a fila.");
+                            const updated = await repo.assign(ticket.id, "");
+                            mergeTicket(updated);
+                            await refreshAndNotify(
+                              refresh,
+                              showToast,
+                              "Chamado liberado para a fila.",
+                            );
                           } catch (reason) {
-                            const message =
-                              reason instanceof Error
-                                ? reason.message
-                                : "Não foi possível liberar o chamado.";
-                            showToast(message, "error");
+                            showToast(
+                              errorMessage(reason, "Não foi possível liberar o chamado."),
+                              "error",
+                            );
                           }
                         }}
                       >
@@ -230,15 +241,14 @@ export function TicketDetailPage() {
                     value={ticket.priorityId}
                     onChange={async (value) => {
                       try {
-                        await repo.updatePriority(ticket.id, value);
-                        await refresh();
-                        showToast("Prioridade atualizada.");
+                        const updated = await repo.updatePriority(ticket.id, value);
+                        mergeTicket(updated);
+                        await refreshAndNotify(refresh, showToast, "Prioridade atualizada.");
                       } catch (reason) {
-                        const message =
-                          reason instanceof Error
-                            ? reason.message
-                            : "Não foi possível atualizar a prioridade.";
-                        showToast(message, "error");
+                        showToast(
+                          errorMessage(reason, "Não foi possível atualizar a prioridade."),
+                          "error",
+                        );
                       }
                     }}
                   >
@@ -255,7 +265,6 @@ export function TicketDetailPage() {
                   label="Alterar status"
                   value={ticket.status}
                   onChange={(value) => {
-                    if (value === "resolvido" && !ticket.resolutionNotes) setResolution("");
                     statusChange(value as TicketStatus);
                   }}
                 >
@@ -267,8 +276,10 @@ export function TicketDetailPage() {
                 </SelectField>
                 {["em_andamento", "resolvido"].includes(ticket.status) && (
                   <textarea
-                    value={resolution || ticket.resolutionNotes || ""}
-                    onChange={(e) => setResolution(e.target.value)}
+                    value={resolution}
+                    onChange={(e) =>
+                      setResolutionDraft({ ticketId: ticket.id, value: e.target.value })
+                    }
                     placeholder="Descreva a solução aplicada"
                     rows={3}
                     className="mt-3 w-full rounded-xl border border-line bg-surface p-3 text-sm outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"

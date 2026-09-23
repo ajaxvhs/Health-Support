@@ -4,9 +4,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button, FormActions, PageHeader, SelectField, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
+import { errorMessage, refreshAndNotify } from "../../lib/utils";
 
 export function NewTicketPage() {
-  const { data, user, repo, refresh } = useApp();
+  const { data, user, repo, refresh, mergeTicket } = useApp();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [categoryId, setCategoryId] = useState(data.categories.find((c) => c.isActive)?.id ?? "");
@@ -38,14 +39,11 @@ export function NewTicketPage() {
         categoryId,
         priorityId,
       });
-      await refresh();
-      showToast(`Chamado #${ticket.number} criado com sucesso.`);
+      mergeTicket(ticket);
+      await refreshAndNotify(refresh, showToast, `Chamado #${ticket.number} criado com sucesso.`);
       navigate(`/chamados/${ticket.id}`);
     } catch (reason) {
-      showToast(
-        reason instanceof Error ? reason.message : "Não foi possível criar o chamado.",
-        "error",
-      );
+      showToast(errorMessage(reason, "Não foi possível criar o chamado."), "error");
       setSaving(false);
     }
   };

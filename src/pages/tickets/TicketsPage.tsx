@@ -14,7 +14,13 @@ import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { isStaff as hasStaffAccess } from "../../lib/permissions";
 import { getPagination, getPaginationItems } from "../../lib/pagination";
-import { cn, filterTickets, type TicketFilters } from "../../lib/utils";
+import {
+  cn,
+  errorMessage,
+  filterTickets,
+  refreshAfterMutation,
+  type TicketFilters,
+} from "../../lib/utils";
 import type { AppData, TicketStatus } from "../../types";
 import { TicketRow } from "./TicketRow";
 import { TicketsFilterBar, type TicketFilterView } from "./TicketsFilterBar";
@@ -111,7 +117,7 @@ function TicketsViewSwitcher({
 }
 
 export function TicketsPage() {
-  const { data, user, repo, refresh } = useApp();
+  const { data, user, repo, refresh, mergeTicket } = useApp();
   const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const isStaff = hasStaffAccess(user.role);
@@ -199,14 +205,17 @@ export function TicketsPage() {
   };
   const claim = async (ticketId: string) => {
     try {
-      await repo.claim(ticketId);
-      await refresh();
-      showToast("Chamado assumido com sucesso.");
-    } catch (reason) {
+      const ticket = await repo.claim(ticketId);
+      mergeTicket(ticket);
+      const refreshed = await refreshAfterMutation(refresh);
       showToast(
-        reason instanceof Error ? reason.message : "Este chamado já foi assumido.",
-        "error",
+        refreshed
+          ? "Chamado assumido com sucesso."
+          : "Chamado assumido, mas a fila não sincronizou. Atualize quando a conexão voltar.",
+        refreshed ? "success" : "info",
       );
+    } catch (reason) {
+      showToast(errorMessage(reason, "Este chamado já foi assumido."), "error");
     }
   };
   const refreshQueue = async () => {
@@ -215,10 +224,7 @@ export function TicketsPage() {
       await refresh();
       showToast("Fila atualizada.", "info");
     } catch (reason) {
-      showToast(
-        reason instanceof Error ? reason.message : "Não foi possível atualizar a fila.",
-        "error",
-      );
+      showToast(errorMessage(reason, "Não foi possível atualizar a fila."), "error");
     } finally {
       setRefreshingQueue(false);
     }
