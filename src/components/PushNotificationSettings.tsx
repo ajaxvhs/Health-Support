@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { disablePush, enablePush, supportsPush } from "../lib/pushNotifications";
 import { useToast } from "../context/useToast";
+import { errorMessage } from "../lib/utils";
 import { Button } from "./ui";
 
 export function PushNotificationSettings() {
@@ -43,10 +44,7 @@ export function PushNotificationSettings() {
               enabled ? "Notificações desativadas." : "Notificações ativadas neste dispositivo.",
             );
           } catch (error) {
-            showToast(
-              error instanceof Error ? error.message : "Não foi possível alterar as notificações.",
-              "error",
-            );
+            showToast(errorMessage(error, "Não foi possível alterar as notificações."), "error");
           }
         }}
       >

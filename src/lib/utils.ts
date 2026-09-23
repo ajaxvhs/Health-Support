@@ -6,7 +6,52 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 export function errorMessage(reason: unknown, fallback: string) {
+  const code =
+    typeof reason === "object" && reason !== null && "code" in reason ? reason.code : undefined;
+  if (typeof code === "string") {
+    switch (code) {
+      case "23503":
+        return "Este item está vinculado a outros registros e não pode ser excluído.";
+      case "23505":
+        return "Já existe um registro com esses dados.";
+      case "42501":
+        return "Você não tem permissão para realizar esta operação.";
+      case "PGRST116":
+        return "O registro não foi encontrado ou não está mais disponível.";
+      case "PGRST301":
+      case "PGRST302":
+        return "Sua sessão expirou. Entre novamente.";
+    }
+  }
   return reason instanceof Error ? reason.message : fallback;
+}
+
+export function resolutionValueForTicket(
+  ticketId: string,
+  savedValue: string | undefined,
+  draft: { ticketId: string; value: string } | null,
+) {
+  return draft?.ticketId === ticketId ? draft.value : (savedValue ?? "");
+}
+
+export async function refreshAfterMutation(refresh: () => Promise<void>) {
+  try {
+    await refresh();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function refreshAndNotify(
+  refresh: () => Promise<void>,
+  showToast: (message: string, kind?: "success" | "error" | "info") => void,
+  successMessage: string,
+  failureMessage = "A alteração foi salva, mas a tela não sincronizou. Atualize quando a conexão voltar.",
+) {
+  const refreshed = await refreshAfterMutation(refresh);
+  showToast(refreshed ? successMessage : failureMessage, refreshed ? "success" : "info");
+  return refreshed;
 }
 export function formatDate(value: string, includeTime = false) {
   return new Intl.DateTimeFormat("pt-BR", {

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { ArrowRight, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { Button, TextField } from "../../components/ui";
 import { signInWithIdentifier } from "../../lib/auth";
+import { errorMessage } from "../../lib/utils";
 import type { Profile } from "../../types";
 import { useToast } from "../../context/useToast";
 
@@ -17,7 +18,7 @@ export function LoginPage({ onLogin }: { onLogin: (profile: Profile) => Promise<
     try {
       await onLogin(await signInWithIdentifier(username, password));
     } catch (reason) {
-      showToast(reason instanceof Error ? reason.message : "Não foi possível entrar.", "error");
+      showToast(errorMessage(reason, "Não foi possível entrar."), "error");
     } finally {
       setLoading(false);
     }

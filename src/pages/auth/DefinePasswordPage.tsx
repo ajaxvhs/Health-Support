@@ -5,9 +5,10 @@ import { Button, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { passwordUpdateErrorMessage, updatePassword } from "../../lib/auth";
 import { useToast } from "../../context/useToast";
+import { refreshAndNotify } from "../../lib/utils";
 
 export function DefinePasswordPage() {
-  const { refresh } = useApp();
+  const { refresh, updateCurrentProfile } = useApp();
   const navigate = useNavigate();
   const [newPassword, setNewPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -36,13 +37,11 @@ export function DefinePasswordPage() {
     setSaving(true);
     try {
       await updatePassword(newPassword);
-      await refresh();
+      updateCurrentProfile({ mustChangePassword: false });
+      await refreshAndNotify(refresh, showToast, "Senha atualizada com sucesso.");
       navigate("/", { replace: true });
     } catch (reason) {
-      showToast(
-        reason instanceof Error ? reason.message : passwordUpdateErrorMessage(reason),
-        "error",
-      );
+      showToast(passwordUpdateErrorMessage(reason), "error");
     } finally {
       setSaving(false);
     }

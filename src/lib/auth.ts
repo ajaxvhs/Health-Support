@@ -44,7 +44,10 @@ async function loadProfile(userId: string, email: string) {
 }
 
 export function passwordUpdateErrorMessage(reason: unknown) {
-  const error = reason as { message?: unknown; status?: unknown; code?: unknown };
+  const error =
+    typeof reason === "object" && reason !== null
+      ? (reason as { message?: unknown; status?: unknown; code?: unknown })
+      : {};
   const message = typeof error.message === "string" ? error.message : "";
   const normalized = message.toLowerCase();
   const isSamePassword =

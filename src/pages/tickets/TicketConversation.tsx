@@ -5,11 +5,11 @@ import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { isStaff } from "../../lib/permissions";
 import { userById } from "../../lib/selectors";
-import { cn, formatDate } from "../../lib/utils";
+import { cn, errorMessage, formatDate, refreshAndNotify } from "../../lib/utils";
 import type { Ticket } from "../../types";
 
 export function TicketConversation({ ticket }: { ticket: Ticket }) {
-  const { data, user, repo, refresh } = useApp();
+  const { data, user, repo, refresh, mergeMessage } = useApp();
   const { showToast } = useToast();
   const [message, setMessage] = useState("");
   const [internal, setInternal] = useState(false);
@@ -27,12 +27,13 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
     }
     setSending(true);
     try {
-      await repo.addMessage(ticket.id, message, internal);
+      const sent = await repo.addMessage(ticket.id, message, internal);
+      mergeMessage(sent);
       setMessage("");
-      await refresh();
-      showToast(internal ? "Nota interna adicionada." : "Mensagem enviada.");
+      const actionLabel = internal ? "Nota interna adicionada." : "Mensagem enviada.";
+      await refreshAndNotify(refresh, showToast, actionLabel);
     } catch (reason) {
-      showToast(reason instanceof Error ? reason.message : "Não foi possível enviar.", "error");
+      showToast(errorMessage(reason, "Não foi possível enviar."), "error");
     } finally {
       setSending(false);
     }
