@@ -29,6 +29,36 @@ export interface Profile {
   isActive: boolean;
   mustChangePassword?: boolean;
 }
+export type AdminUserActionRequest =
+  | { action: "list" }
+  | {
+      action: "create";
+      fullName: string;
+      username: string;
+      email: string;
+      phone: string;
+      temporaryPassword: string;
+      unitId: string;
+      role: Role;
+    }
+  | {
+      action: "update";
+      id: string;
+      fullName?: string;
+      username?: string;
+      email?: string;
+      phone?: string;
+      unitId?: string;
+      role?: Role;
+    }
+  | { action: "toggle" | "delete"; id: string }
+  | { action: "reset_password"; id: string; password: string }
+  | { action: "bulk_toggle"; ids: string[]; isActive: boolean }
+  | { action: "bulk_delete"; ids: string[] };
+export type AdminUserDeleteOutcome = { id: string; outcome: "deleted" | "deactivated" };
+export type BulkUserDeleteResult = {
+  outcomes: Array<AdminUserDeleteOutcome | { id: string; outcome: "failed" }>;
+};
 export interface TicketMessage {
   id: string;
   ticketId: string;
