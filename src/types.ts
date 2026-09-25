@@ -78,6 +78,12 @@ export interface TicketEvent {
   type: string;
   detail: string;
   createdAt: string;
+  statusFrom?: string;
+  statusTo?: string;
+  priorityFromId?: string;
+  priorityToId?: string;
+  priorityFrom?: string;
+  priorityTo?: string;
 }
 export interface AppNotification {
   id: string;

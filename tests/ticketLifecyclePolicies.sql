@@ -246,6 +246,24 @@ set
 where
   title = 'Lifecycle test ticket';
 
+do $$
+begin
+  if not exists (
+    select 1 from public.ticket_events
+    where ticket_id = (select id from public.tickets where title = 'Lifecycle test ticket')
+      and event_type = 'claimed'
+      and actor_id = auth.uid()
+      and from_assigned_to is null
+      and to_assigned_to = auth.uid()
+      and metadata->>'from_status_slug' = 'aberto'
+      and metadata->>'to_status_slug' = 'em_andamento'
+      and metadata->>'detail' = 'Assumiu o chamado'
+  ) then
+    raise exception 'Assuming a ticket did not create a complete claim event';
+  end if;
+end;
+$$;
+
 update public.tickets
 set
   priority_id = current_setting('test.lifecycle_priority_alt')::uuid
@@ -567,6 +585,19 @@ begin
   if not exists (select 1 from public.tickets where title = 'Lifecycle test ticket'
     and status_id = (select id from public.ticket_statuses where slug = 'aberto') and assigned_to is null) then
     raise exception 'Administrator could not release the ticket atomically';
+  end if;
+  if not exists (
+    select 1 from public.ticket_events
+    where ticket_id = (select id from public.tickets where title = 'Lifecycle test ticket')
+      and event_type = 'released'
+      and actor_id = auth.uid()
+      and from_assigned_to = auth.uid()
+      and to_assigned_to is null
+      and metadata->>'from_status_slug' = 'em_andamento'
+      and metadata->>'to_status_slug' = 'aberto'
+      and metadata->>'detail' = 'Liberou o chamado para a fila'
+  ) then
+    raise exception 'Releasing a ticket did not create a complete release event';
   end if;
 end;
 $$;

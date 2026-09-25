@@ -86,14 +86,23 @@ const message = (r: Row): TicketMessage => ({
   isInternal: r.is_internal as boolean,
   createdAt: r.created_at as string,
 });
-const event = (r: Row): TicketEvent => ({
-  id: r.id as string,
-  ticketId: r.ticket_id as string | undefined,
-  actorId: r.actor_id as string | undefined,
-  type: r.event_type as string,
-  detail: ((r.metadata as Row)?.detail as string) ?? (r.event_type as string),
-  createdAt: r.created_at as string,
-});
+const event = (r: Row): TicketEvent => {
+  const metadata = (r.metadata ?? {}) as Row;
+  return {
+    id: r.id as string,
+    ticketId: r.ticket_id as string | undefined,
+    actorId: r.actor_id as string | undefined,
+    type: r.event_type as string,
+    detail: (metadata.detail as string) ?? (r.event_type as string),
+    createdAt: r.created_at as string,
+    statusFrom: metadata.from_status_slug as string | undefined,
+    statusTo: metadata.to_status_slug as string | undefined,
+    priorityFromId: metadata.priority_from_id as string | undefined,
+    priorityToId: metadata.priority_to_id as string | undefined,
+    priorityFrom: metadata.priority_from as string | undefined,
+    priorityTo: metadata.priority_to as string | undefined,
+  };
+};
 
 export class SupabaseRepository {
   private client: SupabaseClient;

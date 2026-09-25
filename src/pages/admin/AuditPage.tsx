@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Activity, BookOpen, Clock3, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { FilterField, FilterToolbar, type FilterChip } from "../../components/filters";
@@ -9,39 +9,62 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
+  TicketPriorityBadge,
+  TicketStatusBadge,
 } from "../../components/ui";
+import { Pagination } from "../../components/Pagination";
 import { DateRangePicker } from "../../components/DateRangePicker";
 import { useApp } from "../../context/AppContext";
+import { auditEventLabels, auditEventPriorityIds, auditEventStatus } from "../../lib/audit";
+import { getPagination } from "../../lib/pagination";
 import { userById } from "../../lib/selectors";
 import { filterAuditEvents, formatDate } from "../../lib/utils";
+import type { AppData, TicketEvent } from "../../types";
 
-const eventLabels: Record<string, string> = {
-  created: "Chamado aberto",
-  assigned: "Atribuição",
-  unassigned: "Liberação para a fila",
-  status_changed: "Status alterado",
-  priority_changed: "Prioridade alterada",
-  message_added: "Mensagem adicionada",
-  reopened: "Chamado reaberto",
-  resolved: "Chamado resolvido",
-  closed: "Chamado fechado sem resolução",
-  released: "Chamado liberado para a fila",
-  reassigned: "Responsável alterado",
-  ticket_details_updated: "Detalhes do chamado atualizados",
-  password_changed: "Senha alterada",
-  profile_updated: "Perfil atualizado",
-  user_created: "Usuário criado",
-  user_updated: "Usuário atualizado",
-  user_activated: "Usuário ativado",
-  user_deactivated: "Usuário desativado",
-  user_deleted: "Usuário excluído",
-  role_changed: "Perfil de acesso alterado",
-  catalog_created: "Item de catálogo criado",
-  catalog_renamed: "Item de catálogo renomeado",
-  catalog_activated: "Item de catálogo ativado",
-  catalog_deactivated: "Item de catálogo desativado",
-  catalog_deleted: "Item de catálogo excluído",
-};
+function AuditEventDetail({ event, data }: { event: TicketEvent; data: AppData }) {
+  const status = auditEventStatus(event, data.statuses);
+  if (
+    status &&
+    [
+      "created",
+      "status_changed",
+      "resolved",
+      "closed",
+      "reopened",
+      "claimed",
+      "released",
+      "assigned",
+      "reassigned",
+    ].includes(event.type)
+  ) {
+    const label =
+      event.type === "created"
+        ? "Chamado criado com status"
+        : event.type === "status_changed"
+          ? "Situação alterada para"
+          : auditEventLabels[event.type];
+    return (
+      <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <span>{label}</span>
+        <TicketStatusBadge status={status} />
+      </span>
+    );
+  }
+
+  const priorityIds = auditEventPriorityIds(event, data.priorities);
+  if (event.type === "priority_changed" && priorityIds) {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <span>Prioridade alterada de</span>
+        <TicketPriorityBadge priority={priorityIds[0]} data={data} />
+        <span>para</span>
+        <TicketPriorityBadge priority={priorityIds[1]} data={data} />
+      </span>
+    );
+  }
+
+  return event.detail;
+}
 
 export function AuditPage() {
   const { data, refresh } = useApp();
@@ -50,13 +73,22 @@ export function AuditPage() {
   const [type, setType] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [page, setPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const allEvents = [...data.events].sort(
     (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
   );
-  const eventTypes = Object.keys(eventLabels);
+  const eventTypes = Object.keys(auditEventLabels);
   const events = filterAuditEvents(allEvents, data.profiles, { search, actorId, type, from, to });
+  const { page: currentPage, pageCount, start, end } = getPagination(page, events.length);
+  const pageEvents = events.slice(start, end);
+  useEffect(() => {
+    setPage(1);
+  }, [search, actorId, type, from, to]);
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
   const clear = () => {
     setSearch("");
     setActorId("");
@@ -80,7 +112,7 @@ export function AuditPage() {
   if (type)
     filterChips.push({
       key: "type",
-      label: `Ação: ${eventLabels[type] ?? type}`,
+      label: `Ação: ${auditEventLabels[type] ?? type}`,
       onRemove: () => setType(""),
     });
   if (from || to)
@@ -178,7 +210,7 @@ export function AuditPage() {
                     { value: "", label: "Todas as ações" },
                     ...eventTypes.map((value) => ({
                       value,
-                      label: eventLabels[value] ?? value,
+                      label: auditEventLabels[value] ?? value,
                     })),
                   ]}
                 />
@@ -198,7 +230,7 @@ export function AuditPage() {
         </div>
         <div className="divide-y divide-line-soft">
           {events.length ? (
-            events.map((event) => {
+            pageEvents.map((event) => {
               const actor = userById(data, event.actorId);
               const ticket = data.tickets.find((item) => item.id === event.ticketId);
               return (
@@ -207,7 +239,7 @@ export function AuditPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-secondary">
                       <strong className="text-ink">{actor?.fullName ?? "Usuário removido"}</strong>{" "}
-                      {event.detail}{" "}
+                      <AuditEventDetail event={event} data={data} />{" "}
                       {ticket && (
                         <Link
                           className="font-bold text-brand hover:underline"
@@ -217,9 +249,7 @@ export function AuditPage() {
                         </Link>
                       )}
                     </p>
-                    <p className="mt-1 text-xs text-subtle">
-                      {formatDate(event.createdAt, true)} · {eventLabels[event.type] ?? event.type}
-                    </p>
+                    <p className="mt-1 text-xs text-subtle">{formatDate(event.createdAt, true)}</p>
                   </div>
                 </div>
               );
@@ -245,6 +275,18 @@ export function AuditPage() {
             </div>
           )}
         </div>
+        {events.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            pageCount={pageCount}
+            start={start}
+            end={end}
+            total={events.length}
+            itemLabel="eventos"
+            ariaLabel="Paginação da auditoria"
+            onPageChange={setPage}
+          />
+        )}
       </section>
     </>
   );

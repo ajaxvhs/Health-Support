@@ -102,6 +102,16 @@ describe("regras de transição do chamado", () => {
     expect(availableStatusTransitions(actor, { ...ticket, status: "resolvido" })).toEqual([]);
   });
 
+  it("reserva aberto → em andamento para a ação Assumir", () => {
+    const admin = { ...actor, id: "admin", role: "admin" as const };
+    const open = { ...ticket, status: "aberto" as const, assignedTo: undefined };
+
+    expect(availableStatusTransitions(admin, open)).toEqual(["fechado"]);
+    expect(() => assertStatusChangeAllowed(admin, open, "em_andamento")).toThrow(
+      "Esta transição não está disponível",
+    );
+  });
+
   it("permite fechar diretamente um chamado ativo sem solução", () => {
     const admin = { ...actor, id: "admin", role: "admin" as const };
     const open = { ...ticket, status: "aberto" as const, assignedTo: undefined };

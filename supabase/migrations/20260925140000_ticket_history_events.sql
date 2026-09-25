@@ -19,7 +19,11 @@ begin
       ticket_id, actor_id, event_type, to_status_id, to_assigned_to, metadata
     ) values (
       new.id, auth.uid(), 'created', new.status_id, new.assigned_to,
-      jsonb_build_object('detail', 'Chamado aberto', 'to_status', coalesce(new_status_name, new_status))
+      jsonb_build_object(
+        'detail', 'Chamado aberto',
+        'to_status', coalesce(new_status_name, new_status),
+        'to_status_slug', new_status
+      )
     );
     return new;
   end if;
@@ -40,20 +44,37 @@ begin
   if new.status_id is distinct from old.status_id then
     change_type := case
       when old_status in ('resolvido', 'fechado') and new_status = 'aberto' then 'reopened'
+      when old_status = 'aberto'
+        and new_status = 'em_andamento'
+        and old.assigned_to is null
+        and new.assigned_to = auth.uid() then 'claimed'
+      when old_status = 'aberto'
+        and new_status = 'em_andamento'
+        and old.assigned_to is null
+        and new.assigned_to is not null then 'assigned'
+      when old_status = 'em_andamento'
+        and new_status = 'aberto'
+        and old.assigned_to is not null
+        and new.assigned_to is null then 'released'
       when new_status = 'resolvido' then 'resolved'
       when new_status = 'fechado' then 'closed'
       else 'status_changed'
     end;
     change_detail := case change_type
       when 'reopened' then 'Chamado reaberto'
+      when 'claimed' then 'Assumiu o chamado'
+      when 'assigned' then 'Responsável atribuído'
+      when 'released' then 'Liberou o chamado para a fila'
       when 'resolved' then 'Chamado resolvido'
-      when 'closed' then 'Chamado fechado sem resolução'
+      when 'closed' then 'Encerrou o chamado sem solução registrada'
       else 'Situação alterada para ' || coalesce(new_status_name, new_status)
     end;
     event_metadata := jsonb_build_object(
       'detail', change_detail,
       'from_status', old_status_name,
-      'to_status', new_status_name
+      'to_status', new_status_name,
+      'from_status_slug', old_status,
+      'to_status_slug', new_status
     );
   elsif new.assigned_to is distinct from old.assigned_to then
     change_type := case
@@ -62,11 +83,17 @@ begin
       else 'reassigned'
     end;
     change_detail := case change_type
-      when 'released' then 'Chamado liberado para a fila'
+      when 'released' then 'Liberou o chamado para a fila'
       when 'reassigned' then 'Responsável alterado'
       else 'Responsável atribuído'
     end;
-    event_metadata := jsonb_build_object('detail', change_detail);
+    event_metadata := jsonb_build_object(
+      'detail', change_detail,
+      'from_status', old_status_name,
+      'to_status', new_status_name,
+      'from_status_slug', old_status,
+      'to_status_slug', new_status
+    );
   elsif new.priority_id is distinct from old.priority_id then
     select p.name into old_priority_name
     from public.ticket_priorities p where p.id = old.priority_id;
@@ -179,7 +206,11 @@ select
     'detail',
     'Chamado aberto',
     'history_backfill',
-    true
+    true,
+    'to_status',
+    'Aberto',
+    'to_status_slug',
+    'aberto'
   ),
   t.created_at
 from

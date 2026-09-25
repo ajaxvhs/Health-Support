@@ -3,7 +3,7 @@ import type { Profile, Ticket, TicketStatus } from "../types";
 export const ticketStatuses: TicketStatus[] = ["aberto", "em_andamento", "resolvido", "fechado"];
 
 const transitions: Record<TicketStatus, TicketStatus[]> = {
-  aberto: ["em_andamento", "fechado"],
+  aberto: ["fechado"],
   em_andamento: ["aberto", "resolvido", "fechado"],
   resolvido: ["aberto"],
   fechado: ["aberto"],
