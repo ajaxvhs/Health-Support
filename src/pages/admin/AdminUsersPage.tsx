@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import {
   BulkActionButtons,
   Button,
@@ -7,10 +7,11 @@ import {
   PageHeader,
   TopSearch,
 } from "../../components/ui";
+import { Pagination } from "../../components/Pagination";
 import { useApp } from "../../context/AppContext";
 import { unitName } from "../../lib/selectors";
-import { getPagination, getPaginationItems } from "../../lib/pagination";
-import { cn, errorMessage, refreshAfterMutation } from "../../lib/utils";
+import { getPagination } from "../../lib/pagination";
+import { errorMessage, refreshAfterMutation } from "../../lib/utils";
 import { useToast } from "../../context/useToast";
 import type { Profile } from "../../types";
 import { AdminUserRow } from "./AdminUserRow";
@@ -249,58 +250,16 @@ export function AdminUsersPage() {
             />
           ))}
           {users.length > 0 && (
-            <div className="grid gap-3 border-t border-line-soft px-4 py-3 text-xs text-muted sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-5">
-              <span className="sm:justify-self-start">
-                Exibindo {pageStart + 1}-{pageEnd} de {users.length} usuários
-              </span>
-              <div className="flex items-center justify-center gap-1 sm:justify-self-center">
-                <button
-                  type="button"
-                  aria-label="Página anterior"
-                  disabled={currentPage === 1}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                {getPaginationItems(currentPage, pageCount).map((item, index) =>
-                  item === "ellipsis" ? (
-                    <span
-                      key={`ellipsis-${index}`}
-                      className="flex h-10 w-10 items-center justify-center"
-                    >
-                      ...
-                    </span>
-                  ) : (
-                    <button
-                      key={item}
-                      type="button"
-                      aria-label={`Ir para a página ${item}`}
-                      aria-current={item === currentPage ? "page" : undefined}
-                      onClick={() => setPage(item)}
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-lg font-semibold transition",
-                        item === currentPage
-                          ? "bg-brand-strong text-on-brand"
-                          : "text-muted hover:bg-surface-soft hover:text-ink",
-                      )}
-                    >
-                      {item}
-                    </button>
-                  ),
-                )}
-                <button
-                  type="button"
-                  aria-label="Próxima página"
-                  disabled={currentPage === pageCount}
-                  onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-              <span aria-hidden="true" className="hidden sm:block" />
-            </div>
+            <Pagination
+              currentPage={currentPage}
+              pageCount={pageCount}
+              start={pageStart}
+              end={pageEnd}
+              total={users.length}
+              itemLabel="usuários"
+              ariaLabel="Paginação de usuários"
+              onPageChange={setPage}
+            />
           )}
         </div>
       </div>
