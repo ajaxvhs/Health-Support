@@ -38,34 +38,38 @@ Clone o projeto e instale as dependências:
 npm ci
 ```
 
-Crie um arquivo `.env` na raiz a partir do exemplo:
+Crie o ambiente local a partir do exemplo e preencha a chave pública informada
+por `npx supabase status`:
 
 ```bash
 cp .env.example .env
 ```
 
-Preencha as variáveis do ambiente local:
+Para desenvolvimento remoto, configure `.env.remote` com a URL e a chave pública
+do projeto remoto. Esse arquivo é ignorado pelo Git. `VITE_*` é enviado ao navegador; nunca coloque a
+`SUPABASE_SERVICE_ROLE_KEY` neles.
 
-```env
-VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua-chave-publica
-VITE_APP_URL=http://localhost:5173
-```
+Se já existir `.env.local`, preserve o arquivo e acrescente nele os valores locais
+`VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`; no modo remoto, `.env.remote`
+prevalece sobre esses valores.
 
-A `SUPABASE_SERVICE_ROLE_KEY` nunca deve ser usada no navegador. Ela deve ficar
-somente no ambiente protegido de uma Edge Function, quando necessário. As
-migrations do banco ficam versionadas em `supabase/migrations` e devem ser
+As migrations do banco ficam versionadas em `supabase/migrations` e devem ser
 aplicadas somente ao ambiente apropriado.
 
 ## Desenvolvimento
 
-Inicie o servidor local:
+Selecione explicitamente qual backend usar:
 
 ```bash
-npm run dev
+npm run dev:local
+npm run dev:remote
 ```
 
-Depois acesse `http://localhost:5173`.
+`dev:local` usa o modo Vite `development` (`.env` e `.env.local`); `dev:remote`
+usa o modo `remote` (`.env.remote`, que prevalece sobre `.env.local`). Depois
+acesse `http://localhost:5173`. O login e os dados não são compartilhados
+entre os bancos: contas locais precisam existir no Auth e em `public.profiles`
+do Supabase local.
 
 ## Comandos úteis
 
