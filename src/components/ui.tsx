@@ -2,7 +2,13 @@ import { useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { CheckCircle2, ClipboardList, LoaderCircle, Power, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn, initials } from "../lib/utils";
-import { statusMeta, type AppData, type Profile, type TicketStatus } from "../types";
+import {
+  statusMeta,
+  type AppData,
+  type Profile,
+  type TicketParticipant,
+  type TicketStatus,
+} from "../types";
 import { Dialog } from "./Dialog";
 
 export { CustomSelect, SelectField, TextField, TopSearch } from "./formControls";
@@ -86,7 +92,13 @@ export function Badge({
   );
 }
 
-export function Avatar({ user, size = "md" }: { user?: Profile; size?: "sm" | "md" | "lg" }) {
+export function Avatar({
+  user,
+  size = "md",
+}: {
+  user?: Pick<Profile | TicketParticipant, "fullName">;
+  size?: "sm" | "md" | "lg";
+}) {
   return (
     <span
       className={cn(

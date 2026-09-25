@@ -124,7 +124,8 @@ export function filterAuditEvents(
   const to = filters.to ? parseFilterDate(filters.to, true) : undefined;
   return events.filter((event) => {
     const eventDate = new Date(event.createdAt).getTime();
-    const searchable = `${event.detail} ${event.type} ${actors[event.actorId] ?? ""}`.toLowerCase();
+    const searchable =
+      `${event.detail} ${event.type} ${actors[event.actorId ?? ""] ?? ""}`.toLowerCase();
     return (
       (!query || searchable.includes(query)) &&
       (!filters.actorId || event.actorId === filters.actorId) &&

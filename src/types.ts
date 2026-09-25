@@ -29,6 +29,10 @@ export interface Profile {
   isActive: boolean;
   mustChangePassword?: boolean;
 }
+export interface TicketParticipant {
+  id: string;
+  fullName: string;
+}
 export type AdminUserActionRequest =
   | { action: "list" }
   | {
@@ -70,7 +74,7 @@ export interface TicketMessage {
 export interface TicketEvent {
   id: string;
   ticketId?: string;
-  actorId: string;
+  actorId?: string;
   type: string;
   detail: string;
   createdAt: string;
@@ -105,6 +109,7 @@ export interface Ticket {
 }
 export interface AppData {
   profiles: Profile[];
+  ticketParticipants?: TicketParticipant[];
   units: Unit[];
   categories: CatalogItem[];
   priorities: CatalogItem[];

@@ -1,7 +1,10 @@
-import type { AppData } from "../types";
+import type { AppData, Profile, TicketParticipant } from "../types";
 
-export function userById(data: AppData, id?: string) {
-  return data.profiles.find((profile) => profile.id === id);
+export function userById(data: AppData, id?: string): Profile | TicketParticipant | undefined {
+  return (
+    data.profiles.find((profile) => profile.id === id) ??
+    data.ticketParticipants?.find((participant) => participant.id === id)
+  );
 }
 
 export function unitName(data: AppData, id: string) {

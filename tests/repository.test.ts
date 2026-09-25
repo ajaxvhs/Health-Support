@@ -209,4 +209,18 @@ describe("contratos de mutação do repository", () => {
       status: "em_andamento",
     });
   });
+
+  it("reabre na fila e remove o responsável na mesma mutação", async () => {
+    const { repository, writes } = repositoryWithResults(
+      { data: { id: "status-open" }, error: null },
+      { data: ticketRow, error: null },
+    );
+
+    await repository.changeStatus("ticket-1", "aberto");
+
+    expect(writes).toContainEqual({
+      table: "tickets",
+      values: { status_id: "status-open", assigned_to: null },
+    });
+  });
 });

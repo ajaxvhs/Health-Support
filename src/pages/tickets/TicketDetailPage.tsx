@@ -1,11 +1,10 @@
-import { useState } from "react";
-import { Activity, ArrowLeft, BookOpen, CheckCircle2, Phone, X } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { Activity, ArrowLeft, BookOpen, CheckCircle2, LockKeyhole, Phone, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Avatar,
   Badge,
   Button,
-  ConfirmDialog,
   EmptyState,
   SelectField,
   TicketPriorityBadge,
@@ -16,13 +15,18 @@ import { categoryName, unitName, userById } from "../../lib/selectors";
 import { useToast } from "../../context/useToast";
 import { can, isStaff } from "../../lib/permissions";
 import {
+  availableStatusTransitions,
+  canReopenTicket,
+  isTicketTerminal,
+} from "../../lib/ticketPolicy";
+import {
   errorMessage,
   formatDate,
   refreshAndNotify,
   relativeDate,
   resolutionValueForTicket,
 } from "../../lib/utils";
-import { statusMeta, type Profile, type TicketStatus } from "../../types";
+import { statusMeta, type Profile, type TicketParticipant, type TicketStatus } from "../../types";
 import { TicketConversation } from "./TicketConversation";
 
 export function TicketDetailPage() {
@@ -35,7 +39,8 @@ export function TicketDetailPage() {
     ticketId: string;
     value: string;
   } | null>(null);
-  const [confirmClose, setConfirmClose] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [resolving, setResolving] = useState(false);
   if (!ticket)
     return (
       <EmptyState
@@ -64,21 +69,39 @@ export function TicketDetailPage() {
   const assigned = userById(data, ticket.assignedTo);
   const requester = userById(data, ticket.createdBy);
   const canStaff = isStaff(user.role);
+  const terminal = isTicketTerminal(ticket);
+  const canResolve =
+    Boolean(ticket.assignedTo) && (user.role === "admin" || ticket.assignedTo === user.id);
+  const statusOptions = availableStatusTransitions(user, ticket);
   const events = data.events
     .filter((item) => item.ticketId === ticket.id)
     .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
   const statusChange = async (next: TicketStatus) => {
     try {
-      const updated = await repo.changeStatus(
-        ticket.id,
-        next,
-        next === "resolvido" ? resolution : undefined,
-      );
+      const updated =
+        next === "aberto" && !terminal
+          ? await repo.assign(ticket.id, "")
+          : await repo.changeStatus(ticket.id, next, next === "resolvido" ? resolution : undefined);
       mergeTicket(updated);
-      await refreshAndNotify(refresh, showToast, `Status alterado para ${statusMeta[next].label}.`);
+      const successMessage =
+        next === "resolvido"
+          ? "Chamado resolvido com sucesso."
+          : next === "fechado"
+            ? "Chamado encerrado com sucesso."
+            : `Status alterado para ${statusMeta[next].label}.`;
+      await refreshAndNotify(refresh, showToast, successMessage);
+      if ((next === "resolvido" || next === "fechado") && isStaff(user.role)) {
+        navigate("/chamados?visao=fila", { replace: true });
+      }
     } catch (reason) {
       showToast(errorMessage(reason, "Não foi possível atualizar o status."), "error");
     }
+  };
+  const submitResolution = (event: FormEvent) => {
+    event.preventDefault();
+    if (!resolution.trim() || resolving) return;
+    setResolving(true);
+    void statusChange("resolvido").finally(() => setResolving(false));
   };
   return (
     <>
@@ -106,27 +129,30 @@ export function TicketDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {canStaff && !ticket.assignedTo && (
+          {canStaff && ticket.status === "aberto" && !ticket.assignedTo && (
             <Button
+              loading={claiming}
+              aria-busy={claiming}
               onClick={async () => {
+                setClaiming(true);
                 try {
                   const updated = await repo.claim(ticket.id);
                   mergeTicket(updated);
                   await refreshAndNotify(refresh, showToast, "Chamado assumido com sucesso.");
                 } catch (reason) {
                   showToast(errorMessage(reason, "Não foi possível assumir."), "error");
+                } finally {
+                  setClaiming(false);
                 }
               }}
             >
-              <CheckCircle2 size={16} /> Assumir chamado
+              {!claiming && <CheckCircle2 size={16} aria-hidden="true" />}
+              Assumir chamado
             </Button>
           )}
-          {ticket.status === "resolvido" && user.role === "solicitante" && (
-            <Button onClick={() => setConfirmClose(true)}>Confirmar encerramento</Button>
-          )}
-          {ticket.status === "resolvido" && (
-            <Button variant="secondary" onClick={() => statusChange("em_andamento")}>
-              Solicitar atendimento
+          {terminal && canReopenTicket(user, ticket) && (
+            <Button variant="secondary" onClick={() => statusChange("aberto")}>
+              Reabrir chamado
             </Button>
           )}
         </div>
@@ -146,17 +172,103 @@ export function TicketDetailPage() {
             <p className="whitespace-pre-wrap pt-5 text-sm leading-7 text-secondary">
               {ticket.description}
             </p>
-            {ticket.resolutionNotes && (
-              <div className="mt-5 rounded-xl bg-success-soft p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-success-strong">
-                  Solução registrada
-                </p>
-                <p className="mt-2 text-sm leading-6 text-success-strong">
-                  {ticket.resolutionNotes}
-                </p>
-              </div>
-            )}
           </section>
+          {ticket.resolutionNotes && (
+            <section
+              aria-labelledby="ticket-resolution-title"
+              className="rounded-2xl border border-success/20 bg-success-soft/40 p-5 shadow-soft sm:p-7"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-success-soft text-success-strong">
+                  <CheckCircle2 size={20} aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2
+                      id="ticket-resolution-title"
+                      className="font-display font-bold text-success-strong"
+                    >
+                      Solução registrada
+                    </h2>
+                    {ticket.resolvedAt && (
+                      <span className="text-xs text-success-strong">
+                        Resolvido em {formatDate(ticket.resolvedAt, true)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-success-strong/80">
+                    Resposta compartilhada com o solicitante
+                  </p>
+                  <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-ink">
+                    {ticket.resolutionNotes}
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+          {canStaff && ticket.status === "em_andamento" && canResolve && (
+            <section className="overflow-hidden rounded-2xl border border-line-soft bg-surface shadow-soft">
+              <div className="flex items-start gap-3 border-b border-line-soft bg-surface-soft/70 p-5 sm:p-6">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
+                  <CheckCircle2 size={20} aria-hidden="true" />
+                </span>
+                <div>
+                  <h2 className="font-display font-bold text-ink">
+                    Como o problema foi resolvido?
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-secondary">
+                    Registre os passos realizados e o resultado. Este resumo ficará visível ao
+                    solicitante.
+                  </p>
+                </div>
+              </div>
+              <form onSubmit={submitResolution} className="p-5 sm:p-6">
+                <label
+                  htmlFor="ticket-resolution-draft"
+                  className="mb-2 block text-sm font-semibold text-ink"
+                >
+                  Resumo da solução <span className="text-danger-strong">*</span>
+                </label>
+                <textarea
+                  id="ticket-resolution-draft"
+                  value={resolution}
+                  onChange={(event) =>
+                    setResolutionDraft({ ticketId: ticket.id, value: event.target.value })
+                  }
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" &&
+                      !event.shiftKey &&
+                      !event.nativeEvent.isComposing
+                    ) {
+                      event.preventDefault();
+                      if (!resolving) event.currentTarget.form?.requestSubmit();
+                    }
+                  }}
+                  placeholder="Ex.: Ajustei as permissões da conta e confirmei o acesso com o solicitante."
+                  rows={5}
+                  required
+                  className="w-full resize-y rounded-xl border border-line bg-surface p-3 text-sm leading-6 text-ink outline-none placeholder:text-subtle focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"
+                />
+                <div className="mt-4 flex flex-col gap-3 border-t border-line-soft pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs leading-5 text-muted">
+                    O chamado sairá da fila ativa. Você poderá reabri-lo se precisar continuar o
+                    atendimento.
+                  </p>
+                  <Button
+                    type="submit"
+                    className="w-full shrink-0 sm:w-auto"
+                    disabled={!resolution.trim() || resolving}
+                    loading={resolving}
+                    aria-busy={resolving}
+                  >
+                    {!resolving && <CheckCircle2 size={16} aria-hidden="true" />}
+                    Marcar como resolvido
+                  </Button>
+                </div>
+              </form>
+            </section>
+          )}
           <TicketConversation ticket={ticket} />
         </div>
         <aside className="space-y-5">
@@ -178,7 +290,7 @@ export function TicketDetailPage() {
             </div>
             {canStaff && (
               <div className="mt-5 border-t border-line-soft pt-5">
-                {can(user.role, "manage_users") && (
+                {can(user.role, "manage_users") && !terminal && (
                   <div className="mb-4">
                     <SelectField
                       label="Responsável"
@@ -208,7 +320,7 @@ export function TicketDetailPage() {
                           </option>
                         ))}
                     </SelectField>
-                    {ticket.assignedTo && (
+                    {ticket.assignedTo && !terminal && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -235,55 +347,69 @@ export function TicketDetailPage() {
                     )}
                   </div>
                 )}
-                <div className="mb-4">
+                {!terminal && (
+                  <div className="mb-4">
+                    <SelectField
+                      label="Prioridade"
+                      value={ticket.priorityId}
+                      onChange={async (value) => {
+                        try {
+                          const updated = await repo.updatePriority(ticket.id, value);
+                          mergeTicket(updated);
+                          await refreshAndNotify(refresh, showToast, "Prioridade atualizada.");
+                        } catch (reason) {
+                          showToast(
+                            errorMessage(reason, "Não foi possível atualizar a prioridade."),
+                            "error",
+                          );
+                        }
+                      }}
+                    >
+                      {data.priorities
+                        .filter((item) => item.isActive)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                    </SelectField>
+                  </div>
+                )}
+                {!terminal && statusOptions.length > 0 && (
                   <SelectField
-                    label="Prioridade"
-                    value={ticket.priorityId}
-                    onChange={async (value) => {
-                      try {
-                        const updated = await repo.updatePriority(ticket.id, value);
-                        mergeTicket(updated);
-                        await refreshAndNotify(refresh, showToast, "Prioridade atualizada.");
-                      } catch (reason) {
-                        showToast(
-                          errorMessage(reason, "Não foi possível atualizar a prioridade."),
-                          "error",
-                        );
-                      }
-                    }}
+                    label="Alterar status"
+                    value={ticket.status}
+                    onChange={(value) => statusChange(value as TicketStatus)}
                   >
-                    {data.priorities
-                      .filter((item) => item.isActive)
-                      .map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
+                    <option value={ticket.status}>{statusMeta[ticket.status].label}</option>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {status === "fechado" ? "Fechado sem resolução" : statusMeta[status].label}
+                      </option>
+                    ))}
                   </SelectField>
-                </div>
-                <SelectField
-                  label="Alterar status"
-                  value={ticket.status}
-                  onChange={(value) => {
-                    statusChange(value as TicketStatus);
-                  }}
-                >
-                  {Object.entries(statusMeta).map(([key, value]) => (
-                    <option key={key} value={key}>
-                      {value.label}
-                    </option>
-                  ))}
-                </SelectField>
-                {["em_andamento", "resolvido"].includes(ticket.status) && (
-                  <textarea
-                    value={resolution}
-                    onChange={(e) =>
-                      setResolutionDraft({ ticketId: ticket.id, value: e.target.value })
-                    }
-                    placeholder="Descreva a solução aplicada"
-                    rows={3}
-                    className="mt-3 w-full rounded-xl border border-line bg-surface p-3 text-sm outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"
-                  />
+                )}
+                {terminal && (
+                  <div className="rounded-xl border border-line-soft bg-surface-soft/70 p-3">
+                    <div className="flex items-start gap-2.5">
+                      <LockKeyhole
+                        size={16}
+                        className="mt-0.5 shrink-0 text-subtle"
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-ink">Chamado finalizado</p>
+                        <p className="mt-1 text-xs leading-5 text-secondary">
+                          Mensagens e alterações de responsável estão bloqueadas.
+                        </p>
+                        <p className="mt-2 text-xs leading-5 text-muted">
+                          {canReopenTicket(user, ticket)
+                            ? "Você pode reabrir este chamado."
+                            : "Somente um administrador pode reabri-lo."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -293,35 +419,40 @@ export function TicketDetailPage() {
               <h2 className="font-display font-bold text-ink">Histórico</h2>
               <Activity size={16} className="text-subtle" />
             </div>
-            <div className="mt-5 space-y-4">
-              {events.map((event) => (
-                <div key={event.id} className="relative flex gap-3">
-                  <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[10px] text-brand">
-                    <CheckCircle2 size={12} />
-                  </span>
-                  <div>
-                    <p className="text-xs font-semibold leading-5 text-secondary">{event.detail}</p>
-                    <p className="mt-0.5 text-[10px] text-subtle">
-                      {formatDate(event.createdAt, true)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+            <div
+              aria-label="Eventos do chamado"
+              className="mt-5 max-h-96 space-y-4 overflow-y-auto overscroll-contain pr-2 sm:max-h-[32rem]"
+              tabIndex={0}
+            >
+              {events.length ? (
+                events.map((event) => {
+                  const actor = userById(data, event.actorId);
+                  return (
+                    <div key={event.id} className="relative flex gap-3">
+                      <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[10px] text-brand">
+                        <CheckCircle2 size={12} />
+                      </span>
+                      <div>
+                        <p className="text-xs font-semibold leading-5 text-secondary">
+                          {event.detail}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-subtle">
+                          {actor ? `Por ${actor.fullName} · ` : ""}
+                          {formatDate(event.createdAt, true)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="py-5 text-center text-sm text-subtle">
+                  Nenhum evento registrado neste chamado.
+                </p>
+              )}
             </div>
           </section>
         </aside>
       </div>
-      <ConfirmDialog
-        open={confirmClose}
-        title="Confirmar encerramento"
-        description="O chamado será marcado como fechado e sairá do acompanhamento ativo. Deseja continuar?"
-        confirmLabel="Encerrar chamado"
-        onCancel={() => setConfirmClose(false)}
-        onConfirm={() => {
-          setConfirmClose(false);
-          statusChange("fechado");
-        }}
-      />
     </>
   );
 }
@@ -334,7 +465,7 @@ function DetailItem({
 }: {
   label: string;
   value: string;
-  avatar?: Profile;
+  avatar?: Profile | TicketParticipant;
   icon?: typeof Phone;
 }) {
   return (
