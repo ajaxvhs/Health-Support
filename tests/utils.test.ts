@@ -25,7 +25,7 @@ const staff: Profile = {
   username: "equipe.ti",
   email: "ti@example.com",
   phone: "",
-  role: "atendente",
+  role: "admin",
   unitId: "unit-a",
   isActive: true,
 };

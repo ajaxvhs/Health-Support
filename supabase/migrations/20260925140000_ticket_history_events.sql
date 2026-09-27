@@ -31,8 +31,7 @@ begin
   -- updated_at and other incidental updates must not create history entries.
   if new.status_id is not distinct from old.status_id
     and new.assigned_to is not distinct from old.assigned_to
-    and new.priority_id is not distinct from old.priority_id
-    and new.resolution_notes is not distinct from old.resolution_notes then
+    and new.priority_id is not distinct from old.priority_id then
     return new;
   end if;
 
@@ -112,9 +111,7 @@ begin
       'priority_to', new_priority_name
     );
   else
-    change_type := 'ticket_details_updated';
-    change_detail := 'Detalhes do chamado atualizados';
-    event_metadata := jsonb_build_object('detail', change_detail);
+    return new;
   end if;
 
   insert into public.ticket_events(

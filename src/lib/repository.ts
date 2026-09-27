@@ -363,8 +363,6 @@ export class SupabaseRepository {
     const data = await this.getData();
     const target = data.tickets.find((item) => item.id === id);
     if (!user || !target || !isStaff(user.role)) throw new Error("Acesso restrito a equipe.");
-    if (user.role === "atendente" && target.assignedTo !== user.id)
-      throw new Error("Assuma o chamado antes de atualizá-lo.");
     if (!data.priorities.some((item) => item.id === priorityId && item.isActive))
       throw new Error("Prioridade inválida ou inativa.");
     const result = await this.client

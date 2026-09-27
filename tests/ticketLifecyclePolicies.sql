@@ -130,7 +130,7 @@ values
     'lifecycle-staff-a',
     'Synthetic staff A',
     '000',
-    'atendente',
+    'admin',
     current_setting('test.lifecycle_unit')::uuid,
     false
   ),
@@ -139,7 +139,7 @@ values
     'lifecycle-staff-b',
     'Synthetic staff B',
     '000',
-    'atendente',
+    'admin',
     current_setting('test.lifecycle_unit')::uuid,
     false
   ),
@@ -314,7 +314,7 @@ reset role;
 select
   set_config(
     'request.jwt.claim.sub',
-    current_setting('test.lifecycle_staff_b'),
+    current_setting('test.lifecycle_requester'),
     true
   );
 
@@ -322,12 +322,14 @@ set
   local role authenticated;
 
 do $$
-declare affected integer;
 begin
-  update public.tickets set priority_id = current_setting('test.lifecycle_priority')::uuid
-  where title = 'Lifecycle test ticket';
-  get diagnostics affected = row_count;
-  if affected <> 0 then raise exception 'An unrelated attendant modified an assigned ticket'; end if;
+  begin
+    update public.tickets
+    set priority_id = current_setting('test.lifecycle_priority')::uuid
+    where title = 'Lifecycle test ticket';
+    raise exception 'Requester changed the ticket priority';
+  exception when insufficient_privilege then null;
+  end;
 end;
 $$;
 
@@ -649,7 +651,7 @@ begin
       assigned_to = auth.uid()
   where title = 'Lifecycle test ticket' and assigned_to is null;
   get diagnostics affected = row_count;
-  if affected <> 0 then raise exception 'A second attendant claimed an already assigned ticket'; end if;
+    if affected <> 0 then raise exception 'A second administrator claimed an already assigned ticket'; end if;
 end;
 $$;
 
@@ -688,7 +690,7 @@ begin
       and resolution_notes is null
       and assigned_to = current_setting('test.lifecycle_staff_b')::uuid
   ) then
-    raise exception 'Responsible attendant could not close directly without resolution';
+    raise exception 'Responsible administrator could not close directly without resolution';
   end if;
 end;
 $$;
@@ -781,10 +783,10 @@ begin
       and s.slug = 'em_andamento'
       and t.assigned_to = auth.uid()
   ) then
-    raise exception 'Ticket is not in progress and assigned to the acting attendant before second resolution';
+    raise exception 'Ticket is not in progress and assigned to the acting administrator before second resolution';
   end if;
-  if (select p.role::text from public.profiles p where p.id = auth.uid()) <> 'atendente' then
-    raise exception 'Second resolution actor is not an active attendant';
+  if (select p.role::text from public.profiles p where p.id = auth.uid()) <> 'admin' then
+    raise exception 'Second resolution actor is not an active administrator';
   end if;
 end;
 $$;

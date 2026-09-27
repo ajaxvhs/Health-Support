@@ -25,7 +25,7 @@ const profileRow = {
   username: "staff",
   full_name: "Staff User",
   phone: "555",
-  role: "atendente",
+  role: "admin",
   default_unit_id: "unit-1",
   is_active: true,
   must_change_password: false,
@@ -95,6 +95,7 @@ function repositoryWithResults(
       return query;
     },
     rpc: async () => updateResult,
+    functions: { invoke: async () => ({ data: { users: [] }, error: null }) },
   } as unknown as SupabaseClient;
 
   return { repository: new SupabaseRepository(client), writes };
@@ -214,7 +215,7 @@ describe("contratos de mutação do repository", () => {
     });
   });
 
-  it("assume o chamado atribuindo o atendente e mudando para em andamento", async () => {
+  it("assume o chamado atribuindo o administrador e mudando para em andamento", async () => {
     const { repository, writes } = repositoryWithResults(
       { data: { id: "status-in-progress" }, error: null },
       { data: ticketRow, error: null },

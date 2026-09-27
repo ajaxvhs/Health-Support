@@ -17,7 +17,6 @@ const capabilitiesByRole: Record<Role, readonly Capability[]> = {
     "manage_catalogs",
     "view_audit",
   ],
-  atendente: ["view_queue", "view_all_tickets", "claim_tickets"],
   solicitante: [],
 };
 

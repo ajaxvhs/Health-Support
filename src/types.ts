@@ -1,4 +1,4 @@
-export type Role = "admin" | "atendente" | "solicitante";
+export type Role = "admin" | "solicitante";
 export type TicketStatus = "aberto" | "em_andamento" | "resolvido" | "fechado";
 export const ticketStatuses = ["aberto", "em_andamento", "resolvido", "fechado"] as const;
 export type CatalogKind = "categories" | "units" | "priorities" | "statuses";
@@ -133,7 +133,6 @@ export const statusMeta: Record<TicketStatus, { label: string; tone: string }> =
 
 export const roleLabels: Record<Role, string> = {
   admin: "Administrador",
-  atendente: "Atendente",
   solicitante: "Solicitante",
 };
 

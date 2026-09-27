@@ -18,12 +18,6 @@ export function assertMessageAllowed(actor: Profile, ticket: Ticket, internal: b
     throw new Error("Acesso negado.");
   if (internal && actor.role === "solicitante")
     throw new Error("Você não pode criar notas internas.");
-  if (
-    actor.role === "atendente" &&
-    ticket.assignedTo !== actor.id &&
-    ticket.assignedTo !== undefined
-  )
-    throw new Error("Assuma o chamado antes de enviar uma mensagem.");
 }
 
 export function canReopenTicket(actor: Profile, ticket: Ticket) {
@@ -41,7 +35,6 @@ export function availableStatusTransitions(actor: Profile, ticket: Ticket): Tick
   if (ticket.status === "aberto") return actor.role === "admin" ? ["fechado"] : [];
   if (ticket.status === "em_andamento" && !ticket.assignedTo)
     return actor.role === "admin" ? ["fechado"] : [];
-  if (actor.role === "atendente" && ticket.assignedTo !== actor.id) return [];
   return transitions[ticket.status].filter((status) => status !== "resolvido");
 }
 
@@ -55,8 +48,6 @@ export function assertStatusChangeAllowed(
     throw new Error("Acesso negado.");
   if (actor.role === "solicitante" && nextStatus !== "aberto")
     throw new Error("Esta transição não está disponível.");
-  if (actor.role === "atendente" && ticket.assignedTo !== actor.id)
-    throw new Error("Assuma o chamado antes de atualizá-lo.");
   if (
     (ticket.status === "resolvido" || ticket.status === "fechado") &&
     nextStatus === "aberto" &&
