@@ -62,6 +62,21 @@ export function formatDate(value: string, includeTime = false) {
     .format(new Date(value))
     .replace(".", "");
 }
+
+export function localDateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+export function formatDateKey(value: string) {
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
 export function relativeDate(value: string) {
   const days = Math.round((Date.now() - new Date(value).getTime()) / 86400000);
   if (days <= 0) return "Hoje";
@@ -110,9 +125,12 @@ export function filterAuditEvents(
   events: TicketEvent[],
   profiles: Profile[],
   filters: AuditFilters,
+  tickets: Ticket[] = [],
 ) {
   const query = filters.search.trim().toLowerCase();
+  const exactTicketNumber = query.match(/^#(\d+)$/)?.[1];
   const actors = Object.fromEntries(profiles.map((profile) => [profile.id, profile.fullName]));
+  const ticketsById = Object.fromEntries(tickets.map((ticket) => [ticket.id, ticket]));
   const parseFilterDate = (value: string, endOfDay = false) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return new Date(value).getTime();
     const [year, month, day] = value.split("-").map(Number);
@@ -124,10 +142,13 @@ export function filterAuditEvents(
   const to = filters.to ? parseFilterDate(filters.to, true) : undefined;
   return events.filter((event) => {
     const eventDate = new Date(event.createdAt).getTime();
+    const ticket = event.ticketId ? ticketsById[event.ticketId] : undefined;
     const searchable =
-      `${event.detail} ${event.type} ${actors[event.actorId ?? ""] ?? ""}`.toLowerCase();
+      `${event.detail} ${event.type} ${actors[event.actorId ?? ""] ?? ""} ${ticket ? `#${ticket.number} ${ticket.title} ${ticket.requesterName}` : ""}`.toLowerCase();
+    const ticketNumberMatches =
+      !exactTicketNumber || ticket?.number === Number.parseInt(exactTicketNumber, 10);
     return (
-      (!query || searchable.includes(query)) &&
+      (!query || (exactTicketNumber ? ticketNumberMatches : searchable.includes(query))) &&
       (!filters.actorId || event.actorId === filters.actorId) &&
       (!filters.type || event.type === filters.type) &&
       (from === undefined || eventDate >= from) &&

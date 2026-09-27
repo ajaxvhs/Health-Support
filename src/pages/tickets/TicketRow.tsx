@@ -22,7 +22,7 @@ export function TicketRow({
     const openTicket = () => navigate(`/chamados/${ticket.id}`);
     return (
       <div
-        className="flex cursor-pointer flex-col gap-4 p-5 transition hover:bg-surface-soft focus-visible:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand sm:flex-row sm:items-center"
+        className="flex cursor-pointer flex-col gap-3 p-4 transition hover:bg-surface-soft focus-visible:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand sm:gap-4 sm:p-5 min-[1120px]:flex-row min-[1120px]:items-center"
         role="link"
         tabIndex={0}
         onClick={(event) => {
@@ -36,21 +36,23 @@ export function TicketRow({
           }
         }}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="font-mono text-xs font-bold text-subtle">#{ticket.number}</span>
+        <div className="flex w-full min-w-0 flex-1 items-start gap-3 min-[1120px]:w-auto min-[1120px]:items-center">
+          <span className="shrink-0 font-mono text-xs font-bold text-subtle">#{ticket.number}</span>
           <div className="min-w-0">
-            <span className="block truncate text-sm font-bold text-ink">{ticket.title}</span>
-            <p className="mt-1 truncate text-xs text-subtle">
+            <span className="block break-words text-sm font-bold text-ink min-[1120px]:truncate">
+              {ticket.title}
+            </span>
+            <p className="mt-1 break-words text-xs text-subtle min-[1120px]:truncate">
               {unitName(data, ticket.unitId)} · {categoryName(data, ticket.categoryId)} ·{" "}
               {ticket.requesterName}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 sm:w-[290px] sm:justify-end">
+        <div className="flex w-full flex-wrap items-center gap-2 min-[1120px]:w-[290px] min-[1120px]:flex-nowrap min-[1120px]:justify-end">
           <TicketPriorityBadge priority={ticket.priorityId} data={data} />
           <TicketStatusBadge status={ticket.status} />
         </div>
-        <div className="flex items-center justify-between gap-3 sm:w-[190px] sm:justify-end">
+        <div className="flex w-full items-center justify-between gap-3 min-[1120px]:w-[190px] min-[1120px]:justify-end">
           {assigned ? (
             <span className="flex items-center gap-2 text-xs font-semibold text-secondary">
               <Avatar user={assigned} size="sm" />

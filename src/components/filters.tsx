@@ -31,28 +31,41 @@ export function FilterToolbar({
   search,
   onSearch,
   searchPlaceholder,
+  stackUntil = "sm",
   open,
   onToggle,
   panelId,
   chips,
   onClear,
+  panelContainerClassName,
   panelClassName,
   children,
 }: {
   search: string;
   onSearch: (value: string) => void;
   searchPlaceholder?: string;
+  stackUntil?: "sm" | "tablet";
   open: boolean;
   onToggle: () => void;
   panelId: string;
   chips: FilterChip[];
   onClear: () => void;
+  panelContainerClassName?: string;
   panelClassName?: string;
   children: ReactNode;
 }) {
+  const searchLayout =
+    stackUntil === "tablet"
+      ? "min-[1120px]:grid-cols-[minmax(0,1fr)_auto]"
+      : "sm:grid-cols-[minmax(0,1fr)_auto]";
+  const buttonSize =
+    stackUntil === "tablet"
+      ? "min-[1120px]:min-h-12 min-[1120px]:w-auto min-[1120px]:px-4"
+      : "sm:min-h-12 sm:w-auto sm:px-4";
+
   return (
     <>
-      <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className={cn("grid grid-cols-1 items-center gap-3", searchLayout)}>
         <TopSearch
           value={search}
           onSearch={onSearch}
@@ -61,7 +74,7 @@ export function FilterToolbar({
         />
         <Button
           variant={open ? "primary" : "secondary"}
-          className="min-h-10 w-full shrink-0 px-3 sm:min-h-12 sm:w-auto sm:px-4"
+          className={cn("min-h-10 w-full shrink-0 px-3", buttonSize)}
           onClick={onToggle}
           aria-expanded={open}
           aria-controls={panelId}
@@ -115,7 +128,12 @@ export function FilterToolbar({
       >
         <div className={cn("min-h-0", open ? "overflow-visible" : "overflow-hidden")}>
           <div id={panelId} className="mt-3 border-t border-line-soft pt-3">
-            <div className="rounded-xl border border-line-soft bg-surface-soft/60 p-3 sm:p-4">
+            <div
+              className={cn(
+                "rounded-xl border border-line-soft bg-surface-soft/60 p-3 sm:p-4",
+                panelContainerClassName,
+              )}
+            >
               <div className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2", panelClassName)}>
                 {children}
               </div>

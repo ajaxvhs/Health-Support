@@ -44,7 +44,7 @@ export function SelectField({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const labelId = useId();
-  const menuPosition = useFloatingPosition(buttonRef, open);
+  const menuPosition = useFloatingPosition(buttonRef, open, menuRef);
 
   useEffect(() => {
     if (!open) return;
@@ -104,7 +104,7 @@ export function SelectField({
         className={cn(
           inputClass,
           "flex cursor-pointer items-center justify-between text-left",
-          compact && "min-h-9 rounded-lg px-2.5 text-xs",
+          compact && "min-h-11 rounded-lg px-2.5 text-xs",
         )}
         onClick={() => setOpen((current) => !current)}
         aria-haspopup="listbox"
@@ -125,8 +125,9 @@ export function SelectField({
               top: menuPosition.top,
               left: floatingMenuLeft,
               width: floatingMenuWidth,
+              maxHeight: Math.min(240, menuPosition.maxHeight),
             }}
-            className="z-[1000] max-h-60 space-y-1 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-xl"
+            className="z-[1000] max-h-[min(15rem,calc(100dvh-1rem))] space-y-1 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-xl"
             role="listbox"
           >
             {options.map((option) => (

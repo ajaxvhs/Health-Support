@@ -126,7 +126,7 @@ export function AppShell() {
     <div className="min-h-screen bg-canvas">
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-ink/30 transition-opacity md:hidden",
+          "fixed inset-0 z-40 bg-ink/30 transition-opacity min-[1120px]:hidden",
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={() => setMobileOpen(false)}
@@ -134,7 +134,7 @@ export function AppShell() {
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[232px] flex-col overflow-hidden border-r border-line-soft bg-surface px-4 py-5 transition-transform md:transform-none md:transition-none",
+          "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[232px] flex-col overflow-hidden border-r border-line-soft bg-surface px-4 py-5 transition-transform min-[1120px]:transform-none min-[1120px]:transition-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -199,12 +199,12 @@ export function AppShell() {
           Sair da conta
         </button>
       </aside>
-      <div className="md:pl-[232px]">
+      <div className="min-[1120px]:pl-[232px]">
         <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-line-soft bg-surface/90 px-4 backdrop-blur-md sm:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="rounded-xl p-2 text-secondary hover:bg-surface-muted md:hidden"
+              className="rounded-xl p-2 text-secondary hover:bg-surface-muted min-[1120px]:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Abrir menu"
             >

@@ -4,31 +4,28 @@ import { ticketStatuses } from "../types";
 export const auditEventLabels: Record<string, string> = {
   created: "Chamado aberto",
   assigned: "Atribuiu o chamado",
-  unassigned: "Liberou o chamado para a fila",
   status_changed: "Status alterado",
   priority_changed: "Prioridade alterada",
-  message_added: "Mensagem adicionada",
   claimed: "Assumiu o chamado",
   reopened: "Reabriu o chamado",
   resolved: "Resolveu o chamado",
   closed: "Encerrou o chamado sem solução registrada",
   released: "Liberou o chamado para a fila",
   reassigned: "Reatribuiu o chamado",
-  ticket_details_updated: "Detalhes do chamado atualizados",
-  password_changed: "Senha alterada",
-  profile_updated: "Perfil atualizado",
-  user_created: "Usuário criado",
-  user_updated: "Usuário atualizado",
-  user_activated: "Usuário ativado",
-  user_deactivated: "Usuário desativado",
-  user_deleted: "Usuário excluído",
-  role_changed: "Perfil de acesso alterado",
   catalog_created: "Item de catálogo criado",
   catalog_renamed: "Item de catálogo renomeado",
   catalog_activated: "Item de catálogo ativado",
   catalog_deactivated: "Item de catálogo desativado",
   catalog_deleted: "Item de catálogo excluído",
 };
+
+export function getAuditSummary(events: TicketEvent[]) {
+  return {
+    eventCount: events.length,
+    ticketCount: new Set(events.flatMap((event) => (event.ticketId ? [event.ticketId] : []))).size,
+    actorCount: new Set(events.flatMap((event) => (event.actorId ? [event.actorId] : []))).size,
+  };
+}
 
 function catalogItemByName(items: CatalogItem[], name: string | undefined) {
   if (!name) return undefined;

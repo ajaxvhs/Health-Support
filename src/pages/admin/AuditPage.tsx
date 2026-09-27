@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, BookOpen, Clock3, RefreshCw, RotateCcw, Search } from "lucide-react";
+import { Activity, BookOpen, RefreshCw, RotateCcw, Search, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { FilterField, FilterToolbar, type FilterChip } from "../../components/filters";
 import {
@@ -15,10 +15,15 @@ import {
 import { Pagination } from "../../components/Pagination";
 import { DateRangePicker } from "../../components/DateRangePicker";
 import { useApp } from "../../context/AppContext";
-import { auditEventLabels, auditEventPriorityIds, auditEventStatus } from "../../lib/audit";
+import {
+  auditEventLabels,
+  auditEventPriorityIds,
+  auditEventStatus,
+  getAuditSummary,
+} from "../../lib/audit";
 import { getPagination } from "../../lib/pagination";
 import { userById } from "../../lib/selectors";
-import { filterAuditEvents, formatDate } from "../../lib/utils";
+import { filterAuditEvents, formatDate, formatDateKey, localDateKey } from "../../lib/utils";
 import type { AppData, TicketEvent } from "../../types";
 
 function AuditEventDetail({ event, data }: { event: TicketEvent; data: AppData }) {
@@ -80,7 +85,13 @@ export function AuditPage() {
     (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
   );
   const eventTypes = Object.keys(auditEventLabels);
-  const events = filterAuditEvents(allEvents, data.profiles, { search, actorId, type, from, to });
+  const events = filterAuditEvents(
+    allEvents,
+    data.profiles,
+    { search, actorId, type, from, to },
+    data.tickets,
+  );
+  const summary = getAuditSummary(events);
   const { page: currentPage, pageCount, start, end } = getPagination(page, events.length);
   const pageEvents = events.slice(start, end);
   useEffect(() => {
@@ -118,7 +129,7 @@ export function AuditPage() {
   if (from || to)
     filterChips.push({
       key: "date",
-      label: `Período: ${from && to ? `${from} - ${to}` : "Selecionado"}`,
+      label: `Período: ${formatDateKey(from || to)} – ${formatDateKey(to || localDateKey(new Date()))}`,
       onRemove: () => {
         setFrom("");
         setTo("");
@@ -137,34 +148,31 @@ export function AuditPage() {
   return (
     <>
       <PageHeader
+        stackUntil="tablet"
         eyebrow="Administração"
         title="Auditoria"
         description="Histórico append-only das alterações relevantes do sistema."
         action={
-          <Button variant="secondary" onClick={reload} loading={refreshing}>
-            {!refreshing && <RefreshCw size={16} />} Atualizar
-          </Button>
+          <div className="flex w-full justify-end sm:w-auto">
+            <Button variant="secondary" onClick={reload} loading={refreshing}>
+              {!refreshing && <RefreshCw size={16} />} Atualizar
+            </Button>
+          </div>
         }
       />
-      <div className="mb-5 grid gap-4 sm:grid-cols-3">
-        <StatCard label="Eventos registrados" value={events.length} icon={Activity} compact />
+      <div className="mb-5 grid gap-4 min-[1120px]:grid-cols-3">
+        <StatCard label="Eventos no período" value={summary.eventCount} icon={Activity} compact />
         <StatCard
-          label="Chamados acompanhados"
-          value={
-            new Set(events.filter((event) => event.ticketId).map((event) => event.ticketId)).size
-          }
+          label="Chamados com movimentação"
+          value={summary.ticketCount}
           icon={BookOpen}
           tone="blue"
           compact
         />
         <StatCard
-          label="Ações hoje"
-          value={
-            events.filter(
-              (event) => new Date(event.createdAt).toDateString() === new Date().toDateString(),
-            ).length
-          }
-          icon={Clock3}
+          label="Pessoas que atuaram"
+          value={summary.actorCount}
+          icon={Users}
           tone="orange"
           compact
         />
@@ -179,19 +187,22 @@ export function AuditPage() {
             <FilterToolbar
               search={search}
               onSearch={setSearch}
-              searchPlaceholder="Buscar no histórico"
+              searchPlaceholder="Buscar no histórico ou chamado (#1)"
+              stackUntil="tablet"
               open={showFilters}
               onToggle={() => setShowFilters((current) => !current)}
               panelId="audit-filter-panel"
               chips={filterChips}
               onClear={clear}
-              panelClassName="md:grid-cols-2 lg:grid-cols-3"
+              panelContainerClassName="min-[1120px]:mx-auto min-[1120px]:max-w-[66.5rem]"
+              panelClassName="min-[1120px]:grid-cols-[repeat(3,minmax(0,20rem))] min-[1120px]:justify-center"
             >
               <FilterField label="Responsável">
                 <CustomSelect
                   ariaLabel="Filtrar por responsável"
                   value={actorId}
                   onChange={setActorId}
+                  compact
                   options={[
                     { value: "", label: "Todos os responsáveis" },
                     ...data.profiles.map((profile) => ({
@@ -206,6 +217,7 @@ export function AuditPage() {
                   ariaLabel="Filtrar por ação"
                   value={type}
                   onChange={setType}
+                  compact
                   options={[
                     { value: "", label: "Todas as ações" },
                     ...eventTypes.map((value) => ({
@@ -234,20 +246,25 @@ export function AuditPage() {
               const actor = userById(data, event.actorId);
               const ticket = data.tickets.find((item) => item.id === event.ticketId);
               return (
-                <div key={event.id} className="flex items-start gap-3 px-5 py-4 sm:px-7">
+                <div
+                  key={event.id}
+                  className="flex min-h-40 items-center gap-3 px-5 py-3 sm:h-[5.5rem] sm:min-h-[5.5rem] sm:px-7"
+                >
                   <Avatar user={actor} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-secondary">
                       <strong className="text-ink">{actor?.fullName ?? "Usuário removido"}</strong>{" "}
-                      <AuditEventDetail event={event} data={data} />{" "}
-                      {ticket && (
-                        <Link
-                          className="font-bold text-brand hover:underline"
-                          to={`/chamados/${ticket.id}`}
-                        >
-                          #{ticket.number}
-                        </Link>
-                      )}
+                      <span className="block sm:inline">
+                        <AuditEventDetail event={event} data={data} />{" "}
+                        {ticket && (
+                          <Link
+                            className="font-bold text-brand hover:underline"
+                            to={`/chamados/${ticket.id}`}
+                          >
+                            #{ticket.number}
+                          </Link>
+                        )}
+                      </span>
                     </p>
                     <p className="mt-1 text-xs text-subtle">{formatDate(event.createdAt, true)}</p>
                   </div>

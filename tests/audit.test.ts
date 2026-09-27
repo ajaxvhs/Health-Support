@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { auditEventLabels, auditEventPriorityIds, auditEventStatus } from "../src/lib/audit";
+import {
+  auditEventLabels,
+  auditEventPriorityIds,
+  auditEventStatus,
+  getAuditSummary,
+} from "../src/lib/audit";
 import type { CatalogItem, TicketEvent } from "../src/types";
 
 const statuses: CatalogItem[] = [
@@ -17,6 +22,17 @@ const priorities: CatalogItem[] = [
 ];
 
 describe("apresentação de eventos de auditoria", () => {
+  it("resume os eventos filtrados em totais de eventos, chamados e atores distintos", () => {
+    const events = [
+      { ticketId: "ticket-1", actorId: "admin-1" },
+      { ticketId: "ticket-1", actorId: "admin-1" },
+      { ticketId: "ticket-2", actorId: "admin-2" },
+      { actorId: null },
+    ] as TicketEvent[];
+
+    expect(getAuditSummary(events)).toEqual({ eventCount: 4, ticketCount: 2, actorCount: 2 });
+  });
+
   it("usa ações naturais para reabertura e fechamento sem solução", () => {
     expect(auditEventLabels.reopened).toBe("Reabriu o chamado");
     expect(auditEventLabels.closed).toBe("Encerrou o chamado sem solução registrada");
