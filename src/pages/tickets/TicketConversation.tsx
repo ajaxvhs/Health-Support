@@ -5,6 +5,7 @@ import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { isStaff } from "../../lib/permissions";
 import { userById } from "../../lib/selectors";
+import { isTicketTerminal } from "../../lib/ticketPolicy";
 import { cn, errorMessage, formatDate, refreshAndNotify } from "../../lib/utils";
 import type { Ticket } from "../../types";
 
@@ -15,12 +16,12 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
   const [internal, setInternal] = useState(false);
   const [sending, setSending] = useState(false);
   const canStaff = isStaff(user.role);
+  const terminal = isTicketTerminal(ticket);
   const messages = data.messages.filter(
     (item) => item.ticketId === ticket.id && (canStaff || !item.isInternal),
   );
 
-  const sendMessage = async (event: FormEvent) => {
-    event.preventDefault();
+  const sendMessage = async () => {
     if (!message.trim()) {
       showToast("Escreva uma mensagem antes de enviar.", "error");
       return;
@@ -39,13 +40,18 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
     }
   };
 
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void sendMessage();
+  };
+
   return (
     <section className="rounded-2xl border border-line-soft bg-surface shadow-soft">
       <div className="border-b border-line-soft px-5 py-5 sm:px-7">
         <h2 className="font-display font-bold text-ink">Conversa do chamado</h2>
         <p className="mt-1 text-xs text-subtle">Mensagens públicas e atualizações do atendimento</p>
       </div>
-      <div className="max-h-96 space-y-5 overflow-y-auto p-5 sm:max-h-[32rem] sm:p-7">
+      <div className="max-h-96 space-y-5 overflow-y-auto overscroll-contain p-5 sm:max-h-[32rem] sm:p-7">
         {messages.length ? (
           messages.map((item) => {
             const sender = userById(data, item.senderId);
@@ -76,66 +82,74 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
           <p className="py-5 text-center text-sm text-subtle">Nenhuma mensagem neste chamado.</p>
         )}
       </div>
-      <form
-        onSubmit={sendMessage}
-        className="border-t border-line-soft bg-surface-soft/60 p-5 sm:p-7"
-      >
-        <div className="block">
-          <span className="mb-2 block text-sm font-bold text-ink">Adicionar mensagem</span>
-          <textarea
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            rows={3}
-            aria-label="Adicionar mensagem"
-            placeholder={
-              internal
-                ? "Escreva uma nota visível apenas para a equipe..."
-                : "Escreva uma resposta para este chamado..."
-            }
-            className="w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"
-          />
-        </div>
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {canStaff && (
-            <label
-              className={cn(
-                "group flex min-h-10 cursor-pointer select-none items-center gap-2 rounded-xl px-4 text-xs font-bold transition-colors",
+      {!terminal && (
+        <form
+          onSubmit={handleSubmit}
+          className="border-t border-line-soft bg-surface-soft/60 p-5 sm:p-7"
+        >
+          <div className="block">
+            <span className="mb-2 block text-sm font-bold text-ink">Adicionar mensagem</span>
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  if (!sending) void sendMessage();
+                }
+              }}
+              rows={3}
+              aria-label="Adicionar mensagem"
+              placeholder={
                 internal
-                  ? "bg-brand-soft text-brand-contrast"
-                  : "text-secondary hover:bg-surface-muted",
-              )}
-            >
-              <input
-                type="checkbox"
-                aria-label="Nota interna (somente equipe)"
-                checked={internal}
-                onChange={(event) => setInternal(event.target.checked)}
-                className="peer sr-only"
-              />
-              <span
-                aria-hidden="true"
+                  ? "Escreva uma nota visível apenas para a equipe..."
+                  : "Escreva uma resposta para este chamado..."
+              }
+              className="w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"
+            />
+          </div>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {canStaff && (
+              <label
                 className={cn(
-                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2",
+                  "group flex min-h-10 cursor-pointer select-none items-center gap-2 rounded-xl px-4 text-xs font-bold transition-colors",
                   internal
-                    ? "border-brand-strong bg-brand-strong text-on-brand"
-                    : "border-line-strong bg-surface group-hover:border-brand-hover",
+                    ? "bg-brand-soft text-brand-contrast"
+                    : "text-secondary hover:bg-surface-muted",
                 )}
               >
-                {internal && <Check size={14} strokeWidth={3} />}
-              </span>
-              <span>Nota interna (somente equipe)</span>
-            </label>
-          )}
-          <Button className="sm:ml-auto" disabled={sending} aria-busy={sending}>
-            {sending ? (
-              <LoaderCircle size={15} className="shrink-0 animate-spin" aria-hidden="true" />
-            ) : (
-              <Send size={15} aria-hidden="true" />
+                <input
+                  type="checkbox"
+                  aria-label="Nota interna (somente equipe)"
+                  checked={internal}
+                  onChange={(event) => setInternal(event.target.checked)}
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2",
+                    internal
+                      ? "border-brand-strong bg-brand-strong text-on-brand"
+                      : "border-line-strong bg-surface group-hover:border-brand-hover",
+                  )}
+                >
+                  {internal && <Check size={14} strokeWidth={3} />}
+                </span>
+                <span>Nota interna (somente equipe)</span>
+              </label>
             )}
-            Enviar mensagem
-          </Button>
-        </div>
-      </form>
+            <Button className="sm:ml-auto" disabled={sending} aria-busy={sending}>
+              {sending ? (
+                <LoaderCircle size={15} className="shrink-0 animate-spin" aria-hidden="true" />
+              ) : (
+                <Send size={15} aria-hidden="true" />
+              )}
+              Enviar mensagem
+            </Button>
+          </div>
+        </form>
+      )}
     </section>
   );
 }

@@ -2,7 +2,13 @@ import { useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { CheckCircle2, ClipboardList, LoaderCircle, Power, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn, initials } from "../lib/utils";
-import { statusMeta, type AppData, type Profile, type TicketStatus } from "../types";
+import {
+  statusMeta,
+  type AppData,
+  type Profile,
+  type TicketParticipant,
+  type TicketStatus,
+} from "../types";
 import { Dialog } from "./Dialog";
 
 export { CustomSelect, SelectField, TextField, TopSearch } from "./formControls";
@@ -86,7 +92,13 @@ export function Badge({
   );
 }
 
-export function Avatar({ user, size = "md" }: { user?: Profile; size?: "sm" | "md" | "lg" }) {
+export function Avatar({
+  user,
+  size = "md",
+}: {
+  user?: Pick<Profile | TicketParticipant, "fullName">;
+  size?: "sm" | "md" | "lg";
+}) {
   return (
     <span
       className={cn(
@@ -129,14 +141,22 @@ export function PageHeader({
   title,
   description,
   action,
+  stackUntil = "sm",
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
   action?: ReactNode;
+  stackUntil?: "sm" | "tablet";
 }) {
+  const responsiveLayout =
+    stackUntil === "tablet"
+      ? "min-[1120px]:flex-row min-[1120px]:items-end min-[1120px]:justify-between"
+      : "sm:flex-row sm:items-end sm:justify-between";
+  const actionWidth = stackUntil === "tablet" ? "min-[1120px]:w-auto" : "sm:w-auto";
+
   return (
-    <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className={cn("mb-7 flex flex-col gap-4", responsiveLayout)}>
       <div>
         <p className="mb-2 text-[11px] font-bold uppercase tracking-[.16em] text-brand">
           {eyebrow}
@@ -146,7 +166,7 @@ export function PageHeader({
         </h1>
         {description && <p className="mt-2 max-w-2xl text-sm text-secondary">{description}</p>}
       </div>
-      {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
+      {action && <div className={cn("w-full shrink-0", actionWidth)}>{action}</div>}
     </div>
   );
 }

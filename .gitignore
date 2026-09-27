@@ -15,6 +15,8 @@ coverage/
 
 # Supabase CLI temporario
 supabase/.temp/
+supabase/.branches/
+.playwright-mcp/
 
 # Logs
 *.log

@@ -25,7 +25,7 @@ const profileRow = {
   username: "staff",
   full_name: "Staff User",
   phone: "555",
-  role: "atendente",
+  role: "admin",
   default_unit_id: "unit-1",
   is_active: true,
   must_change_password: false,
@@ -49,7 +49,11 @@ const ticketRow = {
   ticket_statuses: { slug: "em_andamento" },
 };
 
-function repositoryWithResults(statusResult: QueryResult, updateResult: QueryResult) {
+function repositoryWithResults(
+  statusResult: QueryResult,
+  updateResult: QueryResult,
+  eventRows: unknown[] = [],
+) {
   const writes: unknown[] = [];
   const listResults: Record<string, QueryResult> = {
     profiles: { data: [profileRow], error: null },
@@ -59,7 +63,7 @@ function repositoryWithResults(statusResult: QueryResult, updateResult: QueryRes
     ticket_statuses: { data: [], error: null },
     tickets: { data: [ticketRow], error: null },
     ticket_messages: { data: [], error: null },
-    ticket_events: { data: [], error: null },
+    ticket_events: { data: eventRows, error: null },
   };
   const client = {
     auth: { getUser: async () => ({ data: { user: { id: "staff-1", email: "staff@test" } } }) },
@@ -91,6 +95,7 @@ function repositoryWithResults(statusResult: QueryResult, updateResult: QueryRes
       return query;
     },
     rpc: async () => updateResult,
+    functions: { invoke: async () => ({ data: { users: [] }, error: null }) },
   } as unknown as SupabaseClient;
 
   return { repository: new SupabaseRepository(client), writes };
@@ -208,5 +213,79 @@ describe("contratos de mutação do repository", () => {
       id: "ticket-1",
       status: "em_andamento",
     });
+  });
+
+  it("assume o chamado atribuindo o administrador e mudando para em andamento", async () => {
+    const { repository, writes } = repositoryWithResults(
+      { data: { id: "status-in-progress" }, error: null },
+      { data: ticketRow, error: null },
+    );
+
+    await repository.claim("ticket-1");
+
+    expect(writes).toContainEqual({
+      table: "tickets",
+      values: { assigned_to: "staff-1", status_id: "status-in-progress" },
+    });
+  });
+
+  it("reabre na fila e remove o responsável na mesma mutação", async () => {
+    const { repository, writes } = repositoryWithResults(
+      { data: { id: "status-open" }, error: null },
+      { data: ticketRow, error: null },
+    );
+
+    await repository.changeStatus("ticket-1", "aberto");
+
+    expect(writes).toContainEqual({
+      table: "tickets",
+      values: { status_id: "status-open", assigned_to: null },
+    });
+  });
+});
+
+describe("mapeamento de eventos de auditoria", () => {
+  it("retorna slugs de situação e prioridades dos metadados", async () => {
+    const { repository } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+      [
+        {
+          id: "event-1",
+          ticket_id: "ticket-1",
+          actor_id: "staff-1",
+          event_type: "status_changed",
+          created_at: "2026-01-02T00:00:00.000Z",
+          metadata: {
+            detail: "Situação alterada",
+            from_status_slug: "em_andamento",
+            to_status_slug: "resolvido",
+            priority_from_id: "priority-low",
+            priority_to_id: "priority-high",
+            priority_from: "Baixa",
+            priority_to: "Alta",
+          },
+        },
+      ],
+    );
+
+    const data = await repository.getData();
+
+    expect(data.events).toEqual([
+      {
+        id: "event-1",
+        ticketId: "ticket-1",
+        actorId: "staff-1",
+        type: "status_changed",
+        detail: "Situação alterada",
+        createdAt: "2026-01-02T00:00:00.000Z",
+        statusFrom: "em_andamento",
+        statusTo: "resolvido",
+        priorityFromId: "priority-low",
+        priorityToId: "priority-high",
+        priorityFrom: "Baixa",
+        priorityTo: "Alta",
+      },
+    ]);
   });
 });

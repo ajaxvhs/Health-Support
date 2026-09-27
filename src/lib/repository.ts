@@ -86,14 +86,23 @@ const message = (r: Row): TicketMessage => ({
   isInternal: r.is_internal as boolean,
   createdAt: r.created_at as string,
 });
-const event = (r: Row): TicketEvent => ({
-  id: r.id as string,
-  ticketId: r.ticket_id as string | undefined,
-  actorId: r.actor_id as string,
-  type: r.event_type as string,
-  detail: ((r.metadata as Row)?.detail as string) ?? (r.event_type as string),
-  createdAt: r.created_at as string,
-});
+const event = (r: Row): TicketEvent => {
+  const metadata = (r.metadata ?? {}) as Row;
+  return {
+    id: r.id as string,
+    ticketId: r.ticket_id as string | undefined,
+    actorId: r.actor_id as string | undefined,
+    type: r.event_type as string,
+    detail: (metadata.detail as string) ?? (r.event_type as string),
+    createdAt: r.created_at as string,
+    statusFrom: metadata.from_status_slug as string | undefined,
+    statusTo: metadata.to_status_slug as string | undefined,
+    priorityFromId: metadata.priority_from_id as string | undefined,
+    priorityToId: metadata.priority_to_id as string | undefined,
+    priorityFrom: metadata.priority_from as string | undefined,
+    priorityTo: metadata.priority_to as string | undefined,
+  };
+};
 
 export class SupabaseRepository {
   private client: SupabaseClient;
@@ -116,21 +125,41 @@ export class SupabaseRepository {
     return row.id;
   }
   async getData(): Promise<AppData> {
-    const [profiles, units, categories, priorities, statuses, tickets, messages, events] =
-      await Promise.all([
-        this.client.from("profiles").select("*").order("full_name"),
-        this.client.from("units").select("*"),
-        this.client.from("ticket_categories").select("*"),
-        this.client.from("ticket_priorities").select("*").order("level"),
-        this.client.from("ticket_statuses").select("*"),
-        this.client
-          .from("tickets")
-          .select("*, ticket_statuses!inner(slug)")
-          .order("created_at", { ascending: false }),
-        this.client.from("ticket_messages").select("*").order("created_at"),
-        this.client.from("ticket_events").select("*").order("created_at", { ascending: false }),
-      ]);
-    const result = [profiles, units, categories, priorities, statuses, tickets, messages, events];
+    const [
+      profiles,
+      units,
+      categories,
+      priorities,
+      statuses,
+      tickets,
+      messages,
+      events,
+      participants,
+    ] = await Promise.all([
+      this.client.from("profiles").select("*").order("full_name"),
+      this.client.from("units").select("*"),
+      this.client.from("ticket_categories").select("*"),
+      this.client.from("ticket_priorities").select("*").order("level"),
+      this.client.from("ticket_statuses").select("*"),
+      this.client
+        .from("tickets")
+        .select("*, ticket_statuses!inner(slug)")
+        .order("created_at", { ascending: false }),
+      this.client.from("ticket_messages").select("*").order("created_at"),
+      this.client.from("ticket_events").select("*").order("created_at", { ascending: false }),
+      this.client.rpc("get_ticket_participants"),
+    ]);
+    const result = [
+      profiles,
+      units,
+      categories,
+      priorities,
+      statuses,
+      tickets,
+      messages,
+      events,
+      participants,
+    ];
     const failed = result.find((item) => item.error);
     if (failed?.error) throw failed.error;
     let profileRows = (profiles.data ?? []) as Row[];
@@ -141,6 +170,13 @@ export class SupabaseRepository {
     }
     return {
       profiles: profileRows.map((r) => profile(r, r.email as string | undefined)),
+      ticketParticipants: (Array.isArray(participants.data)
+        ? (participants.data as Row[])
+        : []
+      ).map((row) => ({
+        id: row.id as string,
+        fullName: row.full_name as string,
+      })),
       units: (units.data ?? []).map((r) => unit(r as Row)),
       categories: (categories.data ?? []).map((r) => catalog(r as Row)),
       priorities: (priorities.data ?? []).map((r) => catalog(r as Row)),
@@ -278,10 +314,10 @@ export class SupabaseRepository {
     );
   }
   async assign(id: string, userId: string) {
-    const statusId = userId ? await this.getStatusId("em_andamento") : undefined;
+    const statusId = await this.getStatusId(userId ? "em_andamento" : "aberto");
     const result = await this.client
       .from("tickets")
-      .update({ assigned_to: userId || null, ...(statusId ? { status_id: statusId } : {}) })
+      .update({ assigned_to: userId || null, status_id: statusId })
       .eq("id", id)
       .select("*, ticket_statuses!inner(slug)")
       .maybeSingle();
@@ -305,13 +341,12 @@ export class SupabaseRepository {
       .from("tickets")
       .update({
         status_id: statusId,
+        ...(status === "aberto" ? { assigned_to: null } : {}),
         ...(status === "resolvido"
           ? {
               resolution_notes: resolutionNotes?.trim(),
-              resolved_at: new Date().toISOString(),
             }
           : {}),
-        ...(status === "fechado" ? { closed_at: new Date().toISOString() } : {}),
       })
       .eq("id", id)
       .select("*, ticket_statuses!inner(slug)")
@@ -328,8 +363,6 @@ export class SupabaseRepository {
     const data = await this.getData();
     const target = data.tickets.find((item) => item.id === id);
     if (!user || !target || !isStaff(user.role)) throw new Error("Acesso restrito a equipe.");
-    if (user.role === "atendente" && target.assignedTo !== user.id)
-      throw new Error("Assuma o chamado antes de atualizá-lo.");
     if (!data.priorities.some((item) => item.id === priorityId && item.isActive))
       throw new Error("Prioridade inválida ou inativa.");
     const result = await this.client

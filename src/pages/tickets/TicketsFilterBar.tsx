@@ -144,12 +144,13 @@ export function TicketsFilterBar({
       <FilterToolbar
         search={filters.search}
         onSearch={onSearch}
+        stackUntil="tablet"
         open={showFilters}
         onToggle={onToggleFilters}
         panelId="ticket-filter-panel"
         chips={chips}
         onClear={onResetFilters}
-        panelClassName="lg:grid-cols-4"
+        panelClassName="min-[1120px]:grid-cols-4"
       >
         <FilterField label="Status">
           {view === "mine" ? (

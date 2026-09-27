@@ -1,21 +1,13 @@
 import { useEffect, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  Filter,
-  Plus,
-  RefreshCw,
-  Ticket as TicketIcon,
-} from "lucide-react";
+import { ClipboardList, Filter, Plus, RefreshCw, Ticket as TicketIcon } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button, EmptyState, PageHeader } from "../../components/ui";
+import { Pagination } from "../../components/Pagination";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { isStaff as hasStaffAccess } from "../../lib/permissions";
-import { getPagination, getPaginationItems } from "../../lib/pagination";
+import { getPagination } from "../../lib/pagination";
 import {
-  cn,
   errorMessage,
   filterTickets,
   refreshAfterMutation,
@@ -64,18 +56,18 @@ function TicketsViewSwitcher({
   onChange: (view: TicketFilterView) => void;
 }) {
   return (
-    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-4 flex flex-col gap-3 min-[1120px]:flex-row min-[1120px]:items-center min-[1120px]:justify-between">
       <div
         role="tablist"
         aria-label="Visualização dos chamados"
-        className="grid w-full grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1 shadow-sm sm:inline-flex sm:w-auto sm:flex-wrap"
+        className="grid w-full grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1 shadow-sm min-[1120px]:inline-flex min-[1120px]:w-auto min-[1120px]:flex-wrap"
       >
         <button
           type="button"
           role="tab"
           aria-selected={view === "queue"}
           onClick={() => onChange("queue")}
-          className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition sm:px-3.5 ${view === "queue" ? "bg-brand-strong text-on-brand shadow-sm" : "text-muted hover:bg-surface-soft hover:text-ink"}`}
+          className={`inline-flex min-h-12 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition min-[1120px]:min-w-[190px] min-[1120px]:px-3.5 ${view === "queue" ? "bg-brand-strong text-on-brand shadow-sm" : "text-muted hover:bg-surface-soft hover:text-ink"}`}
         >
           <ClipboardList size={14} /> Fila de atendimento
         </button>
@@ -84,13 +76,13 @@ function TicketsViewSwitcher({
           role="tab"
           aria-selected={view === "all"}
           onClick={() => onChange("all")}
-          className={`inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition sm:px-3.5 ${view === "all" ? "bg-brand-strong text-on-brand shadow-sm" : "text-muted hover:bg-surface-soft hover:text-ink"}`}
+          className={`inline-flex min-h-12 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 text-center text-xs font-bold transition min-[1120px]:min-w-[190px] min-[1120px]:px-3.5 ${view === "all" ? "bg-brand-strong text-on-brand shadow-sm" : "text-muted hover:bg-surface-soft hover:text-ink"}`}
         >
           <TicketIcon size={14} /> Todos os chamados
         </button>
       </div>
       {view === "queue" && (
-        <div className="grid w-full grid-cols-2 gap-2 text-center sm:w-[240px]">
+        <div className="grid w-full grid-cols-2 gap-2 text-center min-[1120px]:w-[240px]">
           <div className="rounded-xl bg-danger-soft px-3 py-2">
             <strong className="block text-lg text-danger">
               {
@@ -233,6 +225,7 @@ export function TicketsPage() {
   return (
     <>
       <PageHeader
+        stackUntil="tablet"
         eyebrow="Chamados"
         title={
           view === "mine"
@@ -249,16 +242,16 @@ export function TicketsPage() {
               : `${tickets.length} chamados encontrados`
         }
         action={
-          <div className="flex w-full justify-between gap-3 sm:w-auto">
-            <Link to="/chamados/novo" className="flex-1 sm:flex-none">
-              <Button className="min-h-12 w-full sm:min-w-[190px]">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 min-[1120px]:flex min-[1120px]:w-auto">
+            <Link to="/chamados/novo" className="w-full min-[1120px]:w-auto min-[1120px]:flex-none">
+              <Button className="min-h-12 w-full min-[1120px]:min-w-[190px]">
                 <Plus size={17} /> Novo chamado
               </Button>
             </Link>
             {isStaff && view === "queue" && (
               <Button
                 variant="secondary"
-                className="min-h-12 flex-1 sm:min-w-[190px] sm:flex-none"
+                className="min-h-12 w-full min-[1120px]:min-w-[190px] min-[1120px]:w-auto min-[1120px]:flex-none"
                 onClick={refreshQueue}
                 loading={refreshingQueue}
               >
@@ -306,58 +299,16 @@ export function TicketsPage() {
           />
         )}
         {tickets.length > 0 && (
-          <div className="grid gap-3 border-t border-line-soft px-4 py-3 text-xs text-muted sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-5">
-            <span className="sm:justify-self-start">
-              Exibindo {pageStart + 1}-{pageEnd} de {tickets.length} chamados
-            </span>
-            <div className="flex items-center justify-center gap-1 sm:justify-self-center">
-              <button
-                type="button"
-                aria-label="Página anterior"
-                disabled={currentPage === 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              {getPaginationItems(currentPage, pageCount).map((item, index) =>
-                item === "ellipsis" ? (
-                  <span
-                    key={`ellipsis-${index}`}
-                    className="flex h-10 w-10 items-center justify-center"
-                  >
-                    ...
-                  </span>
-                ) : (
-                  <button
-                    key={item}
-                    type="button"
-                    aria-label={`Ir para a página ${item}`}
-                    aria-current={item === currentPage ? "page" : undefined}
-                    onClick={() => setPage(item)}
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-lg font-semibold transition",
-                      item === currentPage
-                        ? "bg-brand-strong text-on-brand"
-                        : "text-muted hover:bg-surface-soft hover:text-ink",
-                    )}
-                  >
-                    {item}
-                  </button>
-                ),
-              )}
-              <button
-                type="button"
-                aria-label="Próxima página"
-                disabled={currentPage === pageCount}
-                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface-soft hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-            <span aria-hidden="true" className="hidden sm:block" />
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            pageCount={pageCount}
+            start={pageStart}
+            end={pageEnd}
+            total={tickets.length}
+            itemLabel="chamados"
+            ariaLabel="Paginação de chamados"
+            onPageChange={setPage}
+          />
         )}
       </div>
     </>

@@ -25,7 +25,7 @@ const staff: Profile = {
   username: "equipe.ti",
   email: "ti@example.com",
   phone: "",
-  role: "atendente",
+  role: "admin",
   unitId: "unit-a",
   isActive: true,
 };
@@ -153,6 +153,48 @@ describe("metricas e filtros de chamados", () => {
         to: "2025-01-11T23:59",
       }),
     ).toHaveLength(1);
+  });
+
+  it("busca eventos por número exato ou título do chamado", () => {
+    const events = [
+      {
+        id: "e-1",
+        ticketId: "t-42",
+        actorId: staff.id,
+        type: "status_changed",
+        detail: "Status alterado",
+        createdAt: "2025-01-10T10:00:00.000Z",
+      },
+      {
+        id: "e-2",
+        ticketId: "t-420",
+        actorId: requester.id,
+        type: "status_changed",
+        detail: "Status alterado",
+        createdAt: "2025-01-10T11:00:00.000Z",
+      },
+    ];
+    const tickets = [
+      { ...ticket("t-42", "2025-01-01"), title: "Rede local" },
+      { ...ticket("t-420", "2025-01-01"), title: "Impressora" },
+    ];
+
+    expect(
+      filterAuditEvents(
+        events,
+        [requester, staff],
+        { search: "#42", actorId: "", type: "", from: "", to: "" },
+        tickets,
+      ).map((event) => event.id),
+    ).toEqual(["e-1"]);
+    expect(
+      filterAuditEvents(
+        events,
+        [requester, staff],
+        { search: "impressora", actorId: "", type: "", from: "", to: "" },
+        tickets,
+      ).map((event) => event.id),
+    ).toEqual(["e-2"]);
   });
 });
 

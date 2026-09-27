@@ -1,4 +1,4 @@
-export type Role = "admin" | "atendente" | "solicitante";
+export type Role = "admin" | "solicitante";
 export type TicketStatus = "aberto" | "em_andamento" | "resolvido" | "fechado";
 export const ticketStatuses = ["aberto", "em_andamento", "resolvido", "fechado"] as const;
 export type CatalogKind = "categories" | "units" | "priorities" | "statuses";
@@ -28,6 +28,10 @@ export interface Profile {
   unitId: string;
   isActive: boolean;
   mustChangePassword?: boolean;
+}
+export interface TicketParticipant {
+  id: string;
+  fullName: string;
 }
 export type AdminUserActionRequest =
   | { action: "list" }
@@ -70,10 +74,16 @@ export interface TicketMessage {
 export interface TicketEvent {
   id: string;
   ticketId?: string;
-  actorId: string;
+  actorId?: string;
   type: string;
   detail: string;
   createdAt: string;
+  statusFrom?: string;
+  statusTo?: string;
+  priorityFromId?: string;
+  priorityToId?: string;
+  priorityFrom?: string;
+  priorityTo?: string;
 }
 export interface AppNotification {
   id: string;
@@ -105,6 +115,7 @@ export interface Ticket {
 }
 export interface AppData {
   profiles: Profile[];
+  ticketParticipants?: TicketParticipant[];
   units: Unit[];
   categories: CatalogItem[];
   priorities: CatalogItem[];
@@ -122,7 +133,6 @@ export const statusMeta: Record<TicketStatus, { label: string; tone: string }> =
 
 export const roleLabels: Record<Role, string> = {
   admin: "Administrador",
-  atendente: "Atendente",
   solicitante: "Solicitante",
 };
 
