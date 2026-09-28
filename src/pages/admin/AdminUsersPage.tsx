@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { UserPlus } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { RefreshCw, UserPlus } from "lucide-react";
 import {
   BulkActionButtons,
   Button,
@@ -11,12 +12,13 @@ import { Pagination } from "../../components/Pagination";
 import { useApp } from "../../context/AppContext";
 import { unitName } from "../../lib/selectors";
 import { getPagination } from "../../lib/pagination";
-import { errorMessage, refreshAfterMutation } from "../../lib/utils";
+import { errorMessage } from "../../lib/utils";
+import { queryCache } from "../../lib/queryCache";
 import { useToast } from "../../context/useToast";
 import type { Profile } from "../../types";
 import { AdminUserRow } from "./AdminUserRow";
 import { CreateUserForm, EditUserForm } from "./AdminUserForms";
-import { isUserReferenced, roleLabel } from "./userHelpers";
+import { roleLabel } from "./userHelpers";
 
 type ConfirmState = {
   title: string;
@@ -28,16 +30,40 @@ type ConfirmState = {
 
 export function AdminUsersPage() {
   const app = useApp();
-  const { data, repo, refresh } = app;
+  const { data, repo, mergeProfiles } = app;
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const usersQuery = useQuery({
+    queryKey: ["admin-users", app.user.id],
+    queryFn: () => repo.getAdminUsers(),
+    ...queryCache.adminUsers,
+  });
+  const refreshAffectedQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-users", app.user.id] }),
+      queryClient.invalidateQueries({ queryKey: ["ticket-pages", app.user.id] }),
+      queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", app.user.id] }),
+      queryClient.invalidateQueries({ queryKey: ["audit-pages", app.user.id] }),
+    ]);
+  };
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [editing, setEditing] = useState<Profile | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState>(null);
+  const users = usersQuery.data ?? [];
+  const loadingUsers = usersQuery.isLoading;
+  const usersError = Boolean(usersQuery.error) && !usersQuery.data;
+  useEffect(() => {
+    if (usersQuery.error)
+      showToast(errorMessage(usersQuery.error, "Não foi possível carregar os usuários."), "error");
+  }, [showToast, usersQuery.error]);
+  useEffect(() => {
+    if (usersQuery.data) mergeProfiles(usersQuery.data);
+  }, [mergeProfiles, usersQuery.data]);
 
   const query = search.trim().toLowerCase();
-  const users = data.profiles.filter(
+  const filteredUsers = users.filter(
     (profile) =>
       !query ||
       `${profile.fullName} ${profile.username} ${profile.email} ${unitName(data, profile.unitId)}`
@@ -50,8 +76,8 @@ export function AdminUsersPage() {
     pageCount,
     start: pageStart,
     end: pageEnd,
-  } = getPagination(page, users.length);
-  const pageUsers = users.slice(pageStart, pageEnd);
+  } = getPagination(page, filteredUsers.length);
+  const pageUsers = filteredUsers.slice(pageStart, pageEnd);
   const visibleIds = pageUsers
     .filter((profile) => profile.id !== app.user.id)
     .map((profile) => profile.id);
@@ -73,11 +99,7 @@ export function AdminUsersPage() {
       return;
     }
     setSelected([]);
-    if (!(await refreshAfterMutation(refresh)))
-      showToast(
-        "A alteração foi salva, mas a lista não sincronizou. Atualize quando a conexão voltar.",
-        "info",
-      );
+    await refreshAffectedQueries();
   };
   const request = (next: ConfirmState) => setConfirm(next);
   const bulkAction = (actionType: string) => {
@@ -138,9 +160,19 @@ export function AdminUsersPage() {
           title="Usuários"
           description="Gerencie quem pode acessar o portal e suas permissões."
           action={
-            <Button className="w-full sm:w-auto" onClick={() => setShowForm(true)}>
-              <UserPlus size={17} /> Novo usuário
-            </Button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Button
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={() => void usersQuery.refetch()}
+                loading={usersQuery.isFetching}
+              >
+                {!usersQuery.isFetching && <RefreshCw size={16} />} Atualizar
+              </Button>
+              <Button className="w-full sm:w-auto" onClick={() => setShowForm(true)}>
+                <UserPlus size={17} /> Novo usuário
+              </Button>
+            </div>
           }
         />
         <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-line-soft bg-surface p-3 shadow-soft sm:gap-4 sm:p-4">
@@ -152,7 +184,7 @@ export function AdminUsersPage() {
           />
           <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
             <span className="shrink-0 text-xs text-subtle">
-              {users.length} usuários cadastrados
+              {filteredUsers.length} usuários cadastrados
             </span>
             {selected.length > 0 && (
               <BulkActionButtons
@@ -186,76 +218,82 @@ export function AdminUsersPage() {
             <span className="text-center">Status</span>
             <span className="text-center">Ações</span>
           </div>
-          {pageUsers.map((profile) => (
-            <AdminUserRow
-              key={profile.id}
-              profile={profile}
-              data={data}
-              selected={selected.includes(profile.id)}
-              onSelect={(checked) =>
-                setSelected((current) =>
-                  checked
-                    ? [...new Set([...current, profile.id])]
-                    : current.filter((id) => id !== profile.id),
-                )
-              }
-              onEdit={() => setEditing(profile)}
-              onRoleChange={(role) =>
-                confirmAction({
-                  title: "Alterar perfil",
-                  description: `O perfil de ${profile.fullName} será alterado para ${roleLabel(role)}. Deseja continuar?`,
-                  confirmLabel: "Alterar perfil",
-                  variant: "primary",
-                  action: () =>
-                    finish(async () => {
-                      await repo.changeRole(profile.id, role);
-                      showToast("Perfil atualizado.");
-                    }),
-                })
-              }
-              onToggle={() =>
-                confirmAction({
-                  title: profile.isActive ? "Desativar usuário" : "Ativar usuário",
-                  description: profile.isActive
-                    ? `Desativar ${profile.fullName} impedirá o acesso ao portal. O histórico será preservado.`
-                    : `Ativar ${profile.fullName} permitirá novo acesso ao portal.`,
-                  confirmLabel: profile.isActive ? "Desativar" : "Ativar",
-                  action: () =>
-                    finish(async () => {
-                      await repo.toggleUser(profile.id);
-                      showToast(`Usuário ${profile.isActive ? "desativado" : "ativado"}.`);
-                    }),
-                })
-              }
-              onDelete={() =>
-                confirmAction({
-                  title: "Excluir usuário",
-                  description: isUserReferenced(data, profile.id)
-                    ? "Este usuário tem registros relacionados. A exclusão será convertida em desativação para preservar o histórico."
-                    : `Excluir ${profile.fullName} permanentemente? Essa ação não pode ser desfeita.`,
-                  confirmLabel: "Excluir usuário",
-                  variant: "danger",
-                  action: () =>
-                    finish(async () => {
-                      const result = await repo.deleteUser(profile.id);
-                      showToast(
-                        result.outcome === "deactivated"
-                          ? "Usuário desativado para preservar o histórico."
-                          : "Usuário excluído.",
-                      );
-                    }),
-                })
-              }
-              currentUserId={app.user.id}
-            />
-          ))}
-          {users.length > 0 && (
+          {loadingUsers ? (
+            <div className="p-8 text-center text-sm text-muted">Carregando usuários…</div>
+          ) : usersError ? (
+            <div className="p-8 text-center text-sm text-danger">
+              A lista não foi carregada por completo. Tente atualizar novamente.
+            </div>
+          ) : (
+            pageUsers.map((profile) => (
+              <AdminUserRow
+                key={profile.id}
+                profile={profile}
+                data={data}
+                selected={selected.includes(profile.id)}
+                onSelect={(checked) =>
+                  setSelected((current) =>
+                    checked
+                      ? [...new Set([...current, profile.id])]
+                      : current.filter((id) => id !== profile.id),
+                  )
+                }
+                onEdit={() => setEditing(profile)}
+                onRoleChange={(role) =>
+                  confirmAction({
+                    title: "Alterar perfil",
+                    description: `O perfil de ${profile.fullName} será alterado para ${roleLabel(role)}. Deseja continuar?`,
+                    confirmLabel: "Alterar perfil",
+                    variant: "primary",
+                    action: () =>
+                      finish(async () => {
+                        await repo.changeRole(profile.id, role);
+                        showToast("Perfil atualizado.");
+                      }),
+                  })
+                }
+                onToggle={() =>
+                  confirmAction({
+                    title: profile.isActive ? "Desativar usuário" : "Ativar usuário",
+                    description: profile.isActive
+                      ? `Desativar ${profile.fullName} impedirá o acesso ao portal. O histórico será preservado.`
+                      : `Ativar ${profile.fullName} permitirá novo acesso ao portal.`,
+                    confirmLabel: profile.isActive ? "Desativar" : "Ativar",
+                    action: () =>
+                      finish(async () => {
+                        await repo.toggleUser(profile.id);
+                        showToast(`Usuário ${profile.isActive ? "desativado" : "ativado"}.`);
+                      }),
+                  })
+                }
+                onDelete={() =>
+                  confirmAction({
+                    title: "Excluir usuário",
+                    description: `Excluir ${profile.fullName}? Se houver registros relacionados, o acesso será desativado para preservar o histórico; caso contrário, o usuário será removido.`,
+                    confirmLabel: "Excluir usuário",
+                    variant: "danger",
+                    action: () =>
+                      finish(async () => {
+                        const result = await repo.deleteUser(profile.id);
+                        showToast(
+                          result.outcome === "deactivated"
+                            ? "Usuário desativado para preservar o histórico."
+                            : "Usuário excluído.",
+                        );
+                      }),
+                  })
+                }
+                currentUserId={app.user.id}
+              />
+            ))
+          )}
+          {!loadingUsers && !usersError && filteredUsers.length > 0 && (
             <Pagination
               currentPage={currentPage}
               pageCount={pageCount}
               start={pageStart}
               end={pageEnd}
-              total={users.length}
+              total={filteredUsers.length}
               itemLabel="usuários"
               ariaLabel="Paginação de usuários"
               onPageChange={setPage}
@@ -263,8 +301,23 @@ export function AdminUsersPage() {
           )}
         </div>
       </div>
-      {showForm && <CreateUserForm onClose={() => setShowForm(false)} />}
-      {editing && <EditUserForm profile={editing} onClose={() => setEditing(null)} />}
+      {showForm && (
+        <CreateUserForm
+          onClose={(saved) => {
+            setShowForm(false);
+            if (saved) void refreshAffectedQueries();
+          }}
+        />
+      )}
+      {editing && (
+        <EditUserForm
+          profile={editing}
+          onClose={(saved) => {
+            setEditing(null);
+            if (saved) void refreshAffectedQueries();
+          }}
+        />
+      )}
       <ConfirmDialog
         open={Boolean(confirm)}
         title={confirm?.title ?? "Confirmar ação"}

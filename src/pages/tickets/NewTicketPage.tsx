@@ -1,13 +1,15 @@
 import { useState, type FormEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { BookOpen, CheckCircle2, MessageCircle, Send } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, FormActions, PageHeader, SelectField, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
-import { errorMessage, refreshAndNotify } from "../../lib/utils";
+import { errorMessage } from "../../lib/utils";
 
 export function NewTicketPage() {
-  const { data, user, repo, refresh, mergeTicket } = useApp();
+  const { data, user, repo, refreshTicketNavigationCounts } = useApp();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [categoryId, setCategoryId] = useState(data.categories.find((c) => c.isActive)?.id ?? "");
@@ -39,8 +41,11 @@ export function NewTicketPage() {
         categoryId,
         priorityId,
       });
-      mergeTicket(ticket);
-      await refreshAndNotify(refresh, showToast, `Chamado #${ticket.number} criado com sucesso.`);
+      void queryClient.invalidateQueries({ queryKey: ["ticket-pages", user.id] });
+      void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", user.id] });
+      void queryClient.invalidateQueries({ queryKey: ["audit-pages", user.id] });
+      void refreshTicketNavigationCounts();
+      showToast(`Chamado #${ticket.number} criado com sucesso.`);
       navigate(`/chamados/${ticket.id}`);
     } catch (reason) {
       showToast(errorMessage(reason, "Não foi possível criar o chamado."), "error");

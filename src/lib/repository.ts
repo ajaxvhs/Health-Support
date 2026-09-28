@@ -20,6 +20,43 @@ import { isStaff } from "./permissions";
 import { requireMutationResult } from "./mutationContracts";
 
 type Row = Record<string, unknown>;
+export interface TicketPageQuery {
+  view: "all" | "mine" | "queue";
+  assignedToMeOnly: boolean;
+  status: string;
+  statusSelection?: string[];
+  priorityId?: string;
+  unitId?: string;
+  requesterId?: string;
+  search: string;
+  createdAfter?: string;
+  sort: "newest" | "oldest" | "priority";
+  offset: number;
+  limit: number;
+}
+export interface TicketPageResult {
+  tickets: Ticket[];
+  totalCount: number;
+  queueUnassignedCount: number;
+  queueInProgressCount: number;
+}
+export interface TicketDashboardData {
+  openCount: number;
+  inProgressCount: number;
+  closedCount: number;
+  waitingCount: number;
+  urgentCount: number;
+  unassignedCount: number;
+  assignedToMeCount: number;
+  waitingForRequesterCount: number;
+  tickets: Ticket[];
+}
+export interface AuditPageResult {
+  events: TicketEvent[];
+  totalCount: number;
+  ticketCount: number;
+  actorCount: number;
+}
 type CreateUserInput = Extract<AdminUserActionRequest, { action: "create" }>;
 type UpdateUserInput = Extract<AdminUserActionRequest, { action: "update" }>;
 const catalogTables: Record<CatalogKind, string> = {
@@ -101,6 +138,10 @@ const event = (r: Row): TicketEvent => {
     priorityToId: metadata.priority_to_id as string | undefined,
     priorityFrom: metadata.priority_from as string | undefined,
     priorityTo: metadata.priority_to as string | undefined,
+    ticketNumber: typeof r.ticket_number === "number" ? r.ticket_number : undefined,
+    ticketTitle: typeof r.ticket_title === "string" ? r.ticket_title : undefined,
+    requesterName:
+      typeof r.requester_name_snapshot === "string" ? r.requester_name_snapshot : undefined,
   };
 };
 
@@ -125,49 +166,18 @@ export class SupabaseRepository {
     return row.id;
   }
   async getData(): Promise<AppData> {
-    const [
-      profiles,
-      units,
-      categories,
-      priorities,
-      statuses,
-      tickets,
-      messages,
-      events,
-      participants,
-    ] = await Promise.all([
+    const [profiles, units, categories, priorities, statuses, participants] = await Promise.all([
       this.client.from("profiles").select("*").order("full_name"),
       this.client.from("units").select("*"),
       this.client.from("ticket_categories").select("*"),
       this.client.from("ticket_priorities").select("*").order("level"),
       this.client.from("ticket_statuses").select("*"),
-      this.client
-        .from("tickets")
-        .select("*, ticket_statuses!inner(slug)")
-        .order("created_at", { ascending: false }),
-      this.client.from("ticket_messages").select("*").order("created_at"),
-      this.client.from("ticket_events").select("*").order("created_at", { ascending: false }),
       this.client.rpc("get_ticket_participants"),
     ]);
-    const result = [
-      profiles,
-      units,
-      categories,
-      priorities,
-      statuses,
-      tickets,
-      messages,
-      events,
-      participants,
-    ];
+    const result = [profiles, units, categories, priorities, statuses, participants];
     const failed = result.find((item) => item.error);
     if (failed?.error) throw failed.error;
-    let profileRows = (profiles.data ?? []) as Row[];
-    const current = await this.getCurrentUser();
-    if (current?.role === "admin") {
-      const listed = await this.invokeUserAction<{ users: Row[] }>({ action: "list" });
-      profileRows = (listed.users ?? profileRows) as Row[];
-    }
+    const profileRows = (profiles.data ?? []) as Row[];
     return {
       profiles: profileRows.map((r) => profile(r, r.email as string | undefined)),
       ticketParticipants: (Array.isArray(participants.data)
@@ -181,10 +191,121 @@ export class SupabaseRepository {
       categories: (categories.data ?? []).map((r) => catalog(r as Row)),
       priorities: (priorities.data ?? []).map((r) => catalog(r as Row)),
       statuses: (statuses.data ?? []).map((r) => catalog(r as Row)),
-      tickets: (tickets.data ?? []).map((r) => ticketFromRow(r as Row)),
-      messages: (messages.data ?? []).map((r) => message(r as Row)),
-      events: (events.data ?? []).map((r) => event(r as Row)),
     };
+  }
+  async getTicketMessages(ticketId: string) {
+    const { data, error } = await this.client
+      .from("ticket_messages")
+      .select("*")
+      .eq("ticket_id", ticketId)
+      .order("created_at");
+    if (error) throw error;
+    return (data ?? []).map((row) => message(row as Row));
+  }
+  async getTicketById(id: string) {
+    const { data, error } = await this.client
+      .from("tickets")
+      .select("*, ticket_statuses!inner(slug)")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? ticketFromRow(data as Row) : null;
+  }
+  async getTicketPage(query: TicketPageQuery): Promise<TicketPageResult> {
+    const { data, error } = await this.client.rpc("get_ticket_page", {
+      p_view: query.view,
+      p_assigned_to_me_only: query.assignedToMeOnly,
+      p_status: query.status,
+      p_statuses: query.statusSelection ?? [],
+      p_priority_id: query.priorityId || null,
+      p_unit_id: query.unitId || null,
+      p_requester_id: query.requesterId || null,
+      p_search: query.search,
+      p_created_after: query.createdAfter ?? null,
+      p_sort: query.sort,
+      p_offset: query.offset,
+      p_limit: query.limit,
+    });
+    if (error) throw error;
+    const result = ((data ?? []) as Row[])[0];
+    const rows = Array.isArray(result?.tickets) ? (result.tickets as Row[]) : [];
+    return {
+      tickets: rows.map((row) => ticketFromRow(row)),
+      totalCount: Number(result?.total_count ?? 0),
+      queueUnassignedCount: Number(result?.queue_unassigned_count ?? 0),
+      queueInProgressCount: Number(result?.queue_in_progress_count ?? 0),
+    };
+  }
+  async getTicketNavigationCounts() {
+    const { data, error } = await this.client.rpc("get_ticket_navigation_counts");
+    if (error) throw error;
+    const row = ((data ?? []) as Row[])[0] ?? {};
+    return {
+      visibleOpenCount: Number(row.visible_open_count ?? 0),
+      myOpenCount: Number(row.my_open_count ?? 0),
+    };
+  }
+  async getTicketDashboard(): Promise<TicketDashboardData> {
+    const { data, error } = await this.client.rpc("get_ticket_dashboard");
+    if (error) throw error;
+    const row = (data ?? {}) as Row;
+    const rows = Array.isArray(row.tickets) ? (row.tickets as Row[]) : [];
+    return {
+      openCount: Number(row.open_count ?? 0),
+      inProgressCount: Number(row.in_progress_count ?? 0),
+      closedCount: Number(row.closed_count ?? 0),
+      waitingCount: Number(row.waiting_count ?? 0),
+      urgentCount: Number(row.urgent_count ?? 0),
+      unassignedCount: Number(row.unassigned_count ?? 0),
+      assignedToMeCount: Number(row.assigned_to_me_count ?? 0),
+      waitingForRequesterCount: Number(row.waiting_for_requester_count ?? 0),
+      tickets: rows.map((ticketRow) => ticketFromRow(ticketRow)),
+    };
+  }
+  async getAuditEventsPage(query: {
+    actorId: string;
+    type: string;
+    from?: string;
+    to?: string;
+    search: string;
+    offset: number;
+    limit: number;
+  }): Promise<AuditPageResult> {
+    const { data, error } = await this.client.rpc("get_audit_events_page", {
+      p_actor_id: query.actorId || null,
+      p_event_type: query.type,
+      p_from: query.from ?? null,
+      p_to: query.to ?? null,
+      p_search: query.search,
+      p_offset: query.offset,
+      p_limit: query.limit,
+    });
+    if (error) throw error;
+    const row = ((data ?? []) as Row[])[0] ?? {};
+    const rows = Array.isArray(row.events) ? (row.events as Row[]) : [];
+    return {
+      events: rows.map((eventRow) => event(eventRow)),
+      totalCount: Number(row.total_count ?? 0),
+      ticketCount: Number(row.ticket_count ?? 0),
+      actorCount: Number(row.actor_count ?? 0),
+    };
+  }
+  async getTicketEvents(ticketId: string) {
+    const { data, error } = await this.client
+      .from("ticket_events")
+      .select("*")
+      .eq("ticket_id", ticketId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => event(row as Row));
+  }
+  async getLatestPublicTicketMessages() {
+    const { data, error } = await this.client.rpc("get_latest_public_ticket_messages");
+    if (error) throw error;
+    return ((data ?? []) as Row[]).map((row) => ({
+      ticketId: row.ticket_id as string,
+      senderId: row.sender_id as string,
+    }));
   }
   async getCurrentUser(): Promise<Profile | null> {
     const { data } = await this.client.auth.getUser();
@@ -197,25 +318,59 @@ export class SupabaseRepository {
     if (error || !row || !(row as Row).is_active) return null;
     return profile(row as Row, data.user.email ?? "");
   }
-  async getNotifications(userId: string) {
+  private async getTicketForMutation(id: string): Promise<Ticket> {
+    const result = await this.client
+      .from("tickets")
+      .select("*, ticket_statuses!inner(slug)")
+      .eq("id", id)
+      .maybeSingle();
+    const row = requireMutationResult(result, "Chamado não encontrado ou sem acesso.");
+    return ticketFromRow(row as Row);
+  }
+  async getAdminUsers(): Promise<Profile[]> {
+    const { users } = await this.invokeUserAction<{ users: Row[] }>({ action: "list" });
+    return users.map((row) => profile(row, typeof row.email === "string" ? row.email : ""));
+  }
+  async getNotifications(userId: string, offset = 0, limit = 50) {
     const { data, error } = await this.client
       .from("notifications")
       .select("*")
       .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
     if (error) throw error;
-    return (data ?? []).map(
-      (r) =>
-        ({
-          id: r.id,
-          userId: r.user_id,
-          title: r.title,
-          message: r.message,
-          createdAt: r.created_at,
-          read: r.read,
-          ticketId: r.ticket_id ?? undefined,
-        }) as AppNotification,
-    );
+    return (data ?? [])
+      .map((row) => this.mapNotification(row))
+      .filter((item): item is AppNotification => item !== null);
+  }
+  async getUnreadNotificationCount(userId: string) {
+    const { count, error } = await this.client
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("read", false);
+    if (error) throw error;
+    return count ?? 0;
+  }
+  mapNotification(row: Record<string, unknown>): AppNotification | null {
+    if (
+      typeof row.id !== "string" ||
+      typeof row.user_id !== "string" ||
+      typeof row.title !== "string" ||
+      typeof row.message !== "string" ||
+      typeof row.created_at !== "string" ||
+      typeof row.read !== "boolean"
+    )
+      return null;
+    return {
+      id: row.id,
+      userId: row.user_id,
+      title: row.title,
+      message: row.message,
+      createdAt: row.created_at,
+      read: row.read,
+      ticketId: typeof row.ticket_id === "string" ? row.ticket_id : undefined,
+    };
   }
   async markNotificationRead(userId: string, id: string) {
     await this.updateNotification(userId, id, { read: true });
@@ -278,9 +433,7 @@ export class SupabaseRepository {
   async addMessage(ticketId: string, text: string, internal: boolean) {
     const user = await this.getCurrentUser();
     if (!user || !text.trim()) throw new Error("Escreva uma mensagem antes de enviar.");
-    const data = await this.getData();
-    const target = data.tickets.find((item) => item.id === ticketId);
-    if (!target) throw new Error("Chamado não encontrado.");
+    const target = await this.getTicketForMutation(ticketId);
     assertMessageAllowed(user, target, internal);
     const { data: row, error } = await this.client
       .from("ticket_messages")
@@ -329,9 +482,10 @@ export class SupabaseRepository {
     );
   }
   async changeStatus(id: string, status: TicketStatus, resolutionNotes?: string) {
-    const user = await this.getCurrentUser();
-    const data = await this.getData();
-    const target = data.tickets.find((item) => item.id === id);
+    const [user, target] = await Promise.all([
+      this.getCurrentUser(),
+      this.getTicketForMutation(id),
+    ]);
     if (!user || !target) throw new Error("Chamado não encontrado.");
     assertStatusChangeAllowed(user, target, status);
     if (status === "resolvido" && !resolutionNotes?.trim())
@@ -359,12 +513,19 @@ export class SupabaseRepository {
     );
   }
   async updatePriority(id: string, priorityId: string) {
-    const user = await this.getCurrentUser();
-    const data = await this.getData();
-    const target = data.tickets.find((item) => item.id === id);
+    const [user, target, priorityResult] = await Promise.all([
+      this.getCurrentUser(),
+      this.getTicketForMutation(id),
+      this.client
+        .from("ticket_priorities")
+        .select("id")
+        .eq("id", priorityId)
+        .eq("is_active", true)
+        .maybeSingle(),
+    ]);
     if (!user || !target || !isStaff(user.role)) throw new Error("Acesso restrito a equipe.");
-    if (!data.priorities.some((item) => item.id === priorityId && item.isActive))
-      throw new Error("Prioridade inválida ou inativa.");
+    if (priorityResult.error) throw priorityResult.error;
+    if (!priorityResult.data) throw new Error("Prioridade inválida ou inativa.");
     const result = await this.client
       .from("tickets")
       .update({ priority_id: priorityId })

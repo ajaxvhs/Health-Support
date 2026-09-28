@@ -9,6 +9,7 @@ type QueryBuilder = {
   is: (...args: unknown[]) => QueryBuilder;
   in: (...args: unknown[]) => QueryBuilder;
   order: (...args: unknown[]) => QueryBuilder;
+  range: (...args: unknown[]) => QueryBuilder;
   insert: (values: unknown) => QueryBuilder;
   update: (values: unknown) => QueryBuilder;
   delete: () => QueryBuilder;
@@ -53,8 +54,13 @@ function repositoryWithResults(
   statusResult: QueryResult,
   updateResult: QueryResult,
   eventRows: unknown[] = [],
+  rpcResult?: QueryResult,
 ) {
   const writes: unknown[] = [];
+  const reads: string[] = [];
+  const writeTables = new Set<string>();
+  const functionActions: string[] = [];
+  const rpcCalls: Array<{ name: string; args: unknown }> = [];
   const listResults: Record<string, QueryResult> = {
     profiles: { data: [profileRow], error: null },
     units: { data: [], error: null },
@@ -71,21 +77,28 @@ function repositoryWithResults(
       const listResult = listResults[table] ?? { data: [], error: null };
       const singleResult = table === "profiles" ? { data: profileRow, error: null } : statusResult;
       const query: QueryBuilder = {
-        select: () => query,
+        select: () => {
+          if (!writeTables.has(table)) reads.push(table);
+          return query;
+        },
         eq: () => query,
         is: () => query,
         in: () => query,
         order: () => query,
+        range: () => query,
         insert: (values) => {
           writes.push({ table, values });
+          writeTables.add(table);
           return query;
         },
         update: (values) => {
           writes.push({ table, values });
+          writeTables.add(table);
           return query;
         },
         delete: () => {
           writes.push({ table, operation: "delete" });
+          writeTables.add(table);
           return query;
         },
         single: async () => singleResult,
@@ -94,11 +107,19 @@ function repositoryWithResults(
       };
       return query;
     },
-    rpc: async () => updateResult,
-    functions: { invoke: async () => ({ data: { users: [] }, error: null }) },
+    rpc: async (name: string, args: unknown) => {
+      rpcCalls.push({ name, args });
+      return rpcResult ?? updateResult;
+    },
+    functions: {
+      invoke: async (_name: string, options: { body?: { action?: string } }) => {
+        functionActions.push(options.body?.action ?? "");
+        return { data: { users: [] }, error: null };
+      },
+    },
   } as unknown as SupabaseClient;
 
-  return { repository: new SupabaseRepository(client), writes };
+  return { repository: new SupabaseRepository(client), writes, reads, functionActions, rpcCalls };
 }
 
 const statusMutations: Array<[string, (repository: SupabaseRepository) => Promise<unknown>]> = [
@@ -265,11 +286,49 @@ describe("mapeamento de eventos de auditoria", () => {
             priority_from: "Baixa",
             priority_to: "Alta",
           },
+          ticket_number: 42,
+          ticket_title: "Chamado de teste",
         },
       ],
+      {
+        data: [
+          {
+            total_count: 1,
+            ticket_count: 1,
+            actor_count: 1,
+            events: [
+              {
+                id: "event-1",
+                ticket_id: "ticket-1",
+                actor_id: "staff-1",
+                event_type: "status_changed",
+                created_at: "2026-01-02T00:00:00.000Z",
+                metadata: {
+                  detail: "Situação alterada",
+                  from_status_slug: "em_andamento",
+                  to_status_slug: "resolvido",
+                  priority_from_id: "priority-low",
+                  priority_to_id: "priority-high",
+                  priority_from: "Baixa",
+                  priority_to: "Alta",
+                },
+                ticket_number: 42,
+                ticket_title: "Chamado de teste",
+              },
+            ],
+          },
+        ],
+        error: null,
+      },
     );
 
-    const data = await repository.getData();
+    const data = await repository.getAuditEventsPage({
+      actorId: "",
+      type: "",
+      search: "",
+      offset: 0,
+      limit: 10,
+    });
 
     expect(data.events).toEqual([
       {
@@ -285,7 +344,88 @@ describe("mapeamento de eventos de auditoria", () => {
         priorityToId: "priority-high",
         priorityFrom: "Baixa",
         priorityTo: "Alta",
+        ticketNumber: 42,
+        ticketTitle: "Chamado de teste",
+        requesterName: undefined,
       },
     ]);
+    expect(data).toMatchObject({ totalCount: 1, ticketCount: 1, actorCount: 1 });
+  });
+});
+
+describe("escopo das leituras", () => {
+  it("não consulta a função administrativa ao carregar dados compartilhados", async () => {
+    const { repository, functionActions } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+    );
+
+    await repository.getData();
+
+    expect(functionActions).not.toContain("list");
+  });
+
+  it("carrega apenas a página de chamados solicitada e mantém o total agregado", async () => {
+    const { repository, rpcCalls } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+      [],
+      {
+        data: [
+          {
+            total_count: 35,
+            queue_unassigned_count: 8,
+            queue_in_progress_count: 12,
+            tickets: [ticketRow],
+          },
+        ],
+        error: null,
+      },
+    );
+
+    const result = await repository.getTicketPage({
+      view: "queue",
+      assignedToMeOnly: false,
+      status: "todos",
+      search: "",
+      sort: "priority",
+      offset: 10,
+      limit: 10,
+    });
+
+    expect(result).toMatchObject({
+      totalCount: 35,
+      queueUnassignedCount: 8,
+      queueInProgressCount: 12,
+      tickets: [{ id: "ticket-1" }],
+    });
+    expect(rpcCalls.at(-1)).toMatchObject({
+      name: "get_ticket_page",
+      args: { p_offset: 10, p_limit: 10, p_view: "queue" },
+    });
+  });
+
+  it("valida uma mensagem com o chamado específico, sem recarregar as coleções", async () => {
+    const { repository, reads } = repositoryWithResults(
+      {
+        data: {
+          id: "message-1",
+          ticket_id: "ticket-1",
+          sender_id: "staff-1",
+          message: "A equipe está verificando.",
+          is_internal: false,
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+        error: null,
+      },
+      { data: ticketRow, error: null },
+    );
+
+    await repository.addMessage("ticket-1", "A equipe está verificando.", false);
+
+    expect(reads).toContain("tickets");
+    expect(reads).not.toContain("ticket_messages");
+    expect(reads).not.toContain("ticket_events");
+    expect(reads).not.toContain("ticket_priorities");
   });
 });

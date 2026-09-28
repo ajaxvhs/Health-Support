@@ -84,6 +84,9 @@ export interface TicketEvent {
   priorityToId?: string;
   priorityFrom?: string;
   priorityTo?: string;
+  ticketNumber?: number;
+  ticketTitle?: string;
+  requesterName?: string;
 }
 export interface AppNotification {
   id: string;
@@ -120,9 +123,6 @@ export interface AppData {
   categories: CatalogItem[];
   priorities: CatalogItem[];
   statuses: CatalogItem[];
-  tickets: Ticket[];
-  messages: TicketMessage[];
-  events: TicketEvent[];
 }
 export const statusMeta: Record<TicketStatus, { label: string; tone: string }> = {
   aberto: { label: "Aberto", tone: "blue" },

@@ -11,7 +11,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { errorMessage, refreshAfterMutation, refreshAndNotify } from "../../lib/utils";
-import type { AppData, CatalogItem, CatalogKind } from "../../types";
+import type { CatalogItem, CatalogKind } from "../../types";
 import { CreateCatalogDialog, EditCatalogDialog } from "./CatalogDialogs";
 
 type CatalogTab = CatalogKind;
@@ -93,13 +93,10 @@ export function CatalogsPage() {
     await refreshAndNotify(refresh, showToast, "Item adicionado ao catálogo.");
   };
   const requestDelete = (item: CatalogItem) => {
-    const referenced = isCatalogReferenced(data, tab, item);
     setConfirm({
       title: "Excluir item",
-      description: referenced
-        ? `${item.name} é usado por registros existentes e será desativado para preservar o histórico.`
-        : `Excluir ${item.name} permanentemente? Essa ação não pode ser desfeita.`,
-      confirmLabel: referenced ? "Desativar e preservar" : "Excluir permanentemente",
+      description: `Excluir ${item.name}? Se estiver vinculado a registros existentes, será desativado para preservar o histórico.`,
+      confirmLabel: "Excluir item",
       variant: "danger",
       action: () =>
         finish(async () => {
@@ -220,7 +217,6 @@ export function CatalogsPage() {
               key={item.id}
               item={item}
               selected={selected.includes(item.id)}
-              referenced={isCatalogReferenced(data, tab, item)}
               onSelect={(checked) =>
                 setSelected((current) =>
                   checked
@@ -269,21 +265,9 @@ export function CatalogsPage() {
   );
 }
 
-function isCatalogReferenced(data: AppData, kind: CatalogTab, item: CatalogItem) {
-  if (kind === "units")
-    return (
-      data.tickets.some((ticket) => ticket.unitId === item.id) ||
-      data.profiles.some((profile) => profile.unitId === item.id)
-    );
-  if (kind === "categories") return data.tickets.some((ticket) => ticket.categoryId === item.id);
-  if (kind === "priorities") return data.tickets.some((ticket) => ticket.priorityId === item.id);
-  return data.tickets.some((ticket) => ticket.status === item.slug);
-}
-
 function CatalogRow({
   item,
   selected,
-  referenced,
   onSelect,
   onEdit,
   onToggle,
@@ -291,7 +275,6 @@ function CatalogRow({
 }: {
   item: CatalogItem;
   selected: boolean;
-  referenced: boolean;
   onSelect: (checked: boolean) => void;
   onEdit: () => void;
   onToggle: () => void;
@@ -408,9 +391,6 @@ function CatalogRow({
           <Button
             variant="danger"
             aria-label={`Excluir ${item.name}`}
-            title={
-              item.isActive && referenced ? "Será desativado para preservar o histórico" : undefined
-            }
             className="min-h-8 px-2 text-xs"
             onClick={onDelete}
           >

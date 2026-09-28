@@ -1,10 +1,12 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Outlet } from "react-router-dom";
-import { AppContext } from "./context/AppContext";
+import { AppContext, type TicketNavigationCounts } from "./context/AppContext";
 import { restoreUserSession, signOut } from "./lib/auth";
 import { SupabaseRepository } from "./lib/repository";
 import { getSupabaseClient } from "./lib/supabase/client";
-import type { AppData, Profile, Ticket, TicketMessage } from "./types";
+import { queryCache } from "./lib/queryCache";
+import type { AppData, Profile } from "./types";
 
 const emptyData: AppData = {
   profiles: [],
@@ -12,84 +14,144 @@ const emptyData: AppData = {
   categories: [],
   priorities: [],
   statuses: [],
-  tickets: [],
-  messages: [],
-  events: [],
 };
+const emptyTicketNavigationCounts: TicketNavigationCounts = { visibleOpenCount: 0, myOpenCount: 0 };
+const appDataKey = (userId: string) => ["app-data", userId] as const;
+const navigationCountsKey = (userId: string) => ["ticket-navigation-counts", userId] as const;
 
 export function AppProvider({ children }: { children?: ReactNode }) {
+  const queryClient = useQueryClient();
   const [repo] = useState(() => {
     const client = getSupabaseClient();
     return client ? new SupabaseRepository(client) : null;
   });
   const [user, setUser] = useState<Profile | null>(null);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
     if (!repo) {
-      setCheckingSession(false);
+      setSessionChecked(true);
       return;
     }
     let mounted = true;
     restoreUserSession()
-      .then(async (profile) => {
-        if (!mounted) return;
-        setUser(profile);
-        if (profile) setData(await repo.getData());
+      .then((profile) => {
+        if (mounted) setUser(profile);
       })
       .catch(() => {
         if (mounted) setUser(null);
       })
       .finally(() => {
-        if (mounted) setCheckingSession(false);
+        if (mounted) setSessionChecked(true);
       });
     return () => {
       mounted = false;
     };
   }, [repo]);
 
-  const [data, setData] = useState<AppData>(emptyData);
+  const appDataQuery = useQuery({
+    queryKey: appDataKey(user?.id ?? "anonymous"),
+    queryFn: () => {
+      if (!repo) throw new Error("O Supabase não está configurado.");
+      return repo.getData();
+    },
+    enabled: Boolean(user && repo),
+    ...queryCache.appData,
+  });
+  const navigationCountsQuery = useQuery({
+    queryKey: navigationCountsKey(user?.id ?? "anonymous"),
+    queryFn: () => {
+      if (!repo) throw new Error("O Supabase não está configurado.");
+      return repo.getTicketNavigationCounts();
+    },
+    enabled: Boolean(user && repo),
+    ...queryCache.ticketNavigation,
+  });
+  const data = user ? (appDataQuery.data ?? emptyData) : emptyData;
+  const ticketNavigationCounts = navigationCountsQuery.data ?? emptyTicketNavigationCounts;
+  const checkingSession = !sessionChecked || Boolean(user && appDataQuery.isLoading);
+
+  useEffect(() => {
+    if (user && appDataQuery.error && !appDataQuery.data) setUser(null);
+  }, [appDataQuery.data, appDataQuery.error, user]);
+
   const refresh = async () => {
     if (!repo) throw new Error("O Supabase não está configurado.");
-    const [nextUser, nextData] = await Promise.all([repo.getCurrentUser(), repo.getData()]);
+    const nextUser = await repo.getCurrentUser();
     setUser(nextUser);
-    setData(nextData);
+    if (!nextUser) return;
+    await queryClient.fetchQuery({
+      queryKey: appDataKey(nextUser.id),
+      queryFn: () => repo.getData(),
+      staleTime: 0,
+    });
+    await queryClient.fetchQuery({
+      queryKey: navigationCountsKey(nextUser.id),
+      queryFn: () => repo.getTicketNavigationCounts(),
+      staleTime: 0,
+    });
+    void queryClient.invalidateQueries({ queryKey: ["ticket-pages", nextUser.id] });
+    void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", nextUser.id] });
+    void queryClient.invalidateQueries({ queryKey: ["audit-pages", nextUser.id] });
   };
+
+  const refreshTicketNavigationCounts = async () => {
+    if (!repo || !user) return;
+    await queryClient.fetchQuery({
+      queryKey: navigationCountsKey(user.id),
+      queryFn: () => repo.getTicketNavigationCounts(),
+      staleTime: 0,
+    });
+  };
+
   const login = async (profile: Profile) => {
     if (!repo) throw new Error("O Supabase não está configurado.");
-    const nextData = await repo.getData();
-    setData(nextData);
+    await queryClient.fetchQuery({
+      queryKey: appDataKey(profile.id),
+      queryFn: () => repo.getData(),
+      staleTime: queryCache.appData.staleTime,
+    });
+    await queryClient.fetchQuery({
+      queryKey: navigationCountsKey(profile.id),
+      queryFn: () => repo.getTicketNavigationCounts(),
+      staleTime: queryCache.ticketNavigation.staleTime,
+    });
     setUser(profile);
   };
+
   const logout = async () => {
     await signOut();
+    queryClient.clear();
     setUser(null);
-    setData(emptyData);
   };
-  const mergeTicket = (ticket: Ticket) =>
-    setData((current) => ({
-      ...current,
-      tickets: [ticket, ...current.tickets.filter((item) => item.id !== ticket.id)],
-    }));
-  const mergeMessage = (message: TicketMessage) =>
-    setData((current) => ({
-      ...current,
-      messages: [...current.messages.filter((item) => item.id !== message.id), message].sort(
-        (a, b) => +new Date(a.createdAt) - +new Date(b.createdAt),
-      ),
-    }));
+
+  const mergeProfiles = useCallback(
+    (profiles: Profile[]) => {
+      if (!user) return;
+      queryClient.setQueryData<AppData>(appDataKey(user.id), (current) =>
+        current
+          ? { ...current, profiles: profiles.map((profile) => ({ ...profile, email: "" })) }
+          : current,
+      );
+    },
+    [queryClient, user],
+  );
+
   const updateCurrentProfile = (
     values: Partial<Pick<Profile, "fullName" | "phone" | "mustChangePassword">>,
   ) => {
-    const currentUserId = user?.id;
-    if (!currentUserId) return;
+    if (!user) return;
     setUser((current) => (current ? { ...current, ...values } : current));
-    setData((current) => ({
-      ...current,
-      profiles: current.profiles.map((profile) =>
-        profile.id === currentUserId ? { ...profile, ...values } : profile,
-      ),
-    }));
+    queryClient.setQueryData<AppData>(appDataKey(user.id), (current) =>
+      current
+        ? {
+            ...current,
+            profiles: current.profiles.map((profile) =>
+              profile.id === user.id ? { ...profile, ...values } : profile,
+            ),
+          }
+        : current,
+    );
   };
 
   return (
@@ -97,13 +159,14 @@ export function AppProvider({ children }: { children?: ReactNode }) {
       value={{
         repo,
         user,
+        ticketNavigationCounts,
         data,
         refresh,
+        refreshTicketNavigationCounts,
         checkingSession,
         login,
         logout,
-        mergeTicket,
-        mergeMessage,
+        mergeProfiles,
         updateCurrentProfile,
       }}
     >

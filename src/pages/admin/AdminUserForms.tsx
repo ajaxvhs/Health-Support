@@ -5,7 +5,7 @@ import { Button, SelectField, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { roleOptions, type Profile, type Role } from "../../types";
-import { errorMessage, formatPhone, refreshAndNotify } from "../../lib/utils";
+import { errorMessage, formatPhone } from "../../lib/utils";
 
 function UserModal({
   title,
@@ -100,8 +100,8 @@ function UserFormTabs({
   );
 }
 
-export function CreateUserForm({ onClose }: { onClose: () => void }) {
-  const { data, repo, refresh } = useApp();
+export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void }) {
+  const { data, repo } = useApp();
   const { showToast } = useToast();
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
@@ -136,8 +136,8 @@ export function CreateUserForm({ onClose }: { onClose: () => void }) {
     setSaving(true);
     try {
       await repo.createUser({ fullName, username, email, phone, temporaryPassword, unitId, role });
-      onClose();
-      await refreshAndNotify(refresh, showToast, "Usuário criado com senha temporária.");
+      onClose(true);
+      showToast("Usuário criado com senha temporária.");
     } catch (reason) {
       showToast(errorMessage(reason, "Não foi possível criar o usuário."), "error");
     } finally {
@@ -154,7 +154,7 @@ export function CreateUserForm({ onClose }: { onClose: () => void }) {
       onSubmit={submit}
       actions={
         <>
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={() => onClose()}>
             Cancelar
           </Button>
           <Button type="submit" loading={saving}>
@@ -213,8 +213,14 @@ export function CreateUserForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: () => void }) {
-  const { data, repo, refresh } = useApp();
+export function EditUserForm({
+  profile,
+  onClose,
+}: {
+  profile: Profile;
+  onClose: (saved?: boolean) => void;
+}) {
+  const { data, repo } = useApp();
   const { showToast } = useToast();
   const [fullName, setFullName] = useState(profile.fullName);
   const [username, setUsername] = useState(profile.username);
@@ -229,8 +235,8 @@ export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: 
     setSaving(true);
     try {
       await repo.updateUser(profile.id, { fullName, username, email, phone, unitId, role });
-      onClose();
-      await refreshAndNotify(refresh, showToast, "Usuário atualizado.");
+      onClose(true);
+      showToast("Usuário atualizado.");
     } catch (reason) {
       showToast(errorMessage(reason, "Não foi possível atualizar o usuário."), "error");
     } finally {
@@ -246,7 +252,7 @@ export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: 
       onTabChange={setTab}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={() => onClose()}>
             Cancelar
           </Button>
           {tab === "security" && (
@@ -255,11 +261,7 @@ export function EditUserForm({ profile, onClose }: { profile: Profile; onClose: 
                 try {
                   await repo.resetUserPassword(profile.id, resetPassword);
                   setResetPassword("");
-                  await refreshAndNotify(
-                    refresh,
-                    showToast,
-                    "Senha redefinida. O usuário deverá trocá-la no próximo acesso.",
-                  );
+                  showToast("Senha redefinida. O usuário deverá trocá-la no próximo acesso.");
                 } catch (reason) {
                   showToast(errorMessage(reason, "Não foi possível redefinir a senha."), "error");
                 }

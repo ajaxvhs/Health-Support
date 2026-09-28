@@ -89,14 +89,32 @@ Deno.serve(async (request) => {
       return { id, outcome: "deleted" as const };
     };
     if (body.action === "list") {
-      const { data: profiles, error } = await admin.from("profiles").select("*").order("full_name");
-      if (error) throw error;
-      const users = await Promise.all(
-        (profiles ?? []).map(async (item) => {
-          const { data } = await admin.auth.admin.getUserById(item.id);
-          return { ...item, email: data.user?.email ?? "" };
-        }),
-      );
+      const perPage = 1000;
+      const profiles = [];
+      for (let page = 1; ; page += 1) {
+        const { data, error } = await admin
+          .from("profiles")
+          .select("*")
+          .order("full_name")
+          .order("id")
+          .range((page - 1) * perPage, page * perPage - 1);
+        if (error) throw new Error("Não foi possível carregar todos os perfis.");
+        profiles.push(...(data ?? []));
+        if ((data ?? []).length < perPage) break;
+      }
+      const emails = new Map<string, string>();
+      for (let page = 1; ; page += 1) {
+        const { data, error: authError } = await admin.auth.admin.listUsers({ page, perPage });
+        if (authError) throw new Error("Não foi possível carregar todos os e-mails dos usuários.");
+        for (const user of data.users) {
+          if (user.email) emails.set(user.id, user.email);
+        }
+        if (data.users.length < perPage) break;
+      }
+      const users = profiles.map((item) => ({
+        ...item,
+        email: emails.get(item.id) ?? "",
+      }));
       return response({ users });
     }
     const targetId = isUuid(body.id) ? body.id : undefined;
