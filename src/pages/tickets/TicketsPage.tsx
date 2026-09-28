@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Filter, Plus, RefreshCw, Ticket as TicketIcon } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button, EmptyState, PageHeader } from "../../components/ui";
@@ -6,14 +7,16 @@ import { Pagination } from "../../components/Pagination";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { isStaff as hasStaffAccess } from "../../lib/permissions";
-import { getPagination } from "../../lib/pagination";
+import { PAGE_SIZE } from "../../lib/pagination";
 import {
-  errorMessage,
-  filterTickets,
-  refreshAfterMutation,
-  type TicketFilters,
-} from "../../lib/utils";
-import type { AppData, TicketStatus } from "../../types";
+  FETCH_BATCH_SIZE,
+  PAGES_PER_BATCH,
+  fetchBatchOffset,
+  pageOffsetWithinBatch,
+} from "../../lib/pageBatch";
+import { queryCache } from "../../lib/queryCache";
+import { errorMessage, type TicketFilters } from "../../lib/utils";
+import type { TicketStatus } from "../../types";
 import { TicketRow } from "./TicketRow";
 import { TicketsFilterBar, type TicketFilterView } from "./TicketsFilterBar";
 
@@ -48,11 +51,13 @@ function viewFromSearchParams(searchParams: URLSearchParams, isStaff: boolean): 
 
 function TicketsViewSwitcher({
   view,
-  data,
+  queueUnassignedCount,
+  queueInProgressCount,
   onChange,
 }: {
   view: TicketFilterView;
-  data: AppData;
+  queueUnassignedCount: number;
+  queueInProgressCount: number;
   onChange: (view: TicketFilterView) => void;
 }) {
   return (
@@ -84,22 +89,11 @@ function TicketsViewSwitcher({
       {view === "queue" && (
         <div className="grid w-full grid-cols-2 gap-2 text-center min-[1120px]:w-[240px]">
           <div className="rounded-xl bg-danger-soft px-3 py-2">
-            <strong className="block text-lg text-danger">
-              {
-                data.tickets.filter(
-                  (ticket) =>
-                    ticket.status !== "fechado" &&
-                    ticket.status !== "resolvido" &&
-                    !ticket.assignedTo,
-                ).length
-              }
-            </strong>
+            <strong className="block text-lg text-danger">{queueUnassignedCount}</strong>
             <span className="text-[10px] font-bold text-danger-strong">Sem responsável</span>
           </div>
           <div className="rounded-xl bg-caution-soft px-3 py-2">
-            <strong className="block text-lg text-caution">
-              {data.tickets.filter((ticket) => ticket.status === "em_andamento").length}
-            </strong>
+            <strong className="block text-lg text-caution">{queueInProgressCount}</strong>
             <span className="text-[10px] font-bold text-caution-strong">Em atendimento</span>
           </div>
         </div>
@@ -109,8 +103,9 @@ function TicketsViewSwitcher({
 }
 
 export function TicketsPage() {
-  const { data, user, repo, refresh, mergeTicket } = useApp();
+  const { data, user, repo, refreshTicketNavigationCounts } = useApp();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const isStaff = hasStaffAccess(user.role);
   const [view, setView] = useState<TicketFilterView>(() =>
@@ -119,8 +114,8 @@ export function TicketsPage() {
   const [filtersByView, setFiltersByView] = useState(initialFiltersByView);
   const [assignedByView, setAssignedByView] = useState(initialAssignedByView);
   const [showFilters, setShowFilters] = useState(false);
-  const [refreshingQueue, setRefreshingQueue] = useState(false);
   const [page, setPage] = useState(1);
+  const [settledSearch, setSettledSearch] = useState("");
 
   useEffect(() => {
     const nextView = viewFromSearchParams(searchParams, isStaff);
@@ -129,41 +124,81 @@ export function TicketsPage() {
 
   const filters = filtersByView[view];
   const assignedToMeOnly = assignedByView[view];
-
-  const scopedTickets =
-    view === "mine"
-      ? data.tickets.filter((ticket) => ticket.createdBy === user.id)
-      : view === "queue"
-        ? data.tickets.filter(
-            (ticket) => ticket.status !== "fechado" && ticket.status !== "resolvido",
-          )
-        : data.tickets;
-  const visibleScope =
-    assignedToMeOnly && isStaff
-      ? scopedTickets.filter((ticket) => ticket.assignedTo === user.id)
-      : scopedTickets;
-  const unitNames = Object.fromEntries(data.units.map((unit) => [unit.id, unit.name]));
-  const requesterNames = Object.fromEntries(
-    data.profiles.map((profile) => [profile.id, profile.fullName]),
+  const createdAfter = useMemo(() => {
+    const now = new Date();
+    if (filters.dateRange === "today")
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    if (filters.dateRange === "7d") return new Date(now.getTime() - 7 * 86400000).toISOString();
+    if (filters.dateRange === "30d") return new Date(now.getTime() - 30 * 86400000).toISOString();
+    return undefined;
+  }, [filters.dateRange]);
+  const ticketQuery = useMemo(
+    () => ({
+      view,
+      assignedToMeOnly: assignedToMeOnly && isStaff,
+      status: filters.status,
+      statusSelection: view === "mine" ? (filters.statusSelection ?? []) : [],
+      priorityId: filters.priorityId || undefined,
+      unitId: filters.unitId || undefined,
+      requesterId: view === "all" ? filters.requesterId || undefined : undefined,
+      search: settledSearch,
+      createdAfter,
+      sort: filters.sort,
+      offset: fetchBatchOffset(page),
+      limit: FETCH_BATCH_SIZE,
+    }),
+    [
+      assignedToMeOnly,
+      createdAfter,
+      filters.priorityId,
+      filters.requesterId,
+      filters.sort,
+      filters.status,
+      filters.statusSelection,
+      filters.unitId,
+      isStaff,
+      page,
+      settledSearch,
+      view,
+    ],
   );
-  const priorityOrder = Object.fromEntries(
-    data.priorities.map((priority) => [
-      priority.id,
-      ["urgente", "alta", "media", "baixa"].indexOf(priority.slug ?? ""),
-    ]),
-  );
-  const tickets = filterTickets(visibleScope, filters, {
-    unitNames,
-    requesterNames,
-    priorityOrder,
+  const ticketQueryState = useQuery({
+    queryKey: ["ticket-pages", user.id, ticketQuery],
+    queryFn: () => repo.getTicketPage(ticketQuery),
+    ...queryCache.ticketPages,
   });
-  const {
-    page: currentPage,
-    pageCount,
-    start: pageStart,
-    end: pageEnd,
-  } = getPagination(page, tickets.length);
-  const pageTickets = tickets.slice(pageStart, pageEnd);
+  useEffect(() => {
+    if (ticketQueryState.error)
+      showToast(
+        errorMessage(ticketQueryState.error, "Não foi possível carregar os chamados."),
+        "error",
+      );
+  }, [showToast, ticketQueryState.error]);
+  const pageResult = ticketQueryState.data;
+  const totalCount = pageResult?.totalCount ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageWithinBatch = pageOffsetWithinBatch(currentPage) / PAGE_SIZE;
+  const tickets =
+    pageResult?.tickets.slice(pageWithinBatch * PAGE_SIZE, (pageWithinBatch + 1) * PAGE_SIZE) ?? [];
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageEnd = pageStart + tickets.length;
+  const pageTickets = tickets;
+
+  useEffect(() => {
+    if (!ticketQueryState.data || currentPage % PAGES_PER_BATCH !== 0 || currentPage >= pageCount)
+      return;
+    const nextQuery = { ...ticketQuery, offset: ticketQuery.offset + FETCH_BATCH_SIZE };
+    void queryClient.prefetchQuery({
+      queryKey: ["ticket-pages", user.id, nextQuery],
+      queryFn: () => repo.getTicketPage(nextQuery),
+      ...queryCache.ticketPages,
+    });
+  }, [currentPage, pageCount, queryClient, repo, ticketQuery, ticketQueryState.data, user.id]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettledSearch(filters.search.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [filters.search]);
   useEffect(() => {
     setPage((current) => Math.min(current, pageCount));
   }, [pageCount]);
@@ -197,28 +232,22 @@ export function TicketsPage() {
   };
   const claim = async (ticketId: string) => {
     try {
-      const ticket = await repo.claim(ticketId);
-      mergeTicket(ticket);
-      const refreshed = await refreshAfterMutation(refresh);
-      showToast(
-        refreshed
-          ? "Chamado assumido com sucesso."
-          : "Chamado assumido, mas a fila não sincronizou. Atualize quando a conexão voltar.",
-        refreshed ? "success" : "info",
-      );
+      await repo.claim(ticketId);
+      void queryClient.invalidateQueries({ queryKey: ["ticket-pages", user.id] });
+      void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", user.id] });
+      void queryClient.invalidateQueries({ queryKey: ["audit-pages", user.id] });
+      void refreshTicketNavigationCounts();
+      showToast("Chamado assumido com sucesso.");
     } catch (reason) {
       showToast(errorMessage(reason, "Este chamado já foi assumido."), "error");
     }
   };
   const refreshQueue = async () => {
-    setRefreshingQueue(true);
     try {
-      await refresh();
-      showToast("Fila atualizada.", "info");
+      await ticketQueryState.refetch();
+      await refreshTicketNavigationCounts();
     } catch (reason) {
       showToast(errorMessage(reason, "Não foi possível atualizar a fila."), "error");
-    } finally {
-      setRefreshingQueue(false);
     }
   };
 
@@ -236,10 +265,10 @@ export function TicketsPage() {
         }
         description={
           !isStaff
-            ? `${tickets.length} chamados encontrados`
+            ? `${totalCount} chamados encontrados`
             : view === "queue"
               ? "Priorize, assuma e acompanhe os chamados das unidades."
-              : `${tickets.length} chamados encontrados`
+              : `${totalCount} chamados encontrados`
         }
         action={
           <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 min-[1120px]:flex min-[1120px]:w-auto">
@@ -253,16 +282,21 @@ export function TicketsPage() {
                 variant="secondary"
                 className="min-h-12 w-full min-[1120px]:min-w-[190px] min-[1120px]:w-auto min-[1120px]:flex-none"
                 onClick={refreshQueue}
-                loading={refreshingQueue}
+                loading={ticketQueryState.isFetching}
               >
-                {!refreshingQueue && <RefreshCw size={16} />} Atualizar fila
+                {!ticketQueryState.isFetching && <RefreshCw size={16} />} Atualizar fila
               </Button>
             )}
           </div>
         }
       />
       {isStaff && view !== "mine" && (
-        <TicketsViewSwitcher view={view} data={data} onChange={changeView} />
+        <TicketsViewSwitcher
+          view={view}
+          queueUnassignedCount={pageResult?.queueUnassignedCount ?? 0}
+          queueInProgressCount={pageResult?.queueInProgressCount ?? 0}
+          onChange={changeView}
+        />
       )}
       <TicketsFilterBar
         view={view}
@@ -279,7 +313,19 @@ export function TicketsPage() {
         onResetFilters={resetFilters}
       />
       <div className="overflow-hidden rounded-2xl border border-line-soft bg-surface shadow-soft">
-        {tickets.length ? (
+        {ticketQueryState.isLoading ? (
+          <div className="p-8 text-center text-sm text-muted">Carregando chamados…</div>
+        ) : ticketQueryState.isError && !pageResult ? (
+          <EmptyState
+            title="Não foi possível carregar os chamados"
+            text="Verifique sua conexão e tente novamente."
+            action={
+              <Button variant="secondary" onClick={() => void ticketQueryState.refetch()}>
+                Tentar novamente
+              </Button>
+            }
+          />
+        ) : tickets.length ? (
           <div className="divide-y divide-line-soft">
             {pageTickets.map((ticket) => (
               <TicketRow
@@ -298,13 +344,13 @@ export function TicketsPage() {
             text="Tente ajustar sua busca ou seus filtros."
           />
         )}
-        {tickets.length > 0 && (
+        {totalCount > 0 && (
           <Pagination
             currentPage={currentPage}
             pageCount={pageCount}
             start={pageStart}
             end={pageEnd}
-            total={tickets.length}
+            total={totalCount}
             itemLabel="chamados"
             ariaLabel="Paginação de chamados"
             onPageChange={setPage}

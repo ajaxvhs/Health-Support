@@ -396,6 +396,27 @@ values
 
 reset role;
 
+update public.ticket_messages
+set
+  created_at = now() - interval '3 seconds'
+where
+  ticket_id = current_setting('test.notice_ticket')::uuid
+  and message = 'Public requester response.';
+
+update public.ticket_messages
+set
+  created_at = now() - interval '2 seconds'
+where
+  ticket_id = current_setting('test.notice_ticket')::uuid
+  and message = 'Public admin response.';
+
+update public.ticket_messages
+set
+  created_at = now() - interval '1 second'
+where
+  ticket_id = current_setting('test.notice_ticket')::uuid
+  and message = 'Internal admin note.';
+
 do $$
 declare
   v_ticket_id uuid := current_setting('test.notice_ticket')::uuid;
@@ -463,6 +484,14 @@ begin
     where user_id <> auth.uid()
   ) then
     raise exception 'A user can read another account’s notifications';
+  end if;
+  if not exists (
+    select 1
+    from public.get_latest_public_ticket_messages() latest
+    where latest.ticket_id = current_setting('test.notice_ticket')::uuid
+      and latest.sender_id = current_setting('test.notice_admin_a')::uuid
+  ) then
+    raise exception 'The public-message summary should exclude the newer internal note';
   end if;
 end;
 $$;

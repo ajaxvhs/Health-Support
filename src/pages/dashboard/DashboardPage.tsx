@@ -8,32 +8,45 @@ import {
   UserX,
   Zap,
 } from "lucide-react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button, EmptyState, PageHeader, StatCard } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { isStaff } from "../../lib/permissions";
 import { TicketRow } from "../tickets/TicketRow";
+import { useToast } from "../../context/useToast";
+import { errorMessage } from "../../lib/utils";
+import { queryCache } from "../../lib/queryCache";
 
 export function DashboardPage() {
-  const { data, user } = useApp();
-  const staff = isStaff(user.role);
-  const mine = staff ? data.tickets : data.tickets.filter((ticket) => ticket.createdBy === user.id);
-  const open = mine.filter((t) => t.status !== "fechado");
-  const urgentPriority = data.priorities.find((priority) => priority.slug === "urgente");
-  const urgent = mine.filter(
-    (ticket) => ticket.priorityId === urgentPriority?.id && ticket.status !== "fechado",
-  );
-  const waitingForRequester = mine.filter((ticket) => {
-    if (ticket.status === "fechado") return false;
-    const latestPublicMessage = data.messages
-      .filter((message) => message.ticketId === ticket.id && !message.isInternal)
-      .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0];
-    const sender = data.profiles.find((profile) => profile.id === latestPublicMessage?.senderId);
-    return sender?.role !== "solicitante" && Boolean(latestPublicMessage);
+  const { data, user, repo } = useApp();
+  const { showToast } = useToast();
+  const dashboardQuery = useQuery({
+    queryKey: ["ticket-dashboard", user.id],
+    queryFn: () => repo.getTicketDashboard(),
+    ...queryCache.ticketDashboard,
   });
-  const recent = [...mine]
-    .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
-    .slice(0, 5);
+  useEffect(() => {
+    if (dashboardQuery.error)
+      showToast(
+        errorMessage(dashboardQuery.error, "Não foi possível carregar o resumo dos chamados."),
+        "error",
+      );
+  }, [dashboardQuery.error, showToast]);
+  const staff = isStaff(user.role);
+  const summary = dashboardQuery.data ?? {
+    openCount: 0,
+    inProgressCount: 0,
+    closedCount: 0,
+    waitingCount: 0,
+    urgentCount: 0,
+    unassignedCount: 0,
+    assignedToMeCount: 0,
+    waitingForRequesterCount: 0,
+    tickets: [],
+  };
+  const recent = summary.tickets;
   return (
     <>
       <PageHeader
@@ -57,27 +70,27 @@ export function DashboardPage() {
           <>
             <StatCard
               label="Chamados abertos"
-              value={open.length}
+              value={summary.openCount}
               detail="Em acompanhamento"
               icon={TicketIcon}
             />
             <StatCard
               label="Em atendimento"
-              value={mine.filter((ticket) => ticket.status === "em_andamento").length}
+              value={summary.inProgressCount}
               detail="Com a equipe"
               icon={Clock3}
               tone="violet"
             />
             <StatCard
               label="Aguardando minha resposta"
-              value={waitingForRequester.length}
+              value={summary.waitingForRequesterCount}
               detail="Verifique seus chamados"
               icon={MessageCircle}
               tone="orange"
             />
             <StatCard
               label="Finalizados"
-              value={mine.filter((ticket) => ticket.status === "fechado").length}
+              value={summary.closedCount}
               detail="Tickets fechados"
               icon={CheckCircle2}
               tone="blue"
@@ -87,40 +100,34 @@ export function DashboardPage() {
           <>
             <StatCard
               label="Chamados abertos"
-              value={mine.filter((ticket) => ticket.status === "aberto").length}
+              value={summary.waitingCount}
               detail="Aguardando atendimento"
               icon={TicketIcon}
             />
             <StatCard
               label="Em andamento"
-              value={mine.filter((ticket) => ticket.status === "em_andamento").length}
+              value={summary.inProgressCount}
               detail="Em atendimento"
               icon={Clock3}
               tone="violet"
             />
             <StatCard
               label="Urgentes"
-              value={urgent.length}
-              detail={urgent.length ? "Atenção necessária" : "Tudo sob controle"}
+              value={summary.urgentCount}
+              detail={summary.urgentCount ? "Atenção necessária" : "Tudo sob controle"}
               icon={Zap}
               tone="orange"
             />
             <StatCard
               label="Sem responsável"
-              value={
-                mine.filter((ticket) => !ticket.assignedTo && ticket.status !== "fechado").length
-              }
+              value={summary.unassignedCount}
               detail="Na fila agora"
               icon={UserX}
               tone="teal"
             />
             <StatCard
               label="Atribuídos a mim"
-              value={
-                mine.filter(
-                  (ticket) => ticket.assignedTo === user.id && ticket.status !== "fechado",
-                ).length
-              }
+              value={summary.assignedToMeCount}
               detail="Meus atendimentos"
               icon={UserCheck}
               tone="teal"

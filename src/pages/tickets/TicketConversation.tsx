@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, LoaderCircle, Send } from "lucide-react";
 import { Avatar, Badge, Button } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
@@ -6,18 +7,33 @@ import { useToast } from "../../context/useToast";
 import { isStaff } from "../../lib/permissions";
 import { userById } from "../../lib/selectors";
 import { isTicketTerminal } from "../../lib/ticketPolicy";
-import { cn, errorMessage, formatDate, refreshAndNotify } from "../../lib/utils";
-import type { Ticket } from "../../types";
+import { cn, errorMessage, formatDate } from "../../lib/utils";
+import type { Ticket, TicketMessage } from "../../types";
+import { queryCache } from "../../lib/queryCache";
 
 export function TicketConversation({ ticket }: { ticket: Ticket }) {
-  const { data, user, repo, refresh, mergeMessage } = useApp();
+  const { data, user, repo } = useApp();
+  const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [message, setMessage] = useState("");
   const [internal, setInternal] = useState(false);
   const [sending, setSending] = useState(false);
+  const messagesQuery = useQuery({
+    queryKey: ["ticket-messages", user.id, ticket.id],
+    queryFn: () => repo.getTicketMessages(ticket.id),
+    ...queryCache.ticketDetail,
+  });
+  const ticketMessages = messagesQuery.data ?? [];
+  useEffect(() => {
+    if (messagesQuery.error)
+      showToast(
+        errorMessage(messagesQuery.error, "Não foi possível carregar as mensagens."),
+        "error",
+      );
+  }, [messagesQuery.error, showToast]);
   const canStaff = isStaff(user.role);
   const terminal = isTicketTerminal(ticket);
-  const messages = data.messages.filter(
+  const messages = ticketMessages.filter(
     (item) => item.ticketId === ticket.id && (canStaff || !item.isInternal),
   );
 
@@ -29,10 +45,15 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
     setSending(true);
     try {
       const sent = await repo.addMessage(ticket.id, message, internal);
-      mergeMessage(sent);
+      queryClient.setQueryData<TicketMessage[]>(
+        ["ticket-messages", user.id, ticket.id],
+        (items = []) => [...items.filter((item) => item.id !== sent.id), sent],
+      );
+      if (!internal)
+        void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", user.id] });
       setMessage("");
       const actionLabel = internal ? "Nota interna adicionada." : "Mensagem enviada.";
-      await refreshAndNotify(refresh, showToast, actionLabel);
+      showToast(actionLabel);
     } catch (reason) {
       showToast(errorMessage(reason, "Não foi possível enviar."), "error");
     } finally {

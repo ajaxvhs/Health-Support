@@ -16,7 +16,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { can, isStaff } from "../../lib/permissions";
-import { roleLabels, type AppData, type Profile } from "../../types";
+import { roleLabels, type Profile } from "../../types";
 import { cn } from "../../lib/utils";
 import { NotificationPopover } from "../notifications";
 import { Avatar } from "../ui";
@@ -47,15 +47,11 @@ function Logo() {
   );
 }
 
-function navigationFor(user: Profile, data: AppData): NavigationGroup[] {
+function navigationFor(
+  user: Profile,
+  ticketCounts: { visibleOpenCount: number; myOpenCount: number },
+): NavigationGroup[] {
   const staff = isStaff(user.role);
-  const openTickets = data.tickets.filter(
-    (ticket) => ticket.status !== "fechado" && ticket.status !== "resolvido",
-  );
-  const visibleTickets = staff
-    ? openTickets
-    : openTickets.filter((ticket) => ticket.createdBy === user.id);
-  const mine = openTickets.filter((ticket) => ticket.createdBy === user.id);
   const groups: NavigationGroup[] = [
     {
       title: "Acesso rápido",
@@ -69,7 +65,7 @@ function navigationFor(user: Profile, data: AppData): NavigationGroup[] {
           to: "/chamados",
           label: staff ? "Atendimento" : "Meus chamados",
           icon: Ticket,
-          count: visibleTickets.length,
+          count: staff ? ticketCounts.visibleOpenCount : ticketCounts.myOpenCount,
         },
         ...(staff
           ? [
@@ -77,7 +73,7 @@ function navigationFor(user: Profile, data: AppData): NavigationGroup[] {
                 to: "/chamados?visao=meus",
                 label: "Meus chamados",
                 icon: Ticket,
-                count: mine.length,
+                count: ticketCounts.myOpenCount,
               },
             ]
           : []),
@@ -108,19 +104,24 @@ function navigationFor(user: Profile, data: AppData): NavigationGroup[] {
 }
 
 export function AppShell() {
-  const { user, data, repo, logout } = useApp();
+  const { user, repo, logout, ticketNavigationCounts } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
-  const { notifications, markRead, markAll, remove, removeAll } = useNotifications(
-    repo,
-    user.id,
-    showToast,
-  );
-  const unreadNotificationCount = notifications.filter((notification) => !notification.read).length;
+  const {
+    notifications,
+    unreadCount,
+    hasMore,
+    isLoadingMore,
+    loadMore,
+    markRead,
+    markAll,
+    remove,
+    removeAll,
+  } = useNotifications(repo, user.id, showToast);
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -142,7 +143,7 @@ export function AppShell() {
           <Logo />
         </div>
         <nav className="scrollbar-none mt-9 min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain">
-          {navigationFor(user, data).map((group) => (
+          {navigationFor(user, ticketNavigationCounts).map((group) => (
             <div key={group.title}>
               <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[.17em] text-muted">
                 {group.title}
@@ -226,15 +227,19 @@ export function AppShell() {
                 onClick={() => setNotificationsOpen((open) => !open)}
               >
                 <Bell size={19} />
-                {unreadNotificationCount > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-brand-strong px-1 text-center text-[9px] font-bold leading-4 text-on-brand ring-2 ring-surface">
-                    {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                    {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
               </button>
               <NotificationPopover
                 open={notificationsOpen}
                 notifications={notifications}
+                unreadCount={unreadCount}
+                hasMore={hasMore}
+                isLoadingMore={isLoadingMore}
+                onLoadMore={loadMore}
                 containerRef={notificationsRef}
                 onClose={() => setNotificationsOpen(false)}
                 onRead={async (notification) => {

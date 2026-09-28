@@ -6,6 +6,10 @@ import type { AppNotification } from "../types";
 export function NotificationPopover({
   open,
   notifications,
+  unreadCount,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
   containerRef,
   onClose,
   onRead,
@@ -15,6 +19,10 @@ export function NotificationPopover({
 }: {
   open: boolean;
   notifications: AppNotification[];
+  unreadCount: number;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
   containerRef: RefObject<HTMLDivElement>;
   onClose: () => void;
   onRead: (notification: AppNotification) => void | Promise<void>;
@@ -22,7 +30,6 @@ export function NotificationPopover({
   onDelete: (notification: AppNotification) => void | Promise<void>;
   onDeleteAll: () => void | Promise<void>;
 }) {
-  const unreadCount = notifications.filter((notification) => !notification.read).length;
   useEffect(() => {
     if (!open) return;
     const closeOnOutsideClick = (event: PointerEvent) => {
@@ -138,6 +145,16 @@ export function NotificationPopover({
           ))
         ) : (
           <p className="px-3 py-8 text-center text-xs text-subtle">Nenhuma notificação.</p>
+        )}
+        {hasMore && (
+          <button
+            type="button"
+            className="min-h-10 rounded-lg text-xs font-semibold text-brand hover:bg-brand-soft"
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? "Carregando…" : "Carregar notificações antigas"}
+          </button>
         )}
       </div>
     </div>

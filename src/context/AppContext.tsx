@@ -1,17 +1,23 @@
 import { createContext, useContext } from "react";
 import { SupabaseRepository } from "../lib/repository";
-import type { AppData, Profile, Ticket, TicketMessage } from "../types";
+import type { AppData, Profile } from "../types";
+
+export interface TicketNavigationCounts {
+  visibleOpenCount: number;
+  myOpenCount: number;
+}
 
 export interface AppContextValue {
   data: AppData;
   user: Profile | null;
+  ticketNavigationCounts: TicketNavigationCounts;
   repo: SupabaseRepository | null;
   refresh: () => Promise<void>;
+  refreshTicketNavigationCounts: () => Promise<void>;
   checkingSession: boolean;
   login: (profile: Profile) => Promise<void>;
   logout: () => Promise<void>;
-  mergeTicket: (ticket: Ticket) => void;
-  mergeMessage: (message: TicketMessage) => void;
+  mergeProfiles: (profiles: Profile[]) => void;
   updateCurrentProfile: (
     values: Partial<Pick<Profile, "fullName" | "phone" | "mustChangePassword">>,
   ) => void;

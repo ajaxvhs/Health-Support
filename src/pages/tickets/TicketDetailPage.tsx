@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, ArrowLeft, BookOpen, CheckCircle2, LockKeyhole, Phone, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -19,28 +20,57 @@ import {
   canReopenTicket,
   isTicketTerminal,
 } from "../../lib/ticketPolicy";
-import {
-  errorMessage,
-  formatDate,
-  refreshAndNotify,
-  relativeDate,
-  resolutionValueForTicket,
-} from "../../lib/utils";
+import { errorMessage, formatDate, relativeDate, resolutionValueForTicket } from "../../lib/utils";
 import { statusMeta, type Profile, type TicketParticipant, type TicketStatus } from "../../types";
 import { TicketConversation } from "./TicketConversation";
+import { queryCache } from "../../lib/queryCache";
 
 export function TicketDetailPage() {
   const { id } = useParams();
-  const { data, user, repo, refresh, mergeTicket } = useApp();
+  const { data, user, repo, refreshTicketNavigationCounts } = useApp();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const ticket = data.tickets.find((item) => item.id === id);
+  const ticketQueryKey = ["ticket-detail", user.id, id] as const;
+  const ticketQuery = useQuery({
+    queryKey: ticketQueryKey,
+    queryFn: () => repo.getTicketById(id!),
+    enabled: Boolean(id),
+    ...queryCache.ticketDetail,
+  });
+  const ticketEventsQuery = useQuery({
+    queryKey: ["ticket-events", user.id, id],
+    queryFn: () => repo.getTicketEvents(id!),
+    enabled: Boolean(id),
+    ...queryCache.ticketDetail,
+  });
+  const ticket = ticketQuery.data ?? null;
+  const ticketEvents = ticketEventsQuery.data ?? [];
   const [resolutionDraft, setResolutionDraft] = useState<{
     ticketId: string;
     value: string;
   } | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const invalidateTicketQueries = () => {
+    void queryClient.invalidateQueries({ queryKey: ["ticket-pages", user.id] });
+    void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", user.id] });
+    void queryClient.invalidateQueries({ queryKey: ["audit-pages", user.id] });
+    void queryClient.invalidateQueries({ queryKey: ["ticket-events", user.id, id] });
+  };
+  useEffect(() => {
+    if (ticketQuery.error)
+      showToast(errorMessage(ticketQuery.error, "Não foi possível carregar o chamado."), "error");
+  }, [showToast, ticketQuery.error]);
+  useEffect(() => {
+    if (ticketEventsQuery.error)
+      showToast(
+        errorMessage(ticketEventsQuery.error, "Não foi possível carregar o histórico."),
+        "error",
+      );
+  }, [showToast, ticketEventsQuery.error]);
+  if (ticketQuery.isLoading)
+    return <div className="py-12 text-center text-sm text-muted">Carregando chamado…</div>;
   if (!ticket)
     return (
       <EmptyState
@@ -73,7 +103,7 @@ export function TicketDetailPage() {
   const canResolve =
     Boolean(ticket.assignedTo) && (user.role === "admin" || ticket.assignedTo === user.id);
   const statusOptions = availableStatusTransitions(user, ticket);
-  const events = data.events
+  const events = ticketEvents
     .filter((item) => item.ticketId === ticket.id)
     .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
   const statusChange = async (next: TicketStatus) => {
@@ -82,14 +112,16 @@ export function TicketDetailPage() {
         next === "aberto" && !terminal
           ? await repo.assign(ticket.id, "")
           : await repo.changeStatus(ticket.id, next, next === "resolvido" ? resolution : undefined);
-      mergeTicket(updated);
+      queryClient.setQueryData(ticketQueryKey, updated);
+      invalidateTicketQueries();
+      void refreshTicketNavigationCounts();
       const successMessage =
         next === "resolvido"
           ? "Chamado resolvido com sucesso."
           : next === "fechado"
             ? "Chamado encerrado com sucesso."
             : `Status alterado para ${statusMeta[next].label}.`;
-      await refreshAndNotify(refresh, showToast, successMessage);
+      showToast(successMessage);
       if ((next === "resolvido" || next === "fechado") && isStaff(user.role)) {
         navigate("/chamados?visao=fila", { replace: true });
       }
@@ -137,8 +169,10 @@ export function TicketDetailPage() {
                 setClaiming(true);
                 try {
                   const updated = await repo.claim(ticket.id);
-                  mergeTicket(updated);
-                  await refreshAndNotify(refresh, showToast, "Chamado assumido com sucesso.");
+                  queryClient.setQueryData(ticketQueryKey, updated);
+                  invalidateTicketQueries();
+                  void refreshTicketNavigationCounts();
+                  showToast("Chamado assumido com sucesso.");
                 } catch (reason) {
                   showToast(errorMessage(reason, "Não foi possível assumir."), "error");
                 } finally {
@@ -298,11 +332,13 @@ export function TicketDetailPage() {
                       onChange={async (value) => {
                         try {
                           const updated = await repo.assign(ticket.id, value);
-                          mergeTicket(updated);
+                          queryClient.setQueryData(ticketQueryKey, updated);
+                          invalidateTicketQueries();
+                          void refreshTicketNavigationCounts();
                           const actionMessage = value
                             ? "Chamado atribuído com sucesso."
                             : "Chamado liberado para a fila.";
-                          await refreshAndNotify(refresh, showToast, actionMessage);
+                          showToast(actionMessage);
                         } catch (reason) {
                           showToast(
                             errorMessage(reason, "Não foi possível atribuir o chamado."),
@@ -328,12 +364,10 @@ export function TicketDetailPage() {
                         onClick={async () => {
                           try {
                             const updated = await repo.assign(ticket.id, "");
-                            mergeTicket(updated);
-                            await refreshAndNotify(
-                              refresh,
-                              showToast,
-                              "Chamado liberado para a fila.",
-                            );
+                            queryClient.setQueryData(ticketQueryKey, updated);
+                            invalidateTicketQueries();
+                            void refreshTicketNavigationCounts();
+                            showToast("Chamado liberado para a fila.");
                           } catch (reason) {
                             showToast(
                               errorMessage(reason, "Não foi possível liberar o chamado."),
@@ -355,8 +389,10 @@ export function TicketDetailPage() {
                       onChange={async (value) => {
                         try {
                           const updated = await repo.updatePriority(ticket.id, value);
-                          mergeTicket(updated);
-                          await refreshAndNotify(refresh, showToast, "Prioridade atualizada.");
+                          queryClient.setQueryData(ticketQueryKey, updated);
+                          invalidateTicketQueries();
+                          void refreshTicketNavigationCounts();
+                          showToast("Prioridade atualizada.");
                         } catch (reason) {
                           showToast(
                             errorMessage(reason, "Não foi possível atualizar a prioridade."),
