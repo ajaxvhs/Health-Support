@@ -6,6 +6,7 @@ import { useToast } from "../../context/useToast";
 import { passwordUpdateErrorMessage, updatePassword } from "../../lib/auth";
 import { roleLabels } from "../../types";
 import { errorMessage, formatPhone, refreshAndNotify } from "../../lib/utils";
+import { markPwaFormsSaved } from "../../lib/pwaUpdate";
 import { PushNotificationSettings } from "../../components/PushNotificationSettings";
 import { ThemeSettings } from "../../components/ThemeSettings";
 
@@ -36,7 +37,7 @@ export function ProfilePage() {
           { value: "settings", label: "Configurações" },
         ]}
       />
-      <div className="max-w-4xl">
+      <div className="max-w-4xl" data-pwa-update-protected>
         {activeTab === "info" ? (
           <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-8">
             <div className="mb-8 flex flex-col items-start gap-5 border-b border-line-soft pb-7 sm:flex-row sm:items-center">
@@ -74,6 +75,7 @@ export function ProfilePage() {
                     await repo.saveProfile({ fullName: name, phone });
                     updateCurrentProfile({ fullName: name.trim(), phone: phone.trim() });
                     await refreshAndNotify(refresh, showToast, "Dados do perfil atualizados.");
+                    markPwaFormsSaved();
                   } catch (reason) {
                     showToast(
                       errorMessage(reason, "Não foi possível atualizar o perfil."),
@@ -133,6 +135,7 @@ export function ProfilePage() {
                     setCurrentPassword("");
                     setNewPassword("");
                     setConfirmation("");
+                    window.setTimeout(markPwaFormsSaved, 0);
                   } catch (reason) {
                     showToast(passwordUpdateErrorMessage(reason), "error");
                   }

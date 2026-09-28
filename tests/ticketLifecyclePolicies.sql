@@ -220,6 +220,30 @@ begin
 end;
 $$;
 
+do $$
+begin
+  begin
+    insert into public.tickets (
+      title, description, unit_id, category_id, priority_id, status_id,
+      created_by, requester_name_snapshot, requester_phone_snapshot
+    )
+    values (
+      'Requester cannot open for another user',
+      'Synthetic negative authorization test',
+      current_setting('test.lifecycle_unit')::uuid,
+      current_setting('test.lifecycle_category')::uuid,
+      current_setting('test.lifecycle_priority')::uuid,
+      (select id from public.ticket_statuses where slug = 'aberto'),
+      current_setting('test.lifecycle_admin')::uuid,
+      'Synthetic administrator',
+      '000'
+    );
+    raise exception 'Requester opened a ticket for a different account';
+  exception when insufficient_privilege then null;
+  end;
+end;
+$$;
+
 reset role;
 
 select
@@ -231,6 +255,74 @@ select
 
 set
   local role authenticated;
+
+insert into
+  public.tickets (
+    title,
+    description,
+    unit_id,
+    category_id,
+    priority_id,
+    status_id,
+    created_by,
+    requester_name_snapshot,
+    requester_phone_snapshot
+  )
+values
+  (
+    'Lifecycle admin self-created ticket',
+    'Synthetic ticket opened by the administrator account',
+    current_setting('test.lifecycle_unit')::uuid,
+    current_setting('test.lifecycle_category')::uuid,
+    current_setting('test.lifecycle_priority')::uuid,
+    (
+      select
+        id
+      from
+        public.ticket_statuses
+      where
+        slug = 'aberto'
+    ),
+    auth.uid (),
+    'Synthetic administrator',
+    '000'
+  );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from public.tickets t
+    join public.ticket_events e on e.ticket_id = t.id
+    where t.title = 'Lifecycle admin self-created ticket'
+      and t.created_by = auth.uid()
+      and e.event_type = 'created'
+      and e.actor_id = auth.uid()
+  ) then
+    raise exception 'Active administrator could not create a ticket under their own profile';
+  end if;
+
+  begin
+    insert into public.tickets (
+      title, description, unit_id, category_id, priority_id, status_id,
+      created_by, requester_name_snapshot, requester_phone_snapshot
+    )
+    values (
+      'Lifecycle admin on-behalf blocked',
+      'Synthetic negative authorization test',
+      current_setting('test.lifecycle_unit')::uuid,
+      current_setting('test.lifecycle_category')::uuid,
+      current_setting('test.lifecycle_priority')::uuid,
+      (select id from public.ticket_statuses where slug = 'aberto'),
+      current_setting('test.lifecycle_requester')::uuid,
+      'Synthetic requester',
+      '000'
+    );
+    raise exception 'Administrator opened a ticket on behalf of a different account';
+  exception when insufficient_privilege then null;
+  end;
+end;
+$$;
 
 update public.tickets
 set

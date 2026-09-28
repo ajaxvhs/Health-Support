@@ -1,23 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
-
-function allowedEndpoint(endpoint: string) {
-  try {
-    const url = new URL(endpoint);
-    return (
-      url.protocol === "https:" &&
-      !url.username &&
-      !url.password &&
-      !url.port &&
-      (url.hostname === "fcm.googleapis.com" ||
-        url.hostname === "updates.push.services.mozilla.com" ||
-        url.hostname === "web.push.apple.com" ||
-        url.hostname.endsWith(".notify.windows.com"))
-    );
-  } catch {
-    return false;
-  }
-}
+import { deliverPushJob, isAllowedEndpoint } from "../_shared/pushDelivery.ts";
 
 Deno.serve(async (request) => {
   const secret = Deno.env.get("PUSH_DISPATCH_SECRET");
@@ -39,36 +22,34 @@ Deno.serve(async (request) => {
     if (error) throw error;
     let sent = 0;
     for (const job of jobs) {
-      if (!allowedEndpoint(job.endpoint)) {
-        await client.from("push_subscriptions").delete().eq("id", job.subscription_id);
-        continue;
-      }
       try {
-        await webpush.sendNotification(
-          { endpoint: job.endpoint, keys: { p256dh: job.p256dh, auth: job.auth } },
-          JSON.stringify({
-            title: job.notification_title,
-            body: job.notification_message,
-            ticketId: job.ticket_id,
-          }),
-          { TTL: 3600, timeout: 5000 },
-        );
-        const { error: deleteError } = await client
-          .from("push_queue")
-          .delete()
-          .eq("id", job.job_id);
-        if (deleteError) throw deleteError;
-        sent++;
-      } catch (error) {
-        if (
-          error &&
-          typeof error === "object" &&
-          "statusCode" in error &&
-          (error.statusCode === 404 || error.statusCode === 410)
-        ) {
-          await client.from("push_subscriptions").delete().eq("id", job.subscription_id);
-        }
-        // Other failures remain leased for retry. Never log endpoints or keys.
+        const outcome = await deliverPushJob(job, {
+          isAllowedEndpoint,
+          send: () =>
+            webpush.sendNotification(
+              { endpoint: job.endpoint, keys: { p256dh: job.p256dh, auth: job.auth } },
+              JSON.stringify({
+                title: job.notification_title,
+                body: job.notification_message,
+                ticketId: job.ticket_id,
+              }),
+              { TTL: 3600, timeout: 5000 },
+            ),
+          deleteQueueJob: async (jobId) => {
+            const { error: deleteError } = await client.from("push_queue").delete().eq("id", jobId);
+            if (deleteError) throw deleteError;
+          },
+          deleteSubscription: async (subscriptionId) => {
+            const { error: deleteError } = await client
+              .from("push_subscriptions")
+              .delete()
+              .eq("id", subscriptionId);
+            if (deleteError) throw deleteError;
+          },
+        });
+        if (outcome === "sent") sent++;
+      } catch {
+        // Leave failed database acknowledgements leased for a later retry; never log endpoints or keys.
       }
     }
     return Response.json({ sent });

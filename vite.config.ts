@@ -24,7 +24,7 @@ export default defineConfig({
       workbox: {
         importScripts: ["/push-sw.js"],
         skipWaiting: false,
-        clientsClaim: false,
+        clientsClaim: true,
         navigateFallbackDenylist: [/^\/assets\//],
       },
       includeAssets: ["favicon.svg"],
