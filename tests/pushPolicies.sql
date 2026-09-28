@@ -9,13 +9,20 @@ select
   set_config('test.push_user_b', gen_random_uuid()::text, true);
 
 select
+  set_config('test.push_user_c', gen_random_uuid()::text, true);
+
+select
   set_config('test.push_unit', gen_random_uuid()::text, true);
+
+select
+  set_config('test.push_ticket', gen_random_uuid()::text, true);
 
 insert into
   auth.users (id)
 values
   (current_setting('test.push_user_a')::uuid),
-  (current_setting('test.push_user_b')::uuid);
+  (current_setting('test.push_user_b')::uuid),
+  (current_setting('test.push_user_c')::uuid);
 
 insert into
   public.units (id, name, code)
@@ -32,6 +39,7 @@ insert into
     username,
     full_name,
     phone,
+    role,
     default_unit_id,
     must_change_password
   )
@@ -40,6 +48,10 @@ select
   id::text,
   'Synthetic test account',
   '00000000000',
+  case
+    when id = current_setting('test.push_user_b')::uuid then 'admin'::public.app_role
+    else 'solicitante'::public.app_role
+  end,
   current_setting('test.push_unit')::uuid,
   false
 from
@@ -47,8 +59,61 @@ from
 where
   id in (
     current_setting('test.push_user_a')::uuid,
-    current_setting('test.push_user_b')::uuid
+    current_setting('test.push_user_b')::uuid,
+    current_setting('test.push_user_c')::uuid
   );
+
+insert into
+  public.tickets (
+    id,
+    title,
+    description,
+    unit_id,
+    category_id,
+    priority_id,
+    status_id,
+    created_by,
+    assigned_to,
+    requester_name_snapshot,
+    requester_phone_snapshot
+  )
+select
+  current_setting('test.push_ticket')::uuid,
+  'Synthetic push ticket',
+  'Synthetic description for push tests',
+  current_setting('test.push_unit')::uuid,
+  (
+    select
+      id
+    from
+      public.ticket_categories
+    order by
+      created_at
+    limit
+      1
+  ),
+  (
+    select
+      id
+    from
+      public.ticket_priorities
+    order by
+      level
+    limit
+      1
+  ),
+  (
+    select
+      id
+    from
+      public.ticket_statuses
+    where
+      slug = 'aberto'
+  ),
+  current_setting('test.push_user_a')::uuid,
+  null,
+  'Synthetic test account',
+  '00000000000';
 
 select
   set_config(
@@ -128,6 +193,132 @@ do $$
 begin
   if exists (select 1 from public.push_subscriptions) then
     raise exception 'Owner cannot delete its subscription';
+  end if;
+end;
+$$;
+
+reset role;
+
+insert into
+  public.push_subscriptions (user_id, endpoint, p256dh, auth)
+values
+  (
+    current_setting('test.push_user_a')::uuid,
+    'https://example.invalid/test-device-2',
+    'test-key-2',
+    'test-auth-2'
+  );
+
+insert into
+  public.push_subscriptions (user_id, endpoint, p256dh, auth)
+values
+  (
+    current_setting('test.push_user_a')::uuid,
+    'https://example.invalid/test-device-3',
+    'test-key-3',
+    'test-auth-3'
+  );
+
+insert into
+  public.push_subscriptions (user_id, endpoint, p256dh, auth)
+values
+  (
+    current_setting('test.push_user_b')::uuid,
+    'https://example.invalid/test-device-b',
+    'test-key-b',
+    'test-auth-b'
+  );
+
+do $$
+declare
+  notification_a uuid := gen_random_uuid();
+  notification_b uuid := gen_random_uuid();
+  notification_c uuid := gen_random_uuid();
+  queued integer;
+begin
+  insert into public.notifications (id, user_id, ticket_id, title, message)
+  values
+    (notification_a, current_setting('test.push_user_a')::uuid, current_setting('test.push_ticket')::uuid, 'Synthetic push A', 'Synthetic message'),
+    (notification_b, current_setting('test.push_user_b')::uuid, current_setting('test.push_ticket')::uuid, 'Synthetic push B', 'Synthetic message'),
+    (notification_c, current_setting('test.push_user_c')::uuid, current_setting('test.push_ticket')::uuid, 'No subscribers', 'Synthetic message');
+
+  select count(*) into queued
+  from public.push_queue
+  where notification_id = notification_a;
+  if queued <> 2 then
+    raise exception 'Expected one push job per device, got %', queued;
+  end if;
+
+  select count(*) into queued
+  from public.push_queue
+  where notification_id = notification_b;
+  if queued <> 1 then
+    raise exception 'Expected a job for the second recipient, got %', queued;
+  end if;
+
+  if exists (select 1 from public.push_queue where notification_id = notification_c) then
+    raise exception 'Notification without subscriptions created push jobs';
+  end if;
+
+  perform set_config('test.push_notification_a', notification_a::text, true);
+  perform set_config('test.push_notification_b', notification_b::text, true);
+end;
+$$;
+
+set
+  local role service_role;
+
+do $$
+declare claimed integer;
+begin
+  select count(*) into claimed from public.claim_push_jobs();
+  if claimed <> 3 then
+    raise exception 'Expected to claim three subscribed devices, got %', claimed;
+  end if;
+
+  select count(*) into claimed from public.claim_push_jobs();
+  if claimed <> 0 then
+    raise exception 'A currently leased job was claimed again';
+  end if;
+end;
+$$;
+
+reset role;
+
+update public.notifications
+set
+  created_at = now() - interval '2 days'
+where
+  id = current_setting('test.push_notification_a')::uuid;
+
+update public.push_queue
+set
+  available_at = now() - interval '1 second'
+where
+  notification_id in (
+    current_setting('test.push_notification_a')::uuid,
+    current_setting('test.push_notification_b')::uuid
+  );
+
+set
+  local role service_role;
+
+do $$
+declare claimed integer;
+begin
+  select count(*) into claimed from public.claim_push_jobs();
+  if claimed <> 1 then
+    raise exception 'Expired notification should be skipped while the retry remains claimable, got %', claimed;
+  end if;
+end;
+$$;
+
+reset role;
+
+do $$
+begin
+  if (select min(attempts) from public.push_queue where notification_id = current_setting('test.push_notification_b')::uuid) <> 2 then
+    raise exception 'The retried push job did not increment its attempt count';
   end if;
 end;
 $$;
