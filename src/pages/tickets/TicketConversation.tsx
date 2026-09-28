@@ -10,6 +10,7 @@ import { isTicketTerminal } from "../../lib/ticketPolicy";
 import { cn, errorMessage, formatDate } from "../../lib/utils";
 import type { Ticket, TicketMessage } from "../../types";
 import { queryCache } from "../../lib/queryCache";
+import { markPwaFormsSaved } from "../../lib/pwaUpdate";
 
 export function TicketConversation({ ticket }: { ticket: Ticket }) {
   const { data, user, repo } = useApp();
@@ -54,6 +55,7 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
       setMessage("");
       const actionLabel = internal ? "Nota interna adicionada." : "Mensagem enviada.";
       showToast(actionLabel);
+      window.setTimeout(markPwaFormsSaved, 0);
     } catch (reason) {
       showToast(errorMessage(reason, "Não foi possível enviar."), "error");
     } finally {

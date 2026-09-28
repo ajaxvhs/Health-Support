@@ -6,6 +6,7 @@ import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { roleOptions, type Profile, type Role } from "../../types";
 import { errorMessage, formatPhone } from "../../lib/utils";
+import { markPwaFormsSaved } from "../../lib/pwaUpdate";
 
 function UserModal({
   title,
@@ -56,7 +57,9 @@ function UserFormLayout({
 
   return (
     <UserModal title={title} description={description} onClose={onClose}>
-      {onSubmit ? <form onSubmit={onSubmit}>{content}</form> : content}
+      <div data-pwa-update-protected>
+        {onSubmit ? <form onSubmit={onSubmit}>{content}</form> : content}
+      </div>
     </UserModal>
   );
 }
@@ -261,6 +264,7 @@ export function EditUserForm({
                 try {
                   await repo.resetUserPassword(profile.id, resetPassword);
                   setResetPassword("");
+                  window.setTimeout(markPwaFormsSaved, 0);
                   showToast("Senha redefinida. O usuário deverá trocá-la no próximo acesso.");
                 } catch (reason) {
                   showToast(errorMessage(reason, "Não foi possível redefinir a senha."), "error");
