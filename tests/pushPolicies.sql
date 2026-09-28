@@ -2,6 +2,18 @@
 -- All fixtures are synthetic and rolled back. Never run against production.
 begin;
 
+create temporary table push_dispatch_test_calls (called_at timestamptz not null default now()) on
+commit
+drop;
+
+create or replace function public.dispatch_push_queue () returns void language plpgsql security definer
+set
+  search_path = '' as $$
+begin
+  insert into pg_temp.push_dispatch_test_calls default values;
+end;
+$$;
+
 select
   set_config('test.push_user_a', gen_random_uuid()::text, true);
 
@@ -63,6 +75,8 @@ where
     current_setting('test.push_user_c')::uuid
   );
 
+alter table public.tickets disable trigger ticket_created_notification;
+
 insert into
   public.tickets (
     id,
@@ -114,6 +128,40 @@ select
   null,
   'Synthetic test account',
   '00000000000';
+
+alter table public.tickets enable trigger ticket_created_notification;
+
+select
+  set_config(
+    'test.push_notification_without_devices',
+    gen_random_uuid()::text,
+    true
+  );
+
+insert into
+  public.notifications (id, user_id, ticket_id, title, message)
+values
+  (
+    current_setting('test.push_notification_without_devices')::uuid,
+    current_setting('test.push_user_c')::uuid,
+    current_setting('test.push_ticket')::uuid,
+    'No subscribers',
+    'Synthetic message'
+  );
+
+do $$
+begin
+  if exists (
+    select 1 from public.push_queue
+    where notification_id = current_setting('test.push_notification_without_devices')::uuid
+  ) then
+    raise exception 'Notification without devices unexpectedly queued a push job';
+  end if;
+  if exists (select 1 from pg_temp.push_dispatch_test_calls) then
+    raise exception 'Dispatch should not be invoked for a notification without push jobs';
+  end if;
+end;
+$$;
 
 select
   set_config(
@@ -260,8 +308,54 @@ begin
     raise exception 'Notification without subscriptions created push jobs';
   end if;
 
+  if (select count(*) from pg_temp.push_dispatch_test_calls) <> 1 then
+    raise exception 'A notification batch with push jobs should invoke dispatch once';
+  end if;
+
   perform set_config('test.push_notification_a', notification_a::text, true);
   perform set_config('test.push_notification_b', notification_b::text, true);
+  perform set_config('test.push_notification_c', notification_c::text, true);
+end;
+$$;
+
+insert into
+  public.push_subscriptions (user_id, endpoint, p256dh, auth)
+values
+  (
+    current_setting('test.push_user_c')::uuid,
+    'https://example.invalid/test-device-c',
+    'test-key-c',
+    'test-auth-c'
+  );
+
+insert into
+  public.push_queue (notification_id, subscription_id)
+select
+  current_setting('test.push_notification_c')::uuid,
+  s.id
+from
+  public.push_subscriptions s
+where
+  s.user_id = current_setting('test.push_user_c')::uuid;
+
+do $$
+begin
+  if not exists (
+    select 1 from public.push_queue
+    where notification_id = current_setting('test.push_notification_c')::uuid
+  ) then
+    raise exception 'Synthetic job for cascade test was not created';
+  end if;
+
+  delete from public.push_subscriptions
+  where user_id = current_setting('test.push_user_c')::uuid;
+
+  if exists (
+    select 1 from public.push_queue
+    where notification_id = current_setting('test.push_notification_c')::uuid
+  ) then
+    raise exception 'Deleting the expired subscription should cascade-delete its queued job';
+  end if;
 end;
 $$;
 
