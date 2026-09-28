@@ -6,6 +6,7 @@ import { restoreUserSession, signOut } from "./lib/auth";
 import { SupabaseRepository } from "./lib/repository";
 import { getSupabaseClient } from "./lib/supabase/client";
 import { queryCache } from "./lib/queryCache";
+import { clearTicketDraft } from "./lib/ticketDraft";
 import type { AppData, Profile } from "./types";
 
 const emptyData: AppData = {
@@ -121,6 +122,7 @@ export function AppProvider({ children }: { children?: ReactNode }) {
 
   const logout = async () => {
     await signOut();
+    if (user) clearTicketDraft(user.id);
     queryClient.clear();
     setUser(null);
   };
