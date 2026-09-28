@@ -574,14 +574,15 @@ begin
     if new_status <> 'aberto' or new.assigned_to is not null then
       raise exception using errcode = '23514', message = 'Um chamado novo deve iniciar aberto e sem responsável.';
     end if;
-    if actor_id is not null and (actor_role <> 'solicitante' or new.created_by <> actor_id) then
-      raise exception using errcode = '42501', message = 'Somente o próprio solicitante pode abrir um chamado.';
+    if actor_id is not null
+      and (actor_role not in ('solicitante', 'admin') or new.created_by <> actor_id) then
+      raise exception using errcode = '42501', message = 'Somente o próprio solicitante ou administrador ativo pode abrir um chamado.';
     end if;
     if not exists (select 1 from public.profiles p where p.id = new.created_by and p.is_active)
       or not exists (select 1 from public.units u where u.id = new.unit_id and u.is_active)
       or not exists (select 1 from public.ticket_categories c where c.id = new.category_id and c.is_active)
       or not exists (select 1 from public.ticket_priorities p where p.id = new.priority_id and p.is_active) then
-      raise exception using errcode = '23514', message = 'Solicitante ou catálogo indisponível.';
+      raise exception using errcode = '23514', message = 'Criador ou catálogo indisponível.';
     end if;
     select p.full_name, p.phone into new.requester_name_snapshot, new.requester_phone_snapshot
     from public.profiles p where p.id = new.created_by and p.is_active;
@@ -1285,7 +1286,7 @@ select
     or is_staff ()
   );
 
-create policy ticket_requester_insert on tickets for insert to authenticated
+create policy ticket_active_user_insert on tickets for insert to authenticated
 with
   check (
     created_by = auth.uid ()
