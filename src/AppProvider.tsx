@@ -4,6 +4,7 @@ import { Outlet } from "react-router-dom";
 import { AppContext, type TicketNavigationCounts } from "./context/AppContext";
 import { isProfileUnavailableError, restoreUserSession, signOut } from "./lib/auth";
 import { SupabaseRepository } from "./lib/repository";
+import { SessionGeneration } from "./lib/sessionGeneration";
 import { getSupabaseClient } from "./lib/supabase/client";
 import { queryCache } from "./lib/queryCache";
 import { clearTicketDraft } from "./lib/ticketDraft";
@@ -29,7 +30,7 @@ export function AppProvider({ children }: { children?: ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [sessionError, setSessionError] = useState(false);
-  const sessionGeneration = useRef(0);
+  const sessionGeneration = useRef(new SessionGeneration());
   const currentUser = useRef<Profile | null>(null);
   const setCurrentUser = useCallback((nextUser: Profile | null) => {
     currentUser.current = nextUser;
@@ -48,7 +49,7 @@ export function AppProvider({ children }: { children?: ReactNode }) {
       return;
     }
     const { data } = client.auth.onAuthStateChange((event, session) => {
-      const generation = ++sessionGeneration.current;
+      const generation = sessionGeneration.current.next();
       const previousUser = currentUser.current;
       const nextUserId = session?.user.id ?? null;
 
@@ -64,14 +65,16 @@ export function AppProvider({ children }: { children?: ReactNode }) {
 
       setSessionChecked(false);
       queueMicrotask(() => {
-        void restoreUserSession(session)
-          .then((profile) => {
-            if (!mounted || generation !== sessionGeneration.current) return;
-            setCurrentUser(profile);
+        void sessionGeneration.current
+          .run(generation, () => restoreUserSession(session))
+          .then((result) => {
+            if (!mounted || !sessionGeneration.current.isCurrent(generation)) return;
+            if (!result.current) return;
+            setCurrentUser(result.value);
             setSessionChecked(true);
           })
           .catch((reason: unknown) => {
-            if (!mounted || generation !== sessionGeneration.current) return;
+            if (!mounted || !sessionGeneration.current.isCurrent(generation)) return;
             if (isProfileUnavailableError(reason)) {
               void client.auth.signOut({ scope: "local" });
               return;
@@ -91,10 +94,10 @@ export function AppProvider({ children }: { children?: ReactNode }) {
     queryKey: appDataKey(user?.id ?? "anonymous"),
     queryFn: async () => {
       if (!repo) throw new Error("O Supabase não está configurado.");
-      const generation = sessionGeneration.current;
-      const result = await repo.getData();
-      if (generation !== sessionGeneration.current) throw new Error("A sessão foi alterada.");
-      return result;
+      const generation = sessionGeneration.current.current();
+      const result = await sessionGeneration.current.run(generation, () => repo.getData());
+      if (!result.current) throw new Error("A sessão foi alterada.");
+      return result.value;
     },
     enabled: Boolean(user && !user.mustChangePassword && repo),
     ...queryCache.appData,
@@ -103,10 +106,12 @@ export function AppProvider({ children }: { children?: ReactNode }) {
     queryKey: navigationCountsKey(user?.id ?? "anonymous"),
     queryFn: async () => {
       if (!repo) throw new Error("O Supabase não está configurado.");
-      const generation = sessionGeneration.current;
-      const result = await repo.getTicketNavigationCounts();
-      if (generation !== sessionGeneration.current) throw new Error("A sessão foi alterada.");
-      return result;
+      const generation = sessionGeneration.current.current();
+      const result = await sessionGeneration.current.run(generation, () =>
+        repo.getTicketNavigationCounts(),
+      );
+      if (!result.current) throw new Error("A sessão foi alterada.");
+      return result.value;
     },
     enabled: Boolean(user && !user.mustChangePassword && repo),
     ...queryCache.ticketNavigation,
@@ -121,31 +126,36 @@ export function AppProvider({ children }: { children?: ReactNode }) {
 
   const refresh = async () => {
     if (!repo) throw new Error("O Supabase não está configurado.");
-    const generation = sessionGeneration.current;
-    const nextUser = await repo.getCurrentUser();
-    if (generation !== sessionGeneration.current) return;
+    const generation = sessionGeneration.current.current();
+    const currentUserResult = await sessionGeneration.current.run(generation, () =>
+      repo.getCurrentUser(),
+    );
+    if (!currentUserResult.current) return;
+    const nextUser = currentUserResult.value;
     setCurrentUser(nextUser);
     if (!nextUser) return;
     await queryClient.fetchQuery({
       queryKey: appDataKey(nextUser.id),
       queryFn: async () => {
-        const result = await repo.getData();
-        if (generation !== sessionGeneration.current) throw new Error("A sessão foi alterada.");
-        return result;
+        const result = await sessionGeneration.current.run(generation, () => repo.getData());
+        if (!result.current) throw new Error("A sessão foi alterada.");
+        return result.value;
       },
       staleTime: 0,
     });
-    if (generation !== sessionGeneration.current) return;
+    if (!sessionGeneration.current.isCurrent(generation)) return;
     await queryClient.fetchQuery({
       queryKey: navigationCountsKey(nextUser.id),
       queryFn: async () => {
-        const result = await repo.getTicketNavigationCounts();
-        if (generation !== sessionGeneration.current) throw new Error("A sessão foi alterada.");
-        return result;
+        const result = await sessionGeneration.current.run(generation, () =>
+          repo.getTicketNavigationCounts(),
+        );
+        if (!result.current) throw new Error("A sessão foi alterada.");
+        return result.value;
       },
       staleTime: 0,
     });
-    if (generation !== sessionGeneration.current) return;
+    if (!sessionGeneration.current.isCurrent(generation)) return;
     void queryClient.invalidateQueries({ queryKey: ["ticket-pages", nextUser.id] });
     void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", nextUser.id] });
     void queryClient.invalidateQueries({ queryKey: ["audit-pages", nextUser.id] });
@@ -153,13 +163,15 @@ export function AppProvider({ children }: { children?: ReactNode }) {
 
   const refreshTicketNavigationCounts = async () => {
     if (!repo || !user) return;
-    const generation = sessionGeneration.current;
+    const generation = sessionGeneration.current.current();
     await queryClient.fetchQuery({
       queryKey: navigationCountsKey(user.id),
       queryFn: async () => {
-        const result = await repo.getTicketNavigationCounts();
-        if (generation !== sessionGeneration.current) throw new Error("A sessão foi alterada.");
-        return result;
+        const result = await sessionGeneration.current.run(generation, () =>
+          repo.getTicketNavigationCounts(),
+        );
+        if (!result.current) throw new Error("A sessão foi alterada.");
+        return result.value;
       },
       staleTime: 0,
     });
@@ -170,7 +182,7 @@ export function AppProvider({ children }: { children?: ReactNode }) {
     const client = getSupabaseClient();
     const session = client ? (await client.auth.getSession()).data.session : null;
     if (session?.user.id !== profile.id) throw new Error("A sessão mudou durante a entrada.");
-    sessionGeneration.current += 1;
+    sessionGeneration.current.next();
     void queryClient.cancelQueries();
     queryClient.clear();
     setSessionError(false);
@@ -192,20 +204,20 @@ export function AppProvider({ children }: { children?: ReactNode }) {
   };
 
   const retrySession = async () => {
-    const generation = sessionGeneration.current;
+    const generation = sessionGeneration.current.current();
     setSessionError(false);
     setSessionChecked(false);
     try {
-      const profile = await restoreUserSession();
-      if (generation === sessionGeneration.current) setCurrentUser(profile);
+      const result = await sessionGeneration.current.run(generation, () => restoreUserSession());
+      if (result.current) setCurrentUser(result.value);
     } catch (reason) {
-      if (generation === sessionGeneration.current && isProfileUnavailableError(reason)) {
+      if (sessionGeneration.current.isCurrent(generation) && isProfileUnavailableError(reason)) {
         await getSupabaseClient()?.auth.signOut({ scope: "local" });
-      } else if (generation === sessionGeneration.current) {
+      } else if (sessionGeneration.current.isCurrent(generation)) {
         setSessionError(true);
       }
     } finally {
-      if (generation === sessionGeneration.current) setSessionChecked(true);
+      if (sessionGeneration.current.isCurrent(generation)) setSessionChecked(true);
     }
   };
 

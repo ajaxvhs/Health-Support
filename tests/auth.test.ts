@@ -67,4 +67,20 @@ describe("ciclo de sessão", () => {
     await expect(signOut()).rejects.toThrow("network error");
     expect(authSignOut).toHaveBeenNthCalledWith(2, { scope: "local" });
   });
+
+  it("continua o logout se a limpeza Push ficar pendente", async () => {
+    vi.useFakeTimers();
+    const authSignOut = vi.fn().mockResolvedValue({ error: null });
+    getSupabaseClientMock.mockReturnValue({ auth: { signOut: authSignOut } } as never);
+    disablePushMock.mockImplementation(() => new Promise<void>(() => {}));
+
+    try {
+      const logout = signOut();
+      await vi.advanceTimersByTimeAsync(3000);
+      await expect(logout).resolves.toEqual({ pushCleanupFailed: true });
+      expect(authSignOut).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

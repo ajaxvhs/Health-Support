@@ -1,5 +1,5 @@
 // Manual local integration test: node tests/sessionAuthorizationApi.mjs
-// Uses real local Auth JWTs for assertions; service_role is limited to fixtures/cleanup.
+// User JWTs exercise access; service_role only prepares/cleans fixtures and checks resulting state.
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -165,6 +165,14 @@ const run = async () => {
       "Find open status",
       await admin.from("ticket_statuses").select("id").eq("slug", "aberto").single(),
     );
+    const inProgressStatus = unwrap(
+      "Find in-progress status",
+      await admin.from("ticket_statuses").select("id").eq("slug", "em_andamento").single(),
+    );
+    const resolvedStatus = unwrap(
+      "Find resolved status",
+      await admin.from("ticket_statuses").select("id").eq("slug", "resolvido").single(),
+    );
     const extraUnit = unwrap(
       "Create synthetic second unit",
       await admin
@@ -246,10 +254,62 @@ const run = async () => {
     assert.equal(newTicket.unit_id, testUnitId);
     assert.equal(newTicket.created_by, requester.id);
 
+    const inactiveOwnerTicket = unwrap(
+      "Create own ticket before disabling its account",
+      await inactiveAdmin.client
+        .from("tickets")
+        .insert({
+          title: "Inactive owner resolved ticket",
+          description: "This ticket remains after the owner is disabled.",
+          unit_id: firstUnit.id,
+          category_id: category.id,
+          priority_id: priority.id,
+          status_id: openStatus.id,
+          created_by: inactiveAdmin.id,
+          requester_name_snapshot: `Synthetic ${inactiveAdmin.label}`,
+          requester_phone_snapshot: "0000000000",
+        })
+        .select("id")
+        .single(),
+    );
+    createdTicketIds.push(inactiveOwnerTicket.id);
+    unwrap(
+      "Assign inactive owner's ticket to an active admin",
+      await activeAdmin.client
+        .from("tickets")
+        .update({ status_id: inProgressStatus.id, assigned_to: activeAdmin.id })
+        .eq("id", inactiveOwnerTicket.id)
+        .select("id")
+        .single(),
+    );
+    const resolvedOwnerTicket = unwrap(
+      "Resolve inactive owner's ticket before deactivation",
+      await activeAdmin.client
+        .from("tickets")
+        .update({ status_id: resolvedStatus.id, resolution_notes: "Synthetic resolution." })
+        .eq("id", inactiveOwnerTicket.id)
+        .select("id,resolved_at")
+        .single(),
+    );
+    assert.ok(resolvedOwnerTicket.resolved_at);
+
     expectStatus(
       "Active admin-users access",
       await invoke(activeAdmin.client, "admin-users", { action: "list" }),
       200,
+    );
+    unwrap(
+      "Demote an admin after issuing its JWT",
+      await admin.from("profiles").update({ role: "solicitante" }).eq("id", activeAdmin.id),
+    );
+    expectStatus(
+      "Demoted admin loses Edge Function access with its existing JWT",
+      await invoke(activeAdmin.client, "admin-users", { action: "list" }),
+      403,
+    );
+    unwrap(
+      "Restore synthetic admin role for remaining checks",
+      await admin.from("profiles").update({ role: "admin" }).eq("id", activeAdmin.id),
     );
     expectStatus(
       "Requester admin-users access",
@@ -310,7 +370,19 @@ const run = async () => {
       await inactiveAdmin.client.auth.getUser(),
     );
     assert.equal(stillAuthenticated.user.id, inactiveAdmin.id);
+    const inactiveOwnResolvedTicket = unwrap(
+      "Query own resolved ticket using the still-valid inactive JWT",
+      await inactiveAdmin.client.from("tickets").select("id").eq("id", resolvedOwnerTicket.id),
+    );
+    assert.equal(inactiveOwnResolvedTicket.length, 0);
     await assertNoProtectedData(inactiveAdmin.client, "Inactive admin");
+    const inactiveProfileUpdate = await inactiveAdmin.client.rpc("update_own_profile", {
+      p_full_name: "Disabled profile",
+      p_phone: "0000000000",
+    });
+    assert.ok(inactiveProfileUpdate.error, "Inactive account unexpectedly updated its profile.");
+    const removedPasswordRpc = await inactiveAdmin.client.rpc("mark_password_changed");
+    assert.ok(removedPasswordRpc.error, "The removed password flag RPC is still callable.");
     const inactiveTicketAttempt = await inactiveAdmin.client
       .from("tickets")
       .insert({
@@ -355,6 +427,16 @@ const run = async () => {
     await assertNoProtectedData(pendingAdmin.client, "Password-pending admin", {
       canReadOwnProfile: true,
     });
+    const pendingProfileUpdate = await pendingAdmin.client.rpc("update_own_profile", {
+      p_full_name: "Pending profile",
+      p_phone: "0000000000",
+    });
+    assert.ok(
+      pendingProfileUpdate.error,
+      "Password-pending account unexpectedly updated its profile.",
+    );
+    const pendingPasswordRpc = await pendingAdmin.client.rpc("mark_password_changed");
+    assert.ok(pendingPasswordRpc.error, "The removed password flag RPC is still callable.");
     const pendingTicketAttempt = await pendingAdmin.client
       .from("tickets")
       .insert({
