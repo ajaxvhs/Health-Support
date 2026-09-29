@@ -284,6 +284,14 @@ Deno.serve(async (request) => {
         },
       });
       if (passwordError) throw passwordError;
+      const { data: confirmedGate, error: confirmedGateError } = await admin
+        .from("profiles")
+        .update({ must_change_password: true })
+        .eq("id", targetId)
+        .select("id")
+        .maybeSingle();
+      if (confirmedGateError || !confirmedGate)
+        throw new Error("Não foi possível confirmar a troca obrigatória de senha.");
       return response({ ok: true });
     }
     const protectsLastAdmin =

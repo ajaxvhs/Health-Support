@@ -77,6 +77,31 @@ Deno.serve(async (request) => {
     const currentAppMetadata = isRecord(currentActor.user.app_metadata)
       ? currentActor.user.app_metadata
       : {};
+
+    if (profile.must_change_password && currentAppMetadata.force_password_change === false) {
+      const retryVerificationClient = createClient(url, anonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { error: retryVerificationError } =
+        await retryVerificationClient.auth.signInWithPassword({
+          email: actor.email,
+          password: newPassword,
+        });
+      if (retryVerificationError)
+        return response({ error: "Não foi possível confirmar a senha atualizada." }, 401);
+
+      const { data: completedProfile, error: completionError } = await admin
+        .from("profiles")
+        .update({ must_change_password: false })
+        .eq("id", actor.id)
+        .eq("is_active", true)
+        .select("id")
+        .maybeSingle();
+      if (completionError) throw new Error("Não foi possível concluir o perfil.");
+      if (!completedProfile) return response({ error: "Conta indisponível." }, 403);
+      return response({ ok: true });
+    }
+
     const { error: updatePasswordError } = await admin.auth.admin.updateUserById(actor.id, {
       password: newPassword,
       app_metadata: {
@@ -103,12 +128,13 @@ Deno.serve(async (request) => {
 
     const { data: updatedProfile, error: updatedProfileError } = await admin
       .from("profiles")
-      .select("is_active,must_change_password")
+      .update({ must_change_password: false })
       .eq("id", actor.id)
+      .eq("is_active", true)
+      .select("id")
       .maybeSingle();
-    if (updatedProfileError) throw new Error("Não foi possível confirmar a troca de senha.");
-    if (!updatedProfile?.is_active || updatedProfile.must_change_password)
-      return response({ error: "Não foi possível concluir a troca de senha." }, 409);
+    if (updatedProfileError) throw new Error("Não foi possível concluir o perfil.");
+    if (!updatedProfile) return response({ error: "Conta indisponível." }, 403);
 
     return response({ ok: true });
   } catch {
