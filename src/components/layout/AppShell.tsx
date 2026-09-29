@@ -123,6 +123,22 @@ export function AppShell() {
     removeAll,
   } = useNotifications(repo, user.id, showToast);
 
+  const handleLogout = async () => {
+    try {
+      const pushCleanupFailed = await logout();
+      if (pushCleanupFailed)
+        showToast(
+          "Sessão encerrada, mas não foi possível desativar o Push neste dispositivo.",
+          "error",
+        );
+    } catch {
+      showToast(
+        "Sessão removida deste dispositivo, mas não foi possível confirmar a revogação no servidor.",
+        "error",
+      );
+    }
+  };
+
   return (
     <div className="min-h-screen bg-canvas">
       <div
@@ -193,7 +209,7 @@ export function AppShell() {
         </nav>
         <button
           type="button"
-          onClick={logout}
+          onClick={() => void handleLogout()}
           className="mt-3 flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-semibold text-secondary transition-colors hover:bg-danger-soft hover:text-danger-strong [&>*]:pointer-events-none"
         >
           <LogOut size={17} />

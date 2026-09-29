@@ -1,6 +1,9 @@
 [functions.send-push]
 verify_jwt = false
 
+[functions.update-password]
+verify_jwt = true
+
 [db.seed]
 enabled = true
 sql_paths = ["./seed.sql"]

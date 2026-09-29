@@ -315,7 +315,7 @@ export class SupabaseRepository {
       .select("*")
       .eq("id", data.user.id)
       .single();
-    if (error || !row || !(row as Row).is_active) return null;
+    if (error || !row || !(row as Row).is_active || (row as Row).must_change_password) return null;
     return profile(row as Row, data.user.email ?? "");
   }
   private async getTicketForMutation(id: string): Promise<Ticket> {
