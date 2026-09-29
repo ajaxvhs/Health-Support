@@ -55,7 +55,8 @@ export type AdminUserActionRequest =
       unitId?: string;
       role?: Role;
     }
-  | { action: "toggle" | "delete"; id: string }
+  | { action: "delete"; id: string }
+  | { action: "set_active"; id: string; isActive: boolean }
   | { action: "reset_password"; id: string; password: string }
   | { action: "bulk_toggle"; ids: string[]; isActive: boolean }
   | { action: "bulk_delete"; ids: string[] };

@@ -13,7 +13,7 @@ const allowedActions = new Set([
   "list",
   "create",
   "update",
-  "toggle",
+  "set_active",
   "delete",
   "reset_password",
   "bulk_toggle",
@@ -21,6 +21,18 @@ const allowedActions = new Set([
 ]);
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+const errorCode = (reason: unknown) =>
+  typeof reason === "object" &&
+  reason !== null &&
+  typeof (reason as { code?: unknown }).code === "string"
+    ? (reason as { code: string }).code
+    : "";
+const errorStatus = (reason: unknown) =>
+  typeof reason === "object" &&
+  reason !== null &&
+  typeof (reason as { status?: unknown }).status === "number"
+    ? (reason as { status: number }).status
+    : undefined;
 const isUuid = (value: unknown): value is string =>
   typeof value === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -62,7 +74,24 @@ Deno.serve(async (request) => {
     }
     if (typeof body.action !== "string" || !allowedActions.has(body.action))
       return response({ error: "Ação inválida." }, 400);
+    if (body.action === "set_active" && typeof body.isActive !== "boolean")
+      return response({ error: "Informe o estado ativo desejado." }, 400);
     const deleteOrDeactivate = async (id: string) => {
+      const { data: profile, error: profileError } = await admin
+        .from("profiles")
+        .select("id,role,is_active")
+        .eq("id", id)
+        .maybeSingle();
+      if (profileError) throw profileError;
+      if (!profile) {
+        const { data: authUser, error: authLookupError } = await admin.auth.admin.getUserById(id);
+        if (authLookupError?.status === 404) return { id, outcome: "deleted" as const };
+        if (authLookupError) throw authLookupError;
+        if (!authUser.user) return { id, outcome: "deleted" as const };
+        const { error: orphanDeleteError } = await admin.auth.admin.deleteUser(id);
+        if (orphanDeleteError) throw orphanDeleteError;
+        return { id, outcome: "deleted" as const };
+      }
       const references = await Promise.all([
         admin
           .from("tickets")
@@ -84,7 +113,8 @@ Deno.serve(async (request) => {
           .eq("id", id)
           .select("id")
           .maybeSingle();
-        if (error || !data) throw new Error("Não foi possível desativar o usuário.");
+        if (error) throw error;
+        if (!data) throw new Error("Não foi possível desativar o usuário.");
         return { id, outcome: "deactivated" as const };
       }
 
@@ -141,6 +171,23 @@ Deno.serve(async (request) => {
         return response({ error: "A senha precisa ter pelo menos 8 caracteres." }, 400);
       if (!username.trim() || !fullName.trim() || !phone.trim())
         return response({ error: "Preencha todos os campos obrigatórios." }, 400);
+      const { data: activeUnit, error: unitError } = await admin
+        .from("units")
+        .select("id")
+        .eq("id", unitId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (unitError) throw new Error("Não foi possível validar a unidade selecionada.");
+      if (!activeUnit) return response({ error: "A unidade selecionada não está ativa." }, 400);
+      const { data: existingUsername, error: usernameError } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("username", username.trim())
+        .limit(1)
+        .maybeSingle();
+      if (usernameError) throw new Error("Não foi possível validar o nome de usuário.");
+      if (existingUsername)
+        return response({ error: "Este nome de usuário já está cadastrado." }, 409);
       const { data, error } = await admin.auth.admin.createUser({
         email: email.trim(),
         password: temporaryPassword,
@@ -151,7 +198,52 @@ Deno.serve(async (request) => {
         const message = error?.message.toLowerCase() ?? "";
         if (message.includes("already registered") || message.includes("already exists"))
           return response({ error: "Este e-mail já está cadastrado no Auth." }, 409);
-        throw error ?? new Error("Não foi possível criar a conta.");
+        const status = errorStatus(error);
+        if (status === undefined || status >= 500) {
+          const { data: possibleAccount, error: lookupError } =
+            await admin.auth.admin.getUserByEmail(email.trim());
+          if (lookupError && lookupError.status !== 404)
+            return response(
+              {
+                outcome: "partial_failure",
+                error:
+                  "O Auth não confirmou o resultado da criação. Verifique a conta pelo e-mail antes de repetir.",
+              },
+              409,
+            );
+          if (possibleAccount?.user) {
+            const { data: existingProfile, error: profileLookupError } = await admin
+              .from("profiles")
+              .select("id")
+              .eq("id", possibleAccount.user.id)
+              .maybeSingle();
+            if (profileLookupError)
+              return response(
+                {
+                  outcome: "partial_failure",
+                  authUserId: possibleAccount.user.id,
+                  error:
+                    "A conta Auth pode ter sido criada, mas o perfil não foi confirmado. Verifique antes de repetir.",
+                },
+                409,
+              );
+            if (!existingProfile)
+              return response(
+                {
+                  outcome: "partial_failure",
+                  authUserId: possibleAccount.user.id,
+                  error:
+                    "A conta Auth existe sem perfil. Verifique ou remova essa conta antes de repetir.",
+                },
+                409,
+              );
+            return response({ error: "Este e-mail já está cadastrado no Auth." }, 409);
+          }
+        }
+        return response(
+          { error: "Não foi possível criar a conta Auth; nenhuma criação foi confirmada." },
+          status && status >= 400 && status < 500 ? status : 500,
+        );
       }
       const { error: profileError } = await admin.from("profiles").insert({
         id: data.user.id,
@@ -162,8 +254,20 @@ Deno.serve(async (request) => {
         role,
       });
       if (profileError) {
-        await admin.auth.admin.deleteUser(data.user.id);
-        throw profileError;
+        const { error: cleanupError } = await admin.auth.admin.deleteUser(data.user.id);
+        if (cleanupError)
+          return response(
+            {
+              outcome: "partial_failure",
+              authUserId: data.user.id,
+              error:
+                "A conta Auth foi criada, mas o perfil falhou e a compensação também falhou. Corrija manualmente este usuário.",
+            },
+            500,
+          );
+        if (profileError.code === "23505")
+          return response({ error: "Este nome de usuário ou perfil já está cadastrado." }, 409);
+        return response({ error: "A criação do perfil falhou; a conta Auth foi removida." }, 500);
       }
       return response({ id: data.user.id });
     }
@@ -181,22 +285,24 @@ Deno.serve(async (request) => {
 
       const { data: targets, error: targetsError } = await admin
         .from("profiles")
-        .select("id,role,is_active")
+        .select("id,role,is_active,must_change_password")
         .in("id", ids);
       if (targetsError) throw new Error("Não foi possível verificar os usuários selecionados.");
-      if ((targets ?? []).length !== ids.length)
+      if (body.action === "bulk_toggle" && (targets ?? []).length !== ids.length)
         return response({ error: "Um ou mais usuários não foram encontrados." }, 404);
       const removesActiveAdmins =
         body.action === "bulk_delete" || (body.action === "bulk_toggle" && !body.isActive);
       if (removesActiveAdmins) {
         const affectedAdmins = (targets ?? []).filter(
-          (profile) => profile.role === "admin" && profile.is_active,
+          (profile) =>
+            profile.role === "admin" && profile.is_active && !profile.must_change_password,
         ).length;
         const { count, error: countError } = await admin
           .from("profiles")
           .select("id", { count: "exact", head: true })
           .eq("role", "admin")
-          .eq("is_active", true);
+          .eq("is_active", true)
+          .eq("must_change_password", false);
         if (countError) throw new Error("Não foi possível validar a proteção de administradores.");
         if ((count ?? 0) - affectedAdmins < 1)
           return response({ error: "É necessário manter pelo menos um administrador ativo." }, 400);
@@ -256,11 +362,16 @@ Deno.serve(async (request) => {
       return response({ error: "Não é possível alterar o próprio perfil." }, 400);
     const { data: target, error: targetError } = await admin
       .from("profiles")
-      .select("role,is_active")
+      .select(
+        "role,is_active,must_change_password,full_name,username,phone,default_unit_id,updated_at",
+      )
       .eq("id", targetId)
-      .single();
+      .maybeSingle();
     if (targetError) throw new Error("Não foi possível verificar o usuário selecionado.");
-    if (!target) return response({ error: "Usuário não encontrado." }, 404);
+    if (!target) {
+      if (body.action === "delete") return response(await deleteOrDeactivate(targetId));
+      return response({ error: "Usuário não encontrado." }, 404);
+    }
     if (body.action === "reset_password") {
       if (typeof body.password !== "string" || body.password.length < 8)
         return response({ error: "A senha precisa ter pelo menos 8 caracteres." }, 400);
@@ -283,7 +394,38 @@ Deno.serve(async (request) => {
           force_password_change: true,
         },
       });
-      if (passwordError) throw passwordError;
+      if (passwordError) {
+        const status = errorStatus(passwordError);
+        if (status !== undefined && status >= 400 && status < 500) {
+          const { data: restoredGate, error: restoreError } = await admin
+            .from("profiles")
+            .update({ must_change_password: target.must_change_password })
+            .eq("id", targetId)
+            .select("id")
+            .maybeSingle();
+          if (restoreError || !restoredGate)
+            return response(
+              {
+                outcome: "partial_failure",
+                error:
+                  "A redefinição falhou e o estado anterior do perfil não pôde ser restaurado. Verifique o usuário antes de repetir.",
+              },
+              409,
+            );
+          return response(
+            { error: "A redefinição da senha foi rejeitada pelo Auth; o perfil foi restaurado." },
+            status,
+          );
+        }
+        return response(
+          {
+            outcome: "partial_failure",
+            error:
+              "Não foi possível confirmar a redefinição no Auth. O perfil permanece bloqueado por segurança; verifique ou repita a operação.",
+          },
+          409,
+        );
+      }
       const { data: confirmedGate, error: confirmedGateError } = await admin
         .from("profiles")
         .update({ must_change_password: true })
@@ -291,13 +433,21 @@ Deno.serve(async (request) => {
         .select("id")
         .maybeSingle();
       if (confirmedGateError || !confirmedGate)
-        throw new Error("Não foi possível confirmar a troca obrigatória de senha.");
+        return response(
+          {
+            outcome: "partial_failure",
+            error:
+              "A senha foi redefinida, mas não foi possível confirmar o bloqueio de troca obrigatória. Revise o perfil antes de permitir acesso.",
+          },
+          409,
+        );
       return response({ ok: true });
     }
     const protectsLastAdmin =
       target.role === "admin" &&
       target.is_active &&
-      (body.action === "toggle" ||
+      !target.must_change_password &&
+      ((body.action === "set_active" && body.isActive === false) ||
         body.action === "delete" ||
         (body.action === "update" && typeof body.role === "string" && body.role !== "admin"));
     if (protectsLastAdmin) {
@@ -305,7 +455,8 @@ Deno.serve(async (request) => {
         .from("profiles")
         .select("id", { count: "exact", head: true })
         .eq("role", "admin")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("must_change_password", false);
       if (countError) throw new Error("Não foi possível validar a proteção de administradores.");
       if ((count ?? 0) <= 1)
         return response({ error: "É necessário manter pelo menos um administrador ativo." }, 400);
@@ -313,16 +464,10 @@ Deno.serve(async (request) => {
     if (body.action === "delete") {
       return response(await deleteOrDeactivate(targetId));
     }
-    if (body.action === "toggle") {
-      const { data: current, error } = await admin
-        .from("profiles")
-        .select("is_active")
-        .eq("id", targetId)
-        .single();
-      if (error) throw error;
+    if (body.action === "set_active") {
       const { data: updated, error: updateError } = await admin
         .from("profiles")
-        .update({ is_active: !current.is_active })
+        .update({ is_active: body.isActive as boolean })
         .eq("id", targetId)
         .select("id")
         .maybeSingle();
@@ -337,13 +482,40 @@ Deno.serve(async (request) => {
       const phone = body.phone as string | undefined;
       const unitId = body.unitId as string | undefined;
       const role = body.role as string | undefined;
-      if (email !== undefined) {
-        const { error: emailError } = await admin.auth.admin.updateUserById(targetId, {
-          email: email.trim(),
-          email_confirm: true,
-        });
-        if (emailError) throw emailError;
+
+      if (unitId !== undefined) {
+        const { data: activeUnit, error: unitError } = await admin
+          .from("units")
+          .select("id")
+          .eq("id", unitId)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (unitError) throw new Error("Não foi possível validar a unidade selecionada.");
+        if (!activeUnit) return response({ error: "A unidade selecionada não está ativa." }, 400);
       }
+
+      if (username !== undefined) {
+        const { data: existingUsername, error: usernameError } = await admin
+          .from("profiles")
+          .select("id")
+          .eq("username", username.trim())
+          .neq("id", targetId)
+          .limit(1)
+          .maybeSingle();
+        if (usernameError) throw new Error("Não foi possível validar o nome de usuário.");
+        if (existingUsername)
+          return response({ error: "Este nome de usuário já está cadastrado." }, 409);
+      }
+
+      let authEmailBefore: string | null = null;
+      if (email !== undefined) {
+        const { data: authTarget, error: authTargetError } =
+          await admin.auth.admin.getUserById(targetId);
+        if (authTargetError || !authTarget.user)
+          throw new Error("Não foi possível validar o e-mail atual do usuário.");
+        authEmailBefore = authTarget.user.email ?? null;
+      }
+
       const values = {
         ...(fullName !== undefined ? { full_name: fullName.trim() } : {}),
         ...(username !== undefined ? { username: username.trim() } : {}),
@@ -351,19 +523,88 @@ Deno.serve(async (request) => {
         ...(unitId !== undefined ? { default_unit_id: unitId } : {}),
         ...(role !== undefined ? { role } : {}),
       };
+      let updatedProfile: { id: string; updated_at: string } | null = null;
       if (Object.keys(values).length > 0) {
         const { data: updated, error } = await admin
           .from("profiles")
           .update(values)
           .eq("id", targetId)
-          .select("id")
+          .eq("updated_at", target.updated_at)
+          .select("id,updated_at")
           .maybeSingle();
-        if (error || !updated) throw new Error("O perfil não pôde ser atualizado.");
+        if (error) throw error;
+        if (!updated)
+          return response(
+            { error: "O perfil mudou durante a edição. Atualize a tela e tente novamente." },
+            409,
+          );
+        updatedProfile = updated;
+      }
+
+      if (email !== undefined && email.trim().toLowerCase() !== authEmailBefore?.toLowerCase()) {
+        const { error: emailError } = await admin.auth.admin.updateUserById(targetId, {
+          email: email.trim(),
+          email_confirm: true,
+        });
+        if (emailError) {
+          const { data: refreshedAuthUser, error: refreshError } =
+            await admin.auth.admin.getUserById(targetId);
+          if (refreshError)
+            return response(
+              {
+                outcome: "partial_failure",
+                error:
+                  "O resultado da atualização Auth é desconhecido. Verifique Auth e perfil antes de repetir.",
+              },
+              409,
+            );
+          const authEmail = refreshedAuthUser.user?.email?.toLowerCase() ?? null;
+          if (authEmail === email.trim().toLowerCase())
+            return response({ outcome: "updated", id: targetId });
+
+          if (updatedProfile) {
+            const previousValues = {
+              ...(fullName !== undefined ? { full_name: target.full_name } : {}),
+              ...(username !== undefined ? { username: target.username } : {}),
+              ...(phone !== undefined ? { phone: target.phone } : {}),
+              ...(unitId !== undefined ? { default_unit_id: target.default_unit_id } : {}),
+              ...(role !== undefined ? { role: target.role } : {}),
+            };
+            const { data: restoredProfile, error: restoreError } = await admin
+              .from("profiles")
+              .update(previousValues)
+              .eq("id", targetId)
+              .eq("updated_at", updatedProfile.updated_at)
+              .select("id")
+              .maybeSingle();
+            if (restoreError || !restoredProfile)
+              return response(
+                {
+                  outcome: "partial_failure",
+                  error:
+                    "A atualização do Auth falhou e o perfil mudou. A compensação não pôde restaurar o estado anterior; revise a conta antes de repetir.",
+                },
+                409,
+              );
+          }
+
+          return response(
+            {
+              error:
+                "A atualização do e-mail no Auth falhou; os campos do perfil foram restaurados.",
+            },
+            errorStatus(emailError) === 409 ? 409 : 400,
+          );
+        }
       }
       return response({ outcome: "updated", id: targetId });
     }
     return response({ error: "Ação inválida." }, 400);
-  } catch {
+  } catch (reason) {
+    if (errorCode(reason) === "23514")
+      return response({ error: "A operação deixaria o portal sem administrador ativo." }, 409);
+    if (errorCode(reason) === "23505")
+      return response({ error: "O nome de usuário já está cadastrado." }, 409);
     return response({ error: "Não foi possível concluir a operação administrativa." }, 500);
   }
 });
