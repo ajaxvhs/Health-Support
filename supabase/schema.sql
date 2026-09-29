@@ -127,7 +127,19 @@ create index if not exists push_subscriptions_user_idx on public.push_subscripti
 
 drop policy if exists push_owner on public.push_subscriptions;
 
-create policy push_owner on public.push_subscriptions for all to authenticated using (user_id = auth.uid ())
+create policy push_owner on public.push_subscriptions for all to authenticated using (
+  user_id = auth.uid ()
+  and exists (
+    select
+      1
+    from
+      public.profiles p
+    where
+      p.id = auth.uid ()
+      and p.is_active
+      and not p.must_change_password
+  )
+)
 with
   check (
     user_id = auth.uid ()
@@ -139,6 +151,7 @@ with
       where
         p.id = auth.uid ()
         and p.is_active
+        and not p.must_change_password
     )
   );
 
@@ -194,7 +207,18 @@ drop policy if exists push_config_read on public.push_public_config;
 
 create policy push_config_read on public.push_public_config for
 select
-  to authenticated using (true);
+  to authenticated using (
+    exists (
+      select
+        1
+      from
+        public.profiles p
+      where
+        p.id = auth.uid ()
+        and p.is_active
+        and not p.must_change_password
+    )
+  );
 
 insert into
   units (id, name, code)
@@ -320,20 +344,63 @@ alter table notifications enable row level security;
 create or replace function is_staff () returns boolean language sql stable security definer
 set
   search_path = '' as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and is_active and role::text = 'admin');
+  select exists (
+    select 1 from public.profiles
+    where id = (select auth.uid())
+      and is_active
+      and not must_change_password
+      and role::text = 'admin'
+  );
 $$;
 
 create or replace function is_admin () returns boolean language sql stable security definer
 set
-  search_path = public as $$
-  select exists (select 1 from profiles where id = auth.uid() and is_active and role::text = 'admin');
+  search_path = '' as $$
+  select exists (
+    select 1 from public.profiles
+    where id = (select auth.uid())
+      and is_active
+      and not must_change_password
+      and role::text = 'admin'
+  );
 $$;
 
 create or replace function is_active_user () returns boolean language sql stable security definer
 set
-  search_path = public as $$
-  select exists (select 1 from profiles where id = auth.uid() and is_active);
+  search_path = '' as $$
+  select exists (
+    select 1 from public.profiles
+    where id = (select auth.uid())
+      and is_active
+      and not must_change_password
+  );
 $$;
+
+create or replace function public.sync_password_change_profile () returns trigger language plpgsql security definer
+set
+  search_path = '' as $$
+begin
+  if new.encrypted_password is distinct from old.encrypted_password then
+    update public.profiles
+    set must_change_password = coalesce(new.raw_app_meta_data ->> 'force_password_change', 'false') = 'true'
+    where id = new.id
+      and is_active;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.sync_password_change_profile ()
+from
+  public,
+  anon,
+  authenticated;
+
+drop trigger if exists profiles_password_changed on auth.users;
+
+create trigger profiles_password_changed
+after update of encrypted_password on auth.users for each row
+execute function public.sync_password_change_profile ();
 
 create or replace function public.update_own_profile (p_full_name text, p_phone text) returns boolean language plpgsql security definer
 set
@@ -358,6 +425,7 @@ begin
       phone = pg_catalog.btrim(p_phone)
   where id = auth.uid()
     and is_active = true
+    and must_change_password = false
   returning id into updated_profile_id;
 
   if updated_profile_id is null then
@@ -732,7 +800,9 @@ set
   search_path = '' as $$
   select distinct p.id, p.full_name
   from public.profiles p
-  where auth.uid() is not null and exists (
+  where auth.uid() is not null
+    and public.is_active_user()
+    and exists (
     select 1
     from public.tickets t
     where (public.is_staff() or t.created_by = auth.uid())
@@ -1104,23 +1174,6 @@ from
 grant
 execute on function public.update_own_profile (text, text) to authenticated;
 
-create or replace function mark_password_changed () returns void language plpgsql security definer
-set
-  search_path = public as $$
-begin
-  update profiles
-  set must_change_password = false
-  where id = auth.uid();
-end;
-$$;
-
-revoke all on function mark_password_changed ()
-from
-  public;
-
-grant
-execute on function mark_password_changed () to authenticated;
-
 -- Supabase Auth still authenticates with an e-mail internally. The app only
 -- exposes username and resolves it through this restricted function first.
 create or replace function auth_email_for_username (login_username text) returns text language sql stable security definer
@@ -1143,72 +1196,84 @@ authenticated;
 create policy active_catalog_read on units for
 select
   to authenticated using (
-    is_active
-    or exists (
-      select
-        1
-      from
-        tickets t
-      where
-        t.unit_id = units.id
-        and (
-          is_staff ()
-          or t.created_by = auth.uid ()
-        )
+    is_active_user ()
+    and (
+      is_active
+      or exists (
+        select
+          1
+        from
+          tickets t
+        where
+          t.unit_id = units.id
+          and (
+            is_staff ()
+            or t.created_by = auth.uid ()
+          )
+      )
     )
   );
 
 create policy active_category_read on ticket_categories for
 select
   to authenticated using (
-    is_active
-    or exists (
-      select
-        1
-      from
-        tickets t
-      where
-        t.category_id = ticket_categories.id
-        and (
-          is_staff ()
-          or t.created_by = auth.uid ()
-        )
+    is_active_user ()
+    and (
+      is_active
+      or exists (
+        select
+          1
+        from
+          tickets t
+        where
+          t.category_id = ticket_categories.id
+          and (
+            is_staff ()
+            or t.created_by = auth.uid ()
+          )
+      )
     )
   );
 
 create policy active_priority_read on ticket_priorities for
 select
   to authenticated using (
-    is_active
-    or exists (
-      select
-        1
-      from
-        tickets t
-      where
-        t.priority_id = ticket_priorities.id
-        and (
-          is_staff ()
-          or t.created_by = auth.uid ()
-        )
+    is_active_user ()
+    and (
+      is_active
+      or exists (
+        select
+          1
+        from
+          tickets t
+        where
+          t.priority_id = ticket_priorities.id
+          and (
+            is_staff ()
+            or t.created_by = auth.uid ()
+          )
+      )
     )
   );
 
 create policy active_status_read on ticket_statuses for
 select
   to authenticated using (
-    is_active
-    or exists (
-      select
-        1
-      from
-        tickets t
-      where
-        t.status_id = ticket_statuses.id
-        and (
-          is_staff ()
-          or t.created_by = auth.uid ()
-        )
+    is_active_user ()
+    and (
+      is_active
+      or exists (
+        select
+          1
+        from
+          tickets t
+        where
+          t.status_id = ticket_statuses.id
+          and (
+            is_staff ()
+            or t.created_by = auth.uid ()
+          )
+      )
     )
   );
 
@@ -1263,7 +1328,10 @@ create policy statuses_admin_delete on ticket_statuses for delete to authenticat
 create policy profile_read on profiles for
 select
   to authenticated using (
-    id = auth.uid ()
+    (
+      id = auth.uid ()
+      and is_active
+    )
     or is_staff ()
   );
 
@@ -1282,8 +1350,11 @@ create policy profile_admin_delete on profiles for delete to authenticated using
 create policy ticket_read on tickets for
 select
   to authenticated using (
-    created_by = auth.uid ()
-    or is_staff ()
+    is_active_user ()
+    and (
+      created_by = auth.uid ()
+      or is_staff ()
+    )
   );
 
 create policy ticket_active_user_insert on tickets for insert to authenticated
@@ -1296,42 +1367,51 @@ with
 create policy ticket_staff_update on tickets
 for update
   to authenticated using (
-    (
-      is_staff ()
-      and (
-        is_admin ()
-        or assigned_to = auth.uid ()
-        or assigned_to is null
+    is_active_user ()
+    and (
+      (
+        is_staff ()
+        and (
+          is_admin ()
+          or assigned_to = auth.uid ()
+          or assigned_to is null
+        )
       )
+      or created_by = auth.uid ()
     )
-    or created_by = auth.uid ()
   )
 with
   check (
-    (
-      is_staff ()
-      and (
-        is_admin ()
-        or assigned_to = auth.uid ()
+    is_active_user ()
+    and (
+      (
+        is_staff ()
+        and (
+          is_admin ()
+          or assigned_to = auth.uid ()
+        )
       )
+      or created_by = auth.uid ()
     )
-    or created_by = auth.uid ()
   );
 
 create policy message_read on ticket_messages for
 select
   to authenticated using (
-    is_staff ()
-    or (
-      not is_internal
-      and exists (
-        select
-          1
-        from
-          tickets
-        where
-          tickets.id = ticket_messages.ticket_id
-          and tickets.created_by = auth.uid ()
+    is_active_user ()
+    and (
+      is_staff ()
+      or (
+        not is_internal
+        and exists (
+          select
+            1
+          from
+            tickets
+          where
+            tickets.id = ticket_messages.ticket_id
+            and tickets.created_by = auth.uid ()
+        )
       )
     )
   );
@@ -1341,66 +1421,76 @@ with
   check (
     sender_id = auth.uid ()
     and is_active_user ()
-    and (
-      (
-        not is_internal
-        and exists (
-          select
-            1
-          from
-            tickets
-            join ticket_statuses on ticket_statuses.id = tickets.status_id
-          where
-            tickets.id = ticket_messages.ticket_id
-            and ticket_statuses.slug not in ('resolvido', 'fechado')
+    and exists (
+      select
+        1
+      from
+        tickets
+        join ticket_statuses on ticket_statuses.id = tickets.status_id
+      where
+        tickets.id = ticket_messages.ticket_id
+        and ticket_statuses.slug not in ('resolvido', 'fechado')
+        and (
+          (
+            is_staff ()
             and (
-              (
-                is_staff ()
-                and (
-                  is_admin ()
-                  or tickets.assigned_to = auth.uid ()
-                  or tickets.assigned_to is null
-                )
-              )
-              or (
-                not ticket_messages.is_internal
-                and tickets.created_by = auth.uid ()
-              )
+              is_admin ()
+              or tickets.assigned_to = auth.uid ()
+              or tickets.assigned_to is null
             )
+          )
+          or (
+            not is_internal
+            and tickets.created_by = auth.uid ()
+          )
         )
-      )
     )
   );
 
 create policy event_read on ticket_events for
 select
   to authenticated using (
-    is_admin ()
-    or exists (
-      select
-        1
-      from
-        tickets
-      where
-        tickets.id = ticket_events.ticket_id
-        and (
-          tickets.created_by = auth.uid ()
-          or is_staff ()
-        )
+    is_active_user ()
+    and (
+      is_admin ()
+      or exists (
+        select
+          1
+        from
+          tickets
+        where
+          tickets.id = ticket_events.ticket_id
+          and (
+            tickets.created_by = auth.uid ()
+            or is_staff ()
+          )
+      )
     )
   );
 
 create policy notifications_owner_read on notifications for
 select
-  to authenticated using (user_id = auth.uid ());
+  to authenticated using (
+    user_id = auth.uid ()
+    and is_active_user ()
+  );
 
 create policy notifications_owner_update on notifications
 for update
-  to authenticated using (user_id = auth.uid ())
+  to authenticated using (
+    user_id = auth.uid ()
+    and is_active_user ()
+  )
 with
-  check (user_id = auth.uid ());
+  check (
+    user_id = auth.uid ()
+    and is_active_user ()
+  );
 
-create policy notifications_owner_delete on notifications for delete to authenticated using (user_id = auth.uid ());
+create policy notifications_owner_delete on notifications for delete to authenticated using (
+  user_id = auth.uid ()
+  and is_active_user ()
+);
 
 create or replace function append_ticket_event (
   event_ticket_id uuid,

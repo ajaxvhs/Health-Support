@@ -1,4 +1,5 @@
 import type { Profile, Role } from "../types";
+import type { Session } from "@supabase/supabase-js";
 import { getSupabaseClient } from "./supabase/client";
 import { disablePush } from "./pushNotifications";
 
@@ -27,6 +28,14 @@ function toProfile(row: ProfileRow, email: string): Profile {
   };
 }
 
+export function isProfileUnavailableError(reason: unknown) {
+  return (
+    typeof reason === "object" &&
+    reason !== null &&
+    (reason as { code?: unknown }).code === "PGRST116"
+  );
+}
+
 async function loadProfile(userId: string, email: string) {
   const client = getSupabaseClient();
   if (!client) return null;
@@ -37,7 +46,8 @@ async function loadProfile(userId: string, email: string) {
     )
     .eq("id", userId)
     .single();
-  if (error || !data) throw new Error("Usuário não possui um perfil autorizado.");
+  if (error) throw error;
+  if (!data) throw new Error("Usuário não possui um perfil autorizado.");
   const profile = toProfile(data as ProfileRow, email);
   if (!profile.isActive) throw new Error("Usuário ou senha inválidos.");
   return profile;
@@ -58,6 +68,7 @@ export function passwordUpdateErrorMessage(reason: unknown) {
       ));
 
   if (isSamePassword) return "A nova senha não pode ser igual à senha atual.";
+  if (error.code === "current_password_invalid") return "A senha atual está incorreta.";
   return "Não foi possível atualizar a senha.";
 }
 
@@ -77,25 +88,53 @@ export async function signInWithIdentifier(identifier: string, password: string)
 
   const { data, error } = await client.auth.signInWithPassword({ email, password });
   if (error || !data.user) throw new Error("Usuário ou senha inválidos.");
-  const profile = await loadProfile(data.user.id, data.user.email ?? email);
+  let profile: Profile | null;
+  try {
+    profile = await loadProfile(data.user.id, data.user.email ?? email);
+  } catch (reason) {
+    if (isProfileUnavailableError(reason)) {
+      await client.auth.signOut({ scope: "local" });
+      throw new Error("Usuário ou senha inválidos.");
+    }
+    throw new Error("Não foi possível carregar seu perfil. Tente novamente.");
+  }
   if (!profile) throw new Error("Usuário não possui um perfil autorizado.");
   return profile;
 }
 
-export async function restoreUserSession() {
+export async function restoreUserSession(session?: Session) {
   const client = getSupabaseClient();
   if (!client) return null;
-  const { data } = await client.auth.getSession();
-  if (!data.session) return null;
-  const profile = await loadProfile(data.session.user.id, data.session.user.email ?? "");
+  const currentSession = session ?? (await client.auth.getSession()).data.session;
+  if (!currentSession) return null;
+  const profile = await loadProfile(currentSession.user.id, currentSession.user.email ?? "");
   if (!profile) return null;
   return profile;
 }
 
 export async function signOut() {
-  await disablePush();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const pushCleanupFailed = await Promise.race([
+    disablePush().then(
+      () => false,
+      () => true,
+    ),
+    new Promise<boolean>((resolve) => {
+      timeout = setTimeout(() => resolve(true), 3000);
+    }),
+  ]);
+  if (timeout) clearTimeout(timeout);
   const client = getSupabaseClient();
-  if (client) await client.auth.signOut();
+  if (client) {
+    try {
+      const { error } = await client.auth.signOut();
+      if (error) throw error;
+    } catch (reason) {
+      await client.auth.signOut({ scope: "local" }).catch(() => undefined);
+      throw reason;
+    }
+  }
+  return { pushCleanupFailed };
 }
 
 export async function updatePassword(newPassword: string, currentPassword?: string) {
@@ -105,18 +144,23 @@ export async function updatePassword(newPassword: string, currentPassword?: stri
     throw new Error("A nova senha não pode ser igual à senha atual.");
   const client = getSupabaseClient();
   if (!client) throw new Error("O Supabase precisa estar configurado para atualizar a senha.");
-  if (currentPassword) {
-    const { data: sessionData } = await client.auth.getSession();
-    const email = sessionData.session?.user.email;
-    if (!email) throw new Error("Sessão expirada.");
-    const { error: currentPasswordError } = await client.auth.signInWithPassword({
-      email,
-      password: currentPassword,
+  const { data, error } = await client.functions.invoke<{ ok?: boolean; error?: string }>(
+    "update-password",
+    { body: { newPassword, ...(currentPassword ? { currentPassword } : {}) } },
+  );
+  if (error) {
+    const context = "context" in error ? error.context : undefined;
+    const body =
+      context && typeof (context as { json?: unknown }).json === "function"
+        ? ((await (context as Response).json().catch(() => null)) as {
+            code?: string;
+            error?: string;
+          } | null)
+        : null;
+    throw Object.assign(new Error(body?.error ?? "Não foi possível atualizar a senha."), {
+      code: body?.code,
+      status: context instanceof Response ? context.status : undefined,
     });
-    if (currentPasswordError) throw new Error("A senha atual está incorreta.");
   }
-  const { error } = await client.auth.updateUser({ password: newPassword });
-  if (error) throw new Error(passwordUpdateErrorMessage(error));
-  const { error: profileError } = await client.rpc("mark_password_changed");
-  if (profileError) throw new Error("Senha atualizada, mas não foi possível concluir o perfil.");
+  if (data?.error) throw new Error(passwordUpdateErrorMessage(new Error(data.error)));
 }

@@ -15,8 +15,10 @@ export interface AppContextValue {
   refresh: () => Promise<void>;
   refreshTicketNavigationCounts: () => Promise<void>;
   checkingSession: boolean;
+  sessionError: boolean;
+  retrySession: () => Promise<void>;
   login: (profile: Profile) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => Promise<boolean>;
   mergeProfiles: (profiles: Profile[]) => void;
   updateCurrentProfile: (
     values: Partial<Pick<Profile, "fullName" | "phone" | "mustChangePassword">>,

@@ -42,11 +42,15 @@ Deno.serve(async (request) => {
     const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const { data: actorProfile, error: actorProfileError } = await admin
       .from("profiles")
-      .select("role,is_active")
+      .select("role,is_active,must_change_password")
       .eq("id", actor.id)
       .single();
     if (actorProfileError) throw new Error("Não foi possível validar o acesso administrativo.");
-    if (!actorProfile?.is_active || actorProfile.role !== "admin")
+    if (
+      !actorProfile?.is_active ||
+      actorProfile.must_change_password ||
+      actorProfile.role !== "admin"
+    )
       return response({ error: "Acesso restrito a administradores." }, 403);
     let body: Record<string, unknown>;
     try {
@@ -141,6 +145,7 @@ Deno.serve(async (request) => {
         email: email.trim(),
         password: temporaryPassword,
         email_confirm: true,
+        app_metadata: { force_password_change: true },
       });
       if (error || !data.user) {
         const message = error?.message.toLowerCase() ?? "";
@@ -259,18 +264,34 @@ Deno.serve(async (request) => {
     if (body.action === "reset_password") {
       if (typeof body.password !== "string" || body.password.length < 8)
         return response({ error: "A senha precisa ter pelo menos 8 caracteres." }, 400);
-      const { error: passwordError } = await admin.auth.admin.updateUserById(targetId, {
-        password: body.password,
-      });
-      if (passwordError) throw passwordError;
-      const { data: profileUpdate, error: profileError } = await admin
+      const { data: authTarget, error: authTargetError } =
+        await admin.auth.admin.getUserById(targetId);
+      if (authTargetError || !authTarget.user)
+        throw new Error("Não foi possível verificar a conta selecionada.");
+      const { data: profileGate, error: profileGateError } = await admin
         .from("profiles")
         .update({ must_change_password: true })
         .eq("id", targetId)
         .select("id")
         .maybeSingle();
-      if (profileError || !profileUpdate)
-        throw new Error("A senha foi redefinida, mas não foi possível atualizar o perfil.");
+      if (profileGateError || !profileGate)
+        throw new Error("Não foi possível exigir a troca de senha.");
+      const { error: passwordError } = await admin.auth.admin.updateUserById(targetId, {
+        password: body.password,
+        app_metadata: {
+          ...authTarget.user.app_metadata,
+          force_password_change: true,
+        },
+      });
+      if (passwordError) throw passwordError;
+      const { data: confirmedGate, error: confirmedGateError } = await admin
+        .from("profiles")
+        .update({ must_change_password: true })
+        .eq("id", targetId)
+        .select("id")
+        .maybeSingle();
+      if (confirmedGateError || !confirmedGate)
+        throw new Error("Não foi possível confirmar a troca obrigatória de senha.");
       return response({ ok: true });
     }
     const protectsLastAdmin =
