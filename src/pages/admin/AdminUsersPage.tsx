@@ -261,7 +261,7 @@ export function AdminUsersPage() {
                     confirmLabel: profile.isActive ? "Desativar" : "Ativar",
                     action: () =>
                       finish(async () => {
-                        await repo.toggleUser(profile.id);
+                        await repo.setUserActive(profile.id, !profile.isActive);
                         showToast(`Usuário ${profile.isActive ? "desativado" : "ativado"}.`);
                       }),
                   })

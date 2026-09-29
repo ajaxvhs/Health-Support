@@ -93,11 +93,14 @@ begin
     raise exception 'Own profile fields were not trimmed and updated';
   end if;
 
-  update public.profiles set role = 'admin' where id = auth.uid();
-  get diagnostics affected = row_count;
-  if affected <> 0 then
-    raise exception 'Direct role update must remain blocked by RLS';
-  end if;
+  begin
+    update public.profiles set role = 'admin' where id = auth.uid();
+    get diagnostics affected = row_count;
+    if affected <> 0 then
+      raise exception 'Direct role update must remain blocked';
+    end if;
+  exception when insufficient_privilege then null;
+  end;
 
   begin
     perform public.update_own_profile('   ', '444');

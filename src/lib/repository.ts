@@ -559,7 +559,13 @@ export class SupabaseRepository {
       const context = "context" in error ? error.context : undefined;
       if (context && typeof (context as { json?: unknown }).json === "function") {
         const body = (await (context as Response).json().catch(() => null)) as Row | null;
-        if (typeof body?.error === "string") throw new Error(body.error);
+        if (typeof body?.error === "string") {
+          const authUserId =
+            body.outcome === "partial_failure" && typeof body.authUserId === "string"
+              ? ` Referência da conta Auth: ${body.authUserId}.`
+              : "";
+          throw new Error(`${body.error}${authUserId}`);
+        }
       }
       throw new Error("Não foi possível concluir a operação administrativa.");
     }
@@ -576,8 +582,12 @@ export class SupabaseRepository {
       id,
     });
   }
-  async toggleUser(id: string) {
-    return this.invokeUserAction<{ outcome: "updated"; id: string }>({ action: "toggle", id });
+  async setUserActive(id: string, isActive: boolean) {
+    return this.invokeUserAction<{ outcome: "updated"; id: string }>({
+      action: "set_active",
+      id,
+      isActive,
+    });
   }
   async deleteUser(id: string): Promise<AdminUserDeleteOutcome> {
     return this.invokeUserAction<AdminUserDeleteOutcome>({ action: "delete", id });
