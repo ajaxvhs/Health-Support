@@ -1,4 +1,14 @@
-export type Role = "admin" | "solicitante";
+import type { AdminUserRole } from "../supabase/functions/_shared/adminUserContract";
+
+export type {
+  AdminUserActionRequest,
+  AdminUserActionErrorResponse,
+  AdminUserActionResponseMap,
+  AdminUserDeleteOutcome,
+  BulkUserDeleteResult,
+} from "../supabase/functions/_shared/adminUserContract";
+
+export type Role = AdminUserRole;
 export type TicketStatus = "aberto" | "em_andamento" | "resolvido" | "fechado";
 export const ticketStatuses = ["aberto", "em_andamento", "resolvido", "fechado"] as const;
 export type CatalogKind = "categories" | "units" | "priorities" | "statuses";
@@ -33,37 +43,6 @@ export interface TicketParticipant {
   id: string;
   fullName: string;
 }
-export type AdminUserActionRequest =
-  | { action: "list" }
-  | {
-      action: "create";
-      fullName: string;
-      username: string;
-      email: string;
-      phone: string;
-      temporaryPassword: string;
-      unitId: string;
-      role: Role;
-    }
-  | {
-      action: "update";
-      id: string;
-      fullName?: string;
-      username?: string;
-      email?: string;
-      phone?: string;
-      unitId?: string;
-      role?: Role;
-    }
-  | { action: "delete"; id: string }
-  | { action: "set_active"; id: string; isActive: boolean }
-  | { action: "reset_password"; id: string; password: string }
-  | { action: "bulk_toggle"; ids: string[]; isActive: boolean }
-  | { action: "bulk_delete"; ids: string[] };
-export type AdminUserDeleteOutcome = { id: string; outcome: "deleted" | "deactivated" };
-export type BulkUserDeleteResult = {
-  outcomes: Array<AdminUserDeleteOutcome | { id: string; outcome: "failed" }>;
-};
 export interface TicketMessage {
   id: string;
   ticketId: string;

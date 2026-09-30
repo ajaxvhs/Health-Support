@@ -1,29 +1,13 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import type { Profile, Ticket, TicketEvent, TicketStatus } from "../types";
+import { normalizeError } from "./errors";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 export function errorMessage(reason: unknown, fallback: string) {
-  const code =
-    typeof reason === "object" && reason !== null && "code" in reason ? reason.code : undefined;
-  if (typeof code === "string") {
-    switch (code) {
-      case "23503":
-        return "Este item está vinculado a outros registros e não pode ser excluído.";
-      case "23505":
-        return "Já existe um registro com esses dados.";
-      case "42501":
-        return "Você não tem permissão para realizar esta operação.";
-      case "PGRST116":
-        return "O registro não foi encontrado ou não está mais disponível.";
-      case "PGRST301":
-      case "PGRST302":
-        return "Sua sessão expirou. Entre novamente.";
-    }
-  }
-  return reason instanceof Error ? reason.message : fallback;
+  return normalizeError(reason, fallback).message;
 }
 
 export function resolutionValueForTicket(

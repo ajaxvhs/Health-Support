@@ -10,7 +10,8 @@ import {
 } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
-import { errorMessage, refreshAfterMutation, refreshAndNotify } from "../../lib/utils";
+import { executeAction } from "../../lib/actionRunner";
+import { refreshAfterMutation, refreshAndNotify } from "../../lib/utils";
 import type { CatalogItem, CatalogKind } from "../../types";
 import { CreateCatalogDialog, EditCatalogDialog } from "./CatalogDialogs";
 
@@ -45,19 +46,22 @@ export function CatalogsPage() {
     setSelected([]);
     setSearch("");
   };
-  const finish = async (action: () => Promise<void>) => {
-    try {
-      await action();
-    } catch (reason) {
-      showToast(errorMessage(reason, "Não foi possível concluir a ação."), "error");
-      return;
-    }
+  const finish = async <T,>(action: () => Promise<T>, onSuccess?: (value: T) => void) => {
+    const result = await executeAction(action, {
+      fallback: "Não foi possível concluir a ação.",
+      showToast,
+    });
+    if (!result.ok) return false;
     setSelected([]);
-    if (!(await refreshAfterMutation(refresh)))
+    onSuccess?.(result.value);
+    if (!(await refreshAfterMutation(refresh))) {
       showToast(
         "A alteração foi salva, mas a lista não sincronizou. Atualize quando a conexão voltar.",
         "info",
       );
+      return false;
+    }
+    return true;
   };
   const bulkAction = (value: string) => {
     if (!value || !selected.length) return;
@@ -99,14 +103,15 @@ export function CatalogsPage() {
       confirmLabel: "Excluir item",
       variant: "danger",
       action: () =>
-        finish(async () => {
-          const result = await repo.deleteCatalog(tab, item.id);
-          showToast(
-            result === "deactivated"
-              ? `${item.name} desativado para preservar o histórico.`
-              : `${item.name} excluído.`,
-          );
-        }),
+        finish(
+          () => repo.deleteCatalog(tab, item.id),
+          (result) =>
+            showToast(
+              result === "deactivated"
+                ? `${item.name} desativado para preservar o histórico.`
+                : `${item.name} excluído.`,
+            ),
+        ),
     });
   };
   return (
@@ -233,10 +238,10 @@ export function CatalogsPage() {
                     : `${item.name} voltará a aparecer nas opções disponíveis.`,
                   confirmLabel: item.isActive ? "Desativar" : "Ativar",
                   action: () =>
-                    finish(async () => {
-                      await repo.setCatalogActive(tab, item.id, !item.isActive);
-                      showToast(`${item.name} ${item.isActive ? "desativado" : "ativado"}.`);
-                    }),
+                    finish(
+                      () => repo.setCatalogActive(tab, item.id, !item.isActive),
+                      () => showToast(`${item.name} ${item.isActive ? "desativado" : "ativado"}.`),
+                    ),
                 })
               }
               onDelete={() => requestDelete(item)}

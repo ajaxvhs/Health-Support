@@ -125,6 +125,24 @@ async function run() {
 
   try {
     functionProcess = await startLocalFunctions(url, anonKey);
+    const preflightResponse = await globalThis.fetch(`${url}/functions/v1/admin-users`, {
+      method: "OPTIONS",
+      headers: { Origin: "http://localhost:5173", "Access-Control-Request-Method": "POST" },
+    });
+    expectStatus("Allow POST preflight requests", preflightResponse, 200);
+    const allowedMethods = preflightResponse.headers
+      .get("access-control-allow-methods")
+      ?.split(",")
+      .map((method) => method.trim().toUpperCase());
+    assert.ok(allowedMethods?.includes("POST") && allowedMethods.includes("OPTIONS"));
+
+    const methodResponse = await globalThis.fetch(`${url}/functions/v1/admin-users`, {
+      method: "GET",
+      headers: { apikey: anonKey },
+    });
+    expectStatus("Reject non-POST admin-users requests", methodResponse, 405);
+    assert.equal(methodResponse.headers.get("allow"), "POST, OPTIONS");
+
     const suffix = randomUUID().replaceAll("-", "").slice(0, 14);
     const units = unwrap(
       "Find active local unit",
@@ -189,6 +207,108 @@ async function run() {
 
     const [adminA, adminB, requester, emailConflict] = await Promise.all(
       users.map(async (user) => ({ ...user, client: await login(url, anonKey, user) })),
+    );
+
+    const { data: adminSessionData } = await adminA.client.auth.getSession();
+    assert.ok(adminSessionData.session?.access_token);
+    const malformedJsonResponse = await globalThis.fetch(`${url}/functions/v1/admin-users`, {
+      method: "POST",
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${adminSessionData.session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: "{",
+    });
+    expectStatus("Reject malformed JSON request bodies", malformedJsonResponse, 400);
+
+    expectStatus(
+      "Reject a bulk request above the configured size limit",
+      await invoke(adminA.client, {
+        action: "bulk_toggle",
+        ids: Array.from({ length: 101 }, () => randomUUID()),
+        isActive: false,
+      }),
+      400,
+    );
+
+    const oversizedNameEmail = `oversized-name-${suffix}@example.test`;
+    expectStatus(
+      "Reject an overlong user field before creating an Auth account",
+      await invoke(adminA.client, {
+        action: "create",
+        email: oversizedNameEmail,
+        temporaryPassword: `New-${randomUUID().slice(0, 12)}Aa9!`,
+        username: `oversized-name-${suffix}`,
+        fullName: "N".repeat(121),
+        phone: "0000000001",
+        unitId,
+        role: "solicitante",
+      }),
+      400,
+    );
+    assert.equal(await readUserByEmail(admin, oversizedNameEmail), null);
+
+    expectStatus(
+      "Reject unknown admin action",
+      await invoke(adminA.client, { action: "unknown" }),
+      400,
+    );
+    const missingFieldsEmail = `missing-fields-${suffix}@example.test`;
+    expectStatus(
+      "Reject missing and null create fields before Auth writes",
+      await invoke(adminA.client, {
+        action: "create",
+        email: missingFieldsEmail,
+        fullName: null,
+      }),
+      400,
+    );
+    assert.equal(await readUserByEmail(admin, missingFieldsEmail), null);
+    const invalidRoleEmail = `invalid-role-${suffix}@example.test`;
+    expectStatus(
+      "Reject an unsupported role before Auth writes",
+      await invoke(adminA.client, {
+        action: "create",
+        email: invalidRoleEmail,
+        temporaryPassword: `New-${randomUUID().slice(0, 12)}Aa9!`,
+        username: `invalid-role-${suffix}`,
+        fullName: "Invalid role synthetic",
+        phone: "0000000001",
+        unitId,
+        role: "staff",
+      }),
+      400,
+    );
+    assert.equal(await readUserByEmail(admin, invalidRoleEmail), null);
+    expectStatus(
+      "Reject a string instead of a boolean for set_active",
+      await invoke(adminA.client, { action: "set_active", id: requester.id, isActive: "false" }),
+      400,
+    );
+    expectStatus(
+      "Reject an empty bulk selection",
+      await invoke(adminA.client, { action: "bulk_toggle", ids: [], isActive: false }),
+      400,
+    );
+    expectStatus(
+      "Reject a malformed target ID",
+      await invoke(adminA.client, { action: "delete", id: "not-a-uuid" }),
+      400,
+    );
+    expectStatus(
+      "Return not found for a valid but nonexistent target ID",
+      await invoke(adminA.client, { action: "update", id: randomUUID(), fullName: "Synthetic" }),
+      404,
+    );
+    expectStatus(
+      "Reject an overlong update field",
+      await invoke(adminA.client, {
+        action: "update",
+        id: requester.id,
+        fullName: "N".repeat(121),
+      }),
+      400,
     );
 
     const directRoleChange = await adminA.client
@@ -476,6 +596,15 @@ drop function if exists public.${rollbackFailureFunctionName}();`,
         .single(),
     );
     expectStatus(
+      "Reject an overlong reset password before profile mutation",
+      await invoke(adminA.client, {
+        action: "reset_password",
+        id: requester.id,
+        password: "P".repeat(129),
+      }),
+      400,
+    );
+    expectStatus(
       "Reject invalid reset before profile gate mutation",
       await invoke(adminA.client, {
         action: "reset_password",
@@ -507,6 +636,21 @@ drop function if exists public.${rollbackFailureFunctionName}();`,
     );
     assert.equal(requesterState.is_active, true);
 
+    const bulkDeactivation = await invoke(adminA.client, {
+      action: "bulk_toggle",
+      ids: [requester.id],
+      isActive: false,
+    });
+    expectStatus("Apply a typed bulk_toggle response", bulkDeactivation, 200);
+    assert.deepEqual(bulkDeactivation.data.updated, [requester.id]);
+    const bulkReactivation = await invoke(adminA.client, {
+      action: "bulk_toggle",
+      ids: [requester.id],
+      isActive: true,
+    });
+    expectStatus("Restore the requester after bulk_toggle", bulkReactivation, 200);
+    assert.deepEqual(bulkReactivation.data.updated, [requester.id]);
+
     const requesterStateBeforeReset = unwrap(
       "Snapshot requester before same-password reset",
       await admin.from("profiles").select("must_change_password").eq("id", requester.id).single(),
@@ -528,6 +672,13 @@ drop function if exists public.${rollbackFailureFunctionName}();`,
       assert.notEqual(samePasswordReset.status, 500);
       assert.deepEqual(requesterAfterReset, requesterStateBeforeReset);
     }
+
+    const bulkDelete = await invoke(adminA.client, {
+      action: "bulk_delete",
+      ids: [emailConflict.id],
+    });
+    expectStatus("Apply a typed bulk_delete response", bulkDelete, 200);
+    assert.deepEqual(bulkDelete.data.outcomes, [{ id: emailConflict.id, outcome: "deleted" }]);
 
     const firstDelete = await invoke(adminA.client, { action: "delete", id: requester.id });
     expectStatus("Delete an unreferenced synthetic requester", firstDelete, 200);
