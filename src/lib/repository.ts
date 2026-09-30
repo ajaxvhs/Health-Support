@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   AppData,
   AppNotification,
+  AdminUserActionErrorResponse,
   AdminUserActionRequest,
+  AdminUserActionResponseMap,
   AdminUserDeleteOutcome,
   BulkUserDeleteResult,
   CatalogKind,
@@ -18,8 +20,10 @@ import type {
 import { assertMessageAllowed, assertStatusChangeAllowed } from "./ticketPolicy";
 import { isStaff } from "./permissions";
 import { requireMutationResult } from "./mutationContracts";
+import { AppError, normalizeError, withErrorContext } from "./errors";
 
 type Row = Record<string, unknown>;
+const repositoryError = (reason: unknown) => withErrorContext(reason, "");
 export interface TicketPageQuery {
   view: "all" | "mine" | "queue";
   assignedToMeOnly: boolean;
@@ -176,7 +180,7 @@ export class SupabaseRepository {
     ]);
     const result = [profiles, units, categories, priorities, statuses, participants];
     const failed = result.find((item) => item.error);
-    if (failed?.error) throw failed.error;
+    if (failed?.error) throw repositoryError(failed.error);
     const profileRows = (profiles.data ?? []) as Row[];
     return {
       profiles: profileRows.map((r) => profile(r, r.email as string | undefined)),
@@ -199,7 +203,7 @@ export class SupabaseRepository {
       .select("*")
       .eq("ticket_id", ticketId)
       .order("created_at");
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     return (data ?? []).map((row) => message(row as Row));
   }
   async getTicketById(id: string) {
@@ -208,7 +212,7 @@ export class SupabaseRepository {
       .select("*, ticket_statuses!inner(slug)")
       .eq("id", id)
       .maybeSingle();
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     return data ? ticketFromRow(data as Row) : null;
   }
   async getTicketPage(query: TicketPageQuery): Promise<TicketPageResult> {
@@ -226,7 +230,7 @@ export class SupabaseRepository {
       p_offset: query.offset,
       p_limit: query.limit,
     });
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     const result = ((data ?? []) as Row[])[0];
     const rows = Array.isArray(result?.tickets) ? (result.tickets as Row[]) : [];
     return {
@@ -238,7 +242,7 @@ export class SupabaseRepository {
   }
   async getTicketNavigationCounts() {
     const { data, error } = await this.client.rpc("get_ticket_navigation_counts");
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     const row = ((data ?? []) as Row[])[0] ?? {};
     return {
       visibleOpenCount: Number(row.visible_open_count ?? 0),
@@ -247,7 +251,7 @@ export class SupabaseRepository {
   }
   async getTicketDashboard(): Promise<TicketDashboardData> {
     const { data, error } = await this.client.rpc("get_ticket_dashboard");
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     const row = (data ?? {}) as Row;
     const rows = Array.isArray(row.tickets) ? (row.tickets as Row[]) : [];
     return {
@@ -280,7 +284,7 @@ export class SupabaseRepository {
       p_offset: query.offset,
       p_limit: query.limit,
     });
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     const row = ((data ?? []) as Row[])[0] ?? {};
     const rows = Array.isArray(row.events) ? (row.events as Row[]) : [];
     return {
@@ -296,12 +300,12 @@ export class SupabaseRepository {
       .select("*")
       .eq("ticket_id", ticketId)
       .order("created_at", { ascending: false });
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     return (data ?? []).map((row) => event(row as Row));
   }
   async getLatestPublicTicketMessages() {
     const { data, error } = await this.client.rpc("get_latest_public_ticket_messages");
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     return ((data ?? []) as Row[]).map((row) => ({
       ticketId: row.ticket_id as string,
       senderId: row.sender_id as string,
@@ -328,8 +332,10 @@ export class SupabaseRepository {
     return ticketFromRow(row as Row);
   }
   async getAdminUsers(): Promise<Profile[]> {
-    const { users } = await this.invokeUserAction<{ users: Row[] }>({ action: "list" });
-    return users.map((row) => profile(row, typeof row.email === "string" ? row.email : ""));
+    const { users } = await this.invokeUserAction({ action: "list" });
+    if (!Array.isArray(users))
+      throw new AppError("Não foi possível carregar os usuários.", { cause: users });
+    return users.map((row) => profile(row as unknown as Row, row.email));
   }
   async getNotifications(userId: string, offset = 0, limit = 50) {
     const { data, error } = await this.client
@@ -338,7 +344,7 @@ export class SupabaseRepository {
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     return (data ?? [])
       .map((row) => this.mapNotification(row))
       .filter((item): item is AppNotification => item !== null);
@@ -349,7 +355,7 @@ export class SupabaseRepository {
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("read", false);
-    if (error) throw error;
+    if (error) throw repositoryError(error);
     return count ?? 0;
   }
   mapNotification(row: Record<string, unknown>): AppNotification | null {
@@ -380,7 +386,7 @@ export class SupabaseRepository {
       .from("notifications")
       .update({ read: true })
       .eq("user_id", userId);
-    if (error) throw error;
+    if (error) throw repositoryError(error);
   }
   async deleteNotification(userId: string, id: string) {
     const { error } = await this.client
@@ -388,11 +394,11 @@ export class SupabaseRepository {
       .delete()
       .eq("id", id)
       .eq("user_id", userId);
-    if (error) throw error;
+    if (error) throw repositoryError(error);
   }
   async deleteAllNotifications(userId: string) {
     const { error } = await this.client.from("notifications").delete().eq("user_id", userId);
-    if (error) throw error;
+    if (error) throw repositoryError(error);
   }
   private async updateNotification(userId: string, id: string, values: Row) {
     const { error } = await this.client
@@ -400,7 +406,7 @@ export class SupabaseRepository {
       .update(values)
       .eq("id", id)
       .eq("user_id", userId);
-    if (error) throw error;
+    if (error) throw repositoryError(error);
   }
   async createTicket(
     input: Pick<Ticket, "title" | "description" | "unitId" | "categoryId" | "priorityId">,
@@ -427,7 +433,8 @@ export class SupabaseRepository {
       })
       .select("*, ticket_statuses!inner(slug)")
       .single();
-    if (error || !data) throw error ?? new Error("Não foi possível criar o chamado.");
+    if (error) throw repositoryError(error);
+    if (!data) throw new Error("Não foi possível criar o chamado.");
     return ticketFromRow(data as Row);
   }
   async addMessage(ticketId: string, text: string, internal: boolean) {
@@ -445,7 +452,8 @@ export class SupabaseRepository {
       })
       .select()
       .single();
-    if (error || !row) throw error ?? new Error("Não foi possível enviar a mensagem.");
+    if (error) throw repositoryError(error);
+    if (!row) throw new Error("Não foi possível enviar a mensagem.");
     return message(row as Row);
   }
   async claim(id: string) {
@@ -524,7 +532,7 @@ export class SupabaseRepository {
         .maybeSingle(),
     ]);
     if (!user || !target || !isStaff(user.role)) throw new Error("Acesso restrito a equipe.");
-    if (priorityResult.error) throw priorityResult.error;
+    if (priorityResult.error) throw repositoryError(priorityResult.error);
     if (!priorityResult.data) throw new Error("Prioridade inválida ou inativa.");
     const result = await this.client
       .from("tickets")
@@ -551,58 +559,75 @@ export class SupabaseRepository {
       "Não foi possível atualizar o perfil. Verifique o acesso e tente novamente.",
     );
   }
-  async invokeUserAction<T = Row>(request: AdminUserActionRequest): Promise<T> {
+  async invokeUserAction<Action extends AdminUserActionRequest["action"]>(
+    request: Extract<AdminUserActionRequest, { action: Action }>,
+  ): Promise<AdminUserActionResponseMap[Action]> {
     const { data, error } = await this.client.functions.invoke("admin-users", {
       body: request,
     });
     if (error) {
       const context = "context" in error ? error.context : undefined;
       if (context && typeof (context as { json?: unknown }).json === "function") {
-        const body = (await (context as Response).json().catch(() => null)) as Row | null;
-        if (typeof body?.error === "string") {
+        const body = (await (context as Response).json().catch(() => null)) as unknown;
+        if (typeof body === "object" && body !== null && "error" in body) {
+          const responseBody = body as AdminUserActionErrorResponse;
+          if (typeof responseBody.error !== "string")
+            throw normalizeError(error, "Não foi possível concluir a operação administrativa.");
           const authUserId =
-            body.outcome === "partial_failure" && typeof body.authUserId === "string"
-              ? ` Referência da conta Auth: ${body.authUserId}.`
+            responseBody.outcome === "partial_failure" && responseBody.authUserId
+              ? ` Referência da conta Auth: ${responseBody.authUserId}.`
               : "";
-          throw new Error(`${body.error}${authUserId}`);
+          throw new AppError(`${responseBody.error}${authUserId}`, {
+            code: typeof responseBody.code === "string" ? responseBody.code : undefined,
+            status:
+              typeof (context as Response).status === "number"
+                ? (context as Response).status
+                : undefined,
+            cause: error,
+            outcome: responseBody.outcome,
+            authUserId: responseBody.authUserId,
+          });
         }
       }
-      throw new Error("Não foi possível concluir a operação administrativa.");
+      throw normalizeError(error, "Não foi possível concluir a operação administrativa.");
     }
-    if (data?.error) throw new Error(data.error);
-    return data as T;
+    if (!data || typeof data !== "object")
+      throw new AppError("O servidor retornou uma resposta inválida.", { cause: data });
+    const responseBody = data as Record<string, unknown>;
+    if (typeof responseBody.error === "string") throw new AppError(responseBody.error);
+    return data as AdminUserActionResponseMap[Action];
   }
   async createUser(input: Omit<CreateUserInput, "action">) {
-    return this.invokeUserAction<{ id: string }>({ action: "create", ...input });
+    return this.invokeUserAction({ ...input, action: "create" });
   }
   async updateUser(id: string, input: Omit<UpdateUserInput, "action" | "id">) {
-    return this.invokeUserAction<{ outcome: "updated"; id: string }>({
-      action: "update",
+    return this.invokeUserAction({
       ...input,
       id,
+      action: "update",
     });
   }
   async setUserActive(id: string, isActive: boolean) {
-    return this.invokeUserAction<{ outcome: "updated"; id: string }>({
+    return this.invokeUserAction({
       action: "set_active",
       id,
       isActive,
     });
   }
   async deleteUser(id: string): Promise<AdminUserDeleteOutcome> {
-    return this.invokeUserAction<AdminUserDeleteOutcome>({ action: "delete", id });
+    return this.invokeUserAction({ action: "delete", id });
   }
   async resetUserPassword(id: string, password: string) {
-    return this.invokeUserAction<{ ok: true }>({ action: "reset_password", id, password });
+    return this.invokeUserAction({ action: "reset_password", id, password });
   }
   async changeRole(id: string, role: Role) {
     return this.updateUser(id, { role });
   }
   async bulkSetUsersActive(ids: string[], isActive: boolean) {
-    return this.invokeUserAction<{ updated: string[] }>({ action: "bulk_toggle", ids, isActive });
+    return this.invokeUserAction({ action: "bulk_toggle", ids, isActive });
   }
   async bulkDeleteUsers(ids: string[]): Promise<BulkUserDeleteResult> {
-    return this.invokeUserAction<BulkUserDeleteResult>({ action: "bulk_delete", ids });
+    return this.invokeUserAction({ action: "bulk_delete", ids });
   }
   async addCatalog(kind: "categories" | "units", name: string, description = "") {
     const table = kind === "units" ? "units" : "ticket_categories";
@@ -614,7 +639,7 @@ export class SupabaseRepository {
         : await this.client
             .from(table)
             .insert({ name: name.trim(), description: description.trim() || null });
-    if (error) throw error;
+    if (error) throw repositoryError(error);
   }
   async renameCatalog(kind: CatalogKind, id: string, name: string, description = "") {
     const table = catalogTables[kind];

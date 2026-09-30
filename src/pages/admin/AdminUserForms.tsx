@@ -5,7 +5,9 @@ import { Button, SelectField, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
 import { roleOptions, type Profile, type Role } from "../../types";
-import { errorMessage, formatPhone } from "../../lib/utils";
+import { formatPhone } from "../../lib/utils";
+import { executeAction } from "../../lib/actionRunner";
+import { ADMIN_USER_LIMITS } from "../../../supabase/functions/_shared/adminUserLimits";
 import { markPwaFormsSaved } from "../../lib/pwaUpdate";
 
 function UserModal({
@@ -136,16 +138,17 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
       showToast("A senha temporária precisa ter pelo menos 8 caracteres.", "error");
       return;
     }
-    setSaving(true);
-    try {
-      await repo.createUser({ fullName, username, email, phone, temporaryPassword, unitId, role });
-      onClose(true);
-      showToast("Usuário criado com senha temporária.");
-    } catch (reason) {
-      showToast(errorMessage(reason, "Não foi possível criar o usuário."), "error");
-    } finally {
-      setSaving(false);
-    }
+    const result = await executeAction(
+      () => repo.createUser({ fullName, username, email, phone, temporaryPassword, unitId, role }),
+      {
+        fallback: "Não foi possível criar o usuário.",
+        showToast,
+        setPending: setSaving,
+      },
+    );
+    if (!result.ok) return;
+    onClose(true);
+    showToast("Usuário criado com senha temporária.");
   };
   return (
     <UserFormLayout
@@ -168,8 +171,19 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
     >
       {tab === "personal" ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <TextField label="Nome completo" value={fullName} onChange={setFullName} />
-          <TextField label="Usuário" value={username} onChange={setUsername} autoComplete="off" />
+          <TextField
+            label="Nome completo"
+            value={fullName}
+            onChange={setFullName}
+            maxLength={ADMIN_USER_LIMITS.fullName}
+          />
+          <TextField
+            label="Usuário"
+            value={username}
+            onChange={setUsername}
+            autoComplete="off"
+            maxLength={ADMIN_USER_LIMITS.username}
+          />
           <TextField
             label="E-mail"
             value={email}
@@ -177,12 +191,14 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
             type="text"
             autoComplete="off"
             inputMode="email"
+            maxLength={ADMIN_USER_LIMITS.email}
           />
           <TextField
             label="Telefone"
             value={phone}
             onChange={(value) => setPhone(formatPhone(value))}
             inputMode="tel"
+            maxLength={ADMIN_USER_LIMITS.phone}
           />
         </div>
       ) : tab === "access" ? (
@@ -209,6 +225,7 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
             type="password"
             autoComplete="new-password"
             hint="Use pelo menos 8 caracteres"
+            maxLength={ADMIN_USER_LIMITS.password}
           />
         </div>
       )}
@@ -234,17 +251,19 @@ export function EditUserForm({
   const [unitId, setUnitId] = useState(profile.unitId);
   const [role, setRole] = useState<Role>(profile.role);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const save = async () => {
-    setSaving(true);
-    try {
-      await repo.updateUser(profile.id, { fullName, username, email, phone, unitId, role });
-      onClose(true);
-      showToast("Usuário atualizado.");
-    } catch (reason) {
-      showToast(errorMessage(reason, "Não foi possível atualizar o usuário."), "error");
-    } finally {
-      setSaving(false);
-    }
+    const result = await executeAction(
+      () => repo.updateUser(profile.id, { fullName, username, email, phone, unitId, role }),
+      {
+        fallback: "Não foi possível atualizar o usuário.",
+        showToast,
+        setPending: setSaving,
+      },
+    );
+    if (!result.ok) return;
+    onClose(true);
+    showToast("Usuário atualizado.");
   };
   return (
     <UserFormLayout
@@ -260,15 +279,20 @@ export function EditUserForm({
           </Button>
           {tab === "security" && (
             <Button
+              loading={resetting}
               onClick={async () => {
-                try {
-                  await repo.resetUserPassword(profile.id, resetPassword);
-                  setResetPassword("");
-                  window.setTimeout(markPwaFormsSaved, 0);
-                  showToast("Senha redefinida. O usuário deverá trocá-la no próximo acesso.");
-                } catch (reason) {
-                  showToast(errorMessage(reason, "Não foi possível redefinir a senha."), "error");
-                }
+                const result = await executeAction(
+                  () => repo.resetUserPassword(profile.id, resetPassword),
+                  {
+                    fallback: "Não foi possível redefinir a senha.",
+                    showToast,
+                    setPending: setResetting,
+                  },
+                );
+                if (!result.ok) return;
+                setResetPassword("");
+                window.setTimeout(markPwaFormsSaved, 0);
+                showToast("Senha redefinida. O usuário deverá trocá-la no próximo acesso.");
               }}
             >
               Redefinir senha
@@ -286,12 +310,19 @@ export function EditUserForm({
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {tab === "personal" ? (
             <>
-              <TextField label="Nome completo" value={fullName} onChange={setFullName} required />
+              <TextField
+                label="Nome completo"
+                value={fullName}
+                onChange={setFullName}
+                maxLength={ADMIN_USER_LIMITS.fullName}
+                required
+              />
               <TextField
                 label="Usuário"
                 value={username}
                 onChange={setUsername}
                 autoComplete="off"
+                maxLength={ADMIN_USER_LIMITS.username}
                 required
               />
               <TextField
@@ -300,6 +331,7 @@ export function EditUserForm({
                 onChange={setEmail}
                 type="email"
                 autoComplete="off"
+                maxLength={ADMIN_USER_LIMITS.email}
                 required
               />
               <TextField
@@ -307,6 +339,7 @@ export function EditUserForm({
                 value={phone}
                 onChange={(value) => setPhone(formatPhone(value))}
                 inputMode="tel"
+                maxLength={ADMIN_USER_LIMITS.phone}
                 required
               />
             </>
@@ -344,6 +377,7 @@ export function EditUserForm({
             onChange={setResetPassword}
             type="password"
             autoComplete="new-password"
+            maxLength={ADMIN_USER_LIMITS.password}
             required
             hint="Use pelo menos 8 caracteres"
           />

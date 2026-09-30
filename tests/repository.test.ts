@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SupabaseRepository } from "../src/lib/repository";
+import { errorMessage } from "../src/lib/utils";
 
 type QueryResult = { data: unknown; error: unknown | null };
 type QueryBuilder = {
@@ -55,6 +56,8 @@ function repositoryWithResults(
   updateResult: QueryResult,
   eventRows: unknown[] = [],
   rpcResult?: QueryResult,
+  functionResult: QueryResult = { data: { users: [] }, error: null },
+  tableResultOverrides: Record<string, QueryResult> = {},
 ) {
   const writes: unknown[] = [];
   const reads: string[] = [];
@@ -74,7 +77,8 @@ function repositoryWithResults(
   const client = {
     auth: { getUser: async () => ({ data: { user: { id: "staff-1", email: "staff@test" } } }) },
     from: (table: string) => {
-      const listResult = listResults[table] ?? { data: [], error: null };
+      const listResult = tableResultOverrides[table] ??
+        listResults[table] ?? { data: [], error: null };
       const singleResult = table === "profiles" ? { data: profileRow, error: null } : statusResult;
       const query: QueryBuilder = {
         select: () => {
@@ -114,7 +118,7 @@ function repositoryWithResults(
     functions: {
       invoke: async (_name: string, options: { body?: { action?: string } }) => {
         functionActions.push(options.body?.action ?? "");
-        return { data: { users: [] }, error: null };
+        return functionResult;
       },
     },
   } as unknown as SupabaseClient;
@@ -363,6 +367,98 @@ describe("escopo das leituras", () => {
     await repository.getData();
 
     expect(functionActions).not.toContain("list");
+  });
+
+  it("preserva status e código da falha ao listar usuários sem exibir o texto interno", async () => {
+    const functionError = Object.assign(new Error("internal edge details"), {
+      name: "FunctionsHttpError",
+      context: new Response(
+        JSON.stringify({ error: "Não foi possível carregar os usuários.", code: "USER_LIST" }),
+        { status: 503 },
+      ),
+    });
+    const { repository } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+      [],
+      undefined,
+      { data: null, error: functionError },
+    );
+
+    await expect(repository.getAdminUsers()).rejects.toMatchObject({
+      name: "AppError",
+      message: "Não foi possível carregar os usuários.",
+      code: "USER_LIST",
+      status: 503,
+    });
+  });
+
+  it("preserva outcome e referência Auth de uma falha administrativa parcial", async () => {
+    const functionError = Object.assign(new Error("internal edge details"), {
+      name: "FunctionsHttpError",
+      context: new Response(
+        JSON.stringify({
+          error: "A compensação Auth falhou; revise a conta.",
+          code: "USER_CREATE_PARTIAL",
+          outcome: "partial_failure",
+          authUserId: "synthetic-user-id",
+        }),
+        { status: 500 },
+      ),
+    });
+    const { repository } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+      [],
+      undefined,
+      { data: null, error: functionError },
+    );
+
+    await expect(repository.getAdminUsers()).rejects.toMatchObject({
+      message:
+        "A compensação Auth falhou; revise a conta. Referência da conta Auth: synthetic-user-id.",
+      code: "USER_CREATE_PARTIAL",
+      status: 500,
+      outcome: "partial_failure",
+      authUserId: "synthetic-user-id",
+    });
+  });
+
+  it("normaliza erros desconhecidos de leitura preservando metadados para diagnóstico", async () => {
+    const backendError = {
+      code: "PGRST999",
+      status: 502,
+      message: "internal query detail",
+    };
+    const { repository } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+      [],
+      undefined,
+      undefined,
+      { ticket_messages: { data: null, error: backendError } },
+    );
+    const result = await repository.getTicketMessages("ticket-1").catch((error: unknown) => error);
+
+    expect(result).toMatchObject({ name: "AppError", code: "PGRST999", status: 502 });
+    expect(errorMessage(result, "Não foi possível carregar as mensagens.")).toBe(
+      "Não foi possível carregar as mensagens.",
+    );
+    expect((result as Error & { cause?: unknown }).cause).toBe(backendError);
+  });
+
+  it("normaliza resposta inválida da listagem administrativa", async () => {
+    const { repository } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+      [],
+      undefined,
+      { data: { users: null }, error: null },
+    );
+
+    await expect(repository.getAdminUsers()).rejects.toThrow(
+      "Não foi possível carregar os usuários.",
+    );
   });
 
   it("carrega apenas a página de chamados solicitada e mantém o total agregado", async () => {

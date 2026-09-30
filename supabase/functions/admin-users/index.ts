@@ -1,24 +1,30 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ADMIN_USER_LIMITS, isValidBulkSize, isWithinLimit } from "../_shared/adminUserLimits.ts";
+import {
+  type AdminUserActionErrorResponse,
+  isAdminUserAction,
+  type AdminUserActionResponseMap,
+} from "../_shared/adminUserContract.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const response = (body: unknown, status = 200) =>
+const response = (body: unknown, status = 200, extraHeaders: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...cors, "Content-Type": "application/json" },
+    headers: { ...cors, "Content-Type": "application/json", ...extraHeaders },
   });
-const allowedActions = new Set([
-  "list",
-  "create",
-  "update",
-  "set_active",
-  "delete",
-  "reset_password",
-  "bulk_toggle",
-  "bulk_delete",
-]);
+const partialFailure = (error: string, status = 409, authUserId?: string) =>
+  response(
+    {
+      outcome: "partial_failure",
+      error,
+      ...(authUserId ? { authUserId } : {}),
+    } satisfies AdminUserActionErrorResponse,
+    status,
+  );
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const errorCode = (reason: unknown) =>
@@ -40,6 +46,8 @@ const validRoles = new Set(["admin", "solicitante"]);
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (request.method !== "POST")
+    return response({ error: "Método não permitido." }, 405, { Allow: "POST, OPTIONS" });
   try {
     const token = request.headers.get("Authorization")?.replace("Bearer ", "");
     if (!token) return response({ error: "Não autenticado." }, 401);
@@ -72,8 +80,7 @@ Deno.serve(async (request) => {
     } catch {
       return response({ error: "Corpo da requisição inválido." }, 400);
     }
-    if (typeof body.action !== "string" || !allowedActions.has(body.action))
-      return response({ error: "Ação inválida." }, 400);
+    if (!isAdminUserAction(body.action)) return response({ error: "Ação inválida." }, 400);
     if (body.action === "set_active" && typeof body.isActive !== "boolean")
       return response({ error: "Informe o estado ativo desejado." }, 400);
     const deleteOrDeactivate = async (id: string) => {
@@ -149,7 +156,7 @@ Deno.serve(async (request) => {
         ...item,
         email: emails.get(item.id) ?? "",
       }));
-      return response({ users });
+      return response({ users } satisfies AdminUserActionResponseMap["list"]);
     }
     const targetId = isUuid(body.id) ? body.id : undefined;
     if (body.action === "create") {
@@ -162,7 +169,12 @@ Deno.serve(async (request) => {
         typeof phone !== "string" ||
         !isUuid(unitId) ||
         typeof role !== "string" ||
-        !validRoles.has(role)
+        !validRoles.has(role) ||
+        !isWithinLimit(fullName, ADMIN_USER_LIMITS.fullName) ||
+        !isWithinLimit(username, ADMIN_USER_LIMITS.username) ||
+        !isWithinLimit(phone, ADMIN_USER_LIMITS.phone) ||
+        !isWithinLimit(email, ADMIN_USER_LIMITS.email) ||
+        temporaryPassword.length > ADMIN_USER_LIMITS.password
       )
         return response({ error: "Dados do usuário inválidos." }, 400);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
@@ -203,13 +215,8 @@ Deno.serve(async (request) => {
           const { data: possibleAccount, error: lookupError } =
             await admin.auth.admin.getUserByEmail(email.trim());
           if (lookupError && lookupError.status !== 404)
-            return response(
-              {
-                outcome: "partial_failure",
-                error:
-                  "O Auth não confirmou o resultado da criação. Verifique a conta pelo e-mail antes de repetir.",
-              },
-              409,
+            return partialFailure(
+              "O Auth não confirmou o resultado da criação. Verifique a conta pelo e-mail antes de repetir.",
             );
           if (possibleAccount?.user) {
             const { data: existingProfile, error: profileLookupError } = await admin
@@ -218,24 +225,16 @@ Deno.serve(async (request) => {
               .eq("id", possibleAccount.user.id)
               .maybeSingle();
             if (profileLookupError)
-              return response(
-                {
-                  outcome: "partial_failure",
-                  authUserId: possibleAccount.user.id,
-                  error:
-                    "A conta Auth pode ter sido criada, mas o perfil não foi confirmado. Verifique antes de repetir.",
-                },
+              return partialFailure(
+                "A conta Auth pode ter sido criada, mas o perfil não foi confirmado. Verifique antes de repetir.",
                 409,
+                possibleAccount.user.id,
               );
             if (!existingProfile)
-              return response(
-                {
-                  outcome: "partial_failure",
-                  authUserId: possibleAccount.user.id,
-                  error:
-                    "A conta Auth existe sem perfil. Verifique ou remova essa conta antes de repetir.",
-                },
+              return partialFailure(
+                "A conta Auth existe sem perfil. Verifique ou remova essa conta antes de repetir.",
                 409,
+                possibleAccount.user.id,
               );
             return response({ error: "Este e-mail já está cadastrado no Auth." }, 409);
           }
@@ -256,25 +255,21 @@ Deno.serve(async (request) => {
       if (profileError) {
         const { error: cleanupError } = await admin.auth.admin.deleteUser(data.user.id);
         if (cleanupError)
-          return response(
-            {
-              outcome: "partial_failure",
-              authUserId: data.user.id,
-              error:
-                "A conta Auth foi criada, mas o perfil falhou e a compensação também falhou. Corrija manualmente este usuário.",
-            },
+          return partialFailure(
+            "A conta Auth foi criada, mas o perfil falhou e a compensação também falhou. Corrija manualmente este usuário.",
             500,
+            data.user.id,
           );
         if (profileError.code === "23505")
           return response({ error: "Este nome de usuário ou perfil já está cadastrado." }, 409);
         return response({ error: "A criação do perfil falhou; a conta Auth foi removida." }, 500);
       }
-      return response({ id: data.user.id });
+      return response({ id: data.user.id } satisfies AdminUserActionResponseMap["create"]);
     }
     if (body.action === "bulk_toggle" || body.action === "bulk_delete") {
       if (
         !Array.isArray(body.ids) ||
-        body.ids.length === 0 ||
+        !isValidBulkSize(body.ids.length) ||
         !body.ids.every(isUuid) ||
         (body.action === "bulk_toggle" && typeof body.isActive !== "boolean")
       )
@@ -317,7 +312,9 @@ Deno.serve(async (request) => {
         if (error) throw error;
         if ((data ?? []).length !== ids.length)
           return response({ error: "Nem todos os usuários selecionados foram atualizados." }, 409);
-        return response({ updated: data.map(({ id }) => id) });
+        return response({
+          updated: data.map(({ id }) => id),
+        } satisfies AdminUserActionResponseMap["bulk_toggle"]);
       }
 
       const outcomes = [];
@@ -328,15 +325,26 @@ Deno.serve(async (request) => {
           outcomes.push({ id, outcome: "failed" as const });
         }
       }
-      return response({ outcomes });
+      return response({ outcomes } satisfies AdminUserActionResponseMap["bulk_delete"]);
     }
     if (!targetId) return response({ error: "Identificador de usuário inválido." }, 400);
     if (body.action === "update") {
       const updateFields = ["email", "fullName", "username", "phone", "unitId", "role"] as const;
+      const updateFieldLimits = {
+        email: ADMIN_USER_LIMITS.email,
+        fullName: ADMIN_USER_LIMITS.fullName,
+        username: ADMIN_USER_LIMITS.username,
+        phone: ADMIN_USER_LIMITS.phone,
+        unitId: 36,
+        role: 16,
+      };
       if (updateFields.every((field) => body[field] === undefined))
         return response({ error: "Nenhum campo de usuário foi informado." }, 400);
       if (
-        updateFields.some((field) => body[field] !== undefined && typeof body[field] !== "string")
+        updateFields.some(
+          (field) =>
+            body[field] !== undefined && !isWithinLimit(body[field], updateFieldLimits[field]),
+        )
       )
         return response({ error: "Os dados do usuário são inválidos." }, 400);
       if (body.role !== undefined && !validRoles.has(body.role as string))
@@ -369,11 +377,18 @@ Deno.serve(async (request) => {
       .maybeSingle();
     if (targetError) throw new Error("Não foi possível verificar o usuário selecionado.");
     if (!target) {
-      if (body.action === "delete") return response(await deleteOrDeactivate(targetId));
+      if (body.action === "delete")
+        return response(
+          (await deleteOrDeactivate(targetId)) satisfies AdminUserActionResponseMap["delete"],
+        );
       return response({ error: "Usuário não encontrado." }, 404);
     }
     if (body.action === "reset_password") {
-      if (typeof body.password !== "string" || body.password.length < 8)
+      if (
+        typeof body.password !== "string" ||
+        body.password.length < 8 ||
+        body.password.length > ADMIN_USER_LIMITS.password
+      )
         return response({ error: "A senha precisa ter pelo menos 8 caracteres." }, 400);
       const { data: authTarget, error: authTargetError } =
         await admin.auth.admin.getUserById(targetId);
@@ -404,26 +419,16 @@ Deno.serve(async (request) => {
             .select("id")
             .maybeSingle();
           if (restoreError || !restoredGate)
-            return response(
-              {
-                outcome: "partial_failure",
-                error:
-                  "A redefinição falhou e o estado anterior do perfil não pôde ser restaurado. Verifique o usuário antes de repetir.",
-              },
-              409,
+            return partialFailure(
+              "A redefinição falhou e o estado anterior do perfil não pôde ser restaurado. Verifique o usuário antes de repetir.",
             );
           return response(
             { error: "A redefinição da senha foi rejeitada pelo Auth; o perfil foi restaurado." },
             status,
           );
         }
-        return response(
-          {
-            outcome: "partial_failure",
-            error:
-              "Não foi possível confirmar a redefinição no Auth. O perfil permanece bloqueado por segurança; verifique ou repita a operação.",
-          },
-          409,
+        return partialFailure(
+          "Não foi possível confirmar a redefinição no Auth. O perfil permanece bloqueado por segurança; verifique ou repita a operação.",
         );
       }
       const { data: confirmedGate, error: confirmedGateError } = await admin
@@ -433,15 +438,10 @@ Deno.serve(async (request) => {
         .select("id")
         .maybeSingle();
       if (confirmedGateError || !confirmedGate)
-        return response(
-          {
-            outcome: "partial_failure",
-            error:
-              "A senha foi redefinida, mas não foi possível confirmar o bloqueio de troca obrigatória. Revise o perfil antes de permitir acesso.",
-          },
-          409,
+        return partialFailure(
+          "A senha foi redefinida, mas não foi possível confirmar o bloqueio de troca obrigatória. Revise o perfil antes de permitir acesso.",
         );
-      return response({ ok: true });
+      return response({ ok: true } satisfies AdminUserActionResponseMap["reset_password"]);
     }
     const protectsLastAdmin =
       target.role === "admin" &&
@@ -462,7 +462,9 @@ Deno.serve(async (request) => {
         return response({ error: "É necessário manter pelo menos um administrador ativo." }, 400);
     }
     if (body.action === "delete") {
-      return response(await deleteOrDeactivate(targetId));
+      return response(
+        (await deleteOrDeactivate(targetId)) satisfies AdminUserActionResponseMap["delete"],
+      );
     }
     if (body.action === "set_active") {
       const { data: updated, error: updateError } = await admin
@@ -473,7 +475,10 @@ Deno.serve(async (request) => {
         .maybeSingle();
       if (updateError) throw updateError;
       if (!updated) return response({ error: "O usuário não pôde ser atualizado." }, 409);
-      return response({ outcome: "updated", id: targetId });
+      return response({
+        outcome: "updated",
+        id: targetId,
+      } satisfies AdminUserActionResponseMap["set_active"]);
     }
     if (body.action === "update") {
       const email = body.email as string | undefined;
@@ -550,17 +555,15 @@ Deno.serve(async (request) => {
           const { data: refreshedAuthUser, error: refreshError } =
             await admin.auth.admin.getUserById(targetId);
           if (refreshError)
-            return response(
-              {
-                outcome: "partial_failure",
-                error:
-                  "O resultado da atualização Auth é desconhecido. Verifique Auth e perfil antes de repetir.",
-              },
-              409,
+            return partialFailure(
+              "O resultado da atualização Auth é desconhecido. Verifique Auth e perfil antes de repetir.",
             );
           const authEmail = refreshedAuthUser.user?.email?.toLowerCase() ?? null;
           if (authEmail === email.trim().toLowerCase())
-            return response({ outcome: "updated", id: targetId });
+            return response({
+              outcome: "updated",
+              id: targetId,
+            } satisfies AdminUserActionResponseMap["update"]);
 
           if (updatedProfile) {
             const previousValues = {
@@ -578,13 +581,8 @@ Deno.serve(async (request) => {
               .select("id")
               .maybeSingle();
             if (restoreError || !restoredProfile)
-              return response(
-                {
-                  outcome: "partial_failure",
-                  error:
-                    "A atualização do Auth falhou e o perfil mudou. A compensação não pôde restaurar o estado anterior; revise a conta antes de repetir.",
-                },
-                409,
+              return partialFailure(
+                "A atualização do Auth falhou e o perfil mudou. A compensação não pôde restaurar o estado anterior; revise a conta antes de repetir.",
               );
           }
 
@@ -597,7 +595,10 @@ Deno.serve(async (request) => {
           );
         }
       }
-      return response({ outcome: "updated", id: targetId });
+      return response({
+        outcome: "updated",
+        id: targetId,
+      } satisfies AdminUserActionResponseMap["update"]);
     }
     return response({ error: "Ação inválida." }, 400);
   } catch (reason) {

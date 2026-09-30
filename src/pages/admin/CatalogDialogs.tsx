@@ -4,8 +4,8 @@ import { Dialog } from "../../components/Dialog";
 import { Button, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { useToast } from "../../context/useToast";
+import { executeAction } from "../../lib/actionRunner";
 import { refreshAndNotify } from "../../lib/utils";
-import { errorMessage } from "../../lib/utils";
 import type { CatalogItem, CatalogKind } from "../../types";
 
 export function CreateCatalogDialog({
@@ -27,14 +27,11 @@ export function CreateCatalogDialog({
       showToast("Informe um nome.", "error");
       return;
     }
-    setSaving(true);
-    try {
-      await onCreate(name, description);
-    } catch (reason) {
-      showToast(errorMessage(reason, "Não foi possível adicionar o item."), "error");
-    } finally {
-      setSaving(false);
-    }
+    await executeAction(() => onCreate(name, description), {
+      fallback: "Não foi possível adicionar o item.",
+      showToast,
+      setPending: setSaving,
+    });
   };
   const label = kind === "units" ? "unidade" : "categoria";
 
@@ -97,16 +94,14 @@ export function EditCatalogDialog({
       showToast("Informe um nome.", "error");
       return;
     }
-    setSaving(true);
-    try {
-      await repo.renameCatalog(kind, item.id, name, description);
-      onClose();
-      await refreshAndNotify(refresh, showToast, "Item atualizado com sucesso.");
-    } catch (reason) {
-      showToast(errorMessage(reason, "Não foi possível atualizar o item."), "error");
-    } finally {
-      setSaving(false);
-    }
+    const result = await executeAction(() => repo.renameCatalog(kind, item.id, name, description), {
+      fallback: "Não foi possível atualizar o item.",
+      showToast,
+      setPending: setSaving,
+    });
+    if (!result.ok) return;
+    onClose();
+    await refreshAndNotify(refresh, showToast, "Item atualizado com sucesso.");
   };
 
   return (

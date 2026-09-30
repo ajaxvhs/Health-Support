@@ -14,6 +14,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { categoryName, unitName, userById } from "../../lib/selectors";
 import { useToast } from "../../context/useToast";
+import { executeAction } from "../../lib/actionRunner";
 import { can, isStaff } from "../../lib/permissions";
 import {
   availableStatusTransitions,
@@ -107,27 +108,29 @@ export function TicketDetailPage() {
     .filter((item) => item.ticketId === ticket.id)
     .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
   const statusChange = async (next: TicketStatus) => {
-    try {
-      const updated =
+    const result = await executeAction(
+      () =>
         next === "aberto" && !terminal
-          ? await repo.assign(ticket.id, "")
-          : await repo.changeStatus(ticket.id, next, next === "resolvido" ? resolution : undefined);
-      queryClient.setQueryData(ticketQueryKey, updated);
-      invalidateTicketQueries();
-      void refreshTicketNavigationCounts();
-      const successMessage =
-        next === "resolvido"
-          ? "Chamado resolvido com sucesso."
-          : next === "fechado"
-            ? "Chamado encerrado com sucesso."
-            : `Status alterado para ${statusMeta[next].label}.`;
-      showToast(successMessage);
-      if ((next === "resolvido" || next === "fechado") && isStaff(user.role)) {
-        navigate("/chamados?visao=fila", { replace: true });
-      }
-    } catch (reason) {
-      showToast(errorMessage(reason, "Não foi possível atualizar o status."), "error");
+          ? repo.assign(ticket.id, "")
+          : repo.changeStatus(ticket.id, next, next === "resolvido" ? resolution : undefined),
+      { fallback: "Não foi possível atualizar o status.", showToast },
+    );
+    if (!result.ok) return false;
+    const updated = result.value;
+    queryClient.setQueryData(ticketQueryKey, updated);
+    invalidateTicketQueries();
+    void refreshTicketNavigationCounts();
+    const successMessage =
+      next === "resolvido"
+        ? "Chamado resolvido com sucesso."
+        : next === "fechado"
+          ? "Chamado encerrado com sucesso."
+          : `Status alterado para ${statusMeta[next].label}.`;
+    showToast(successMessage);
+    if ((next === "resolvido" || next === "fechado") && isStaff(user.role)) {
+      navigate("/chamados?visao=fila", { replace: true });
     }
+    return true;
   };
   const submitResolution = (event: FormEvent) => {
     event.preventDefault();
@@ -166,18 +169,16 @@ export function TicketDetailPage() {
               loading={claiming}
               aria-busy={claiming}
               onClick={async () => {
-                setClaiming(true);
-                try {
-                  const updated = await repo.claim(ticket.id);
-                  queryClient.setQueryData(ticketQueryKey, updated);
-                  invalidateTicketQueries();
-                  void refreshTicketNavigationCounts();
-                  showToast("Chamado assumido com sucesso.");
-                } catch (reason) {
-                  showToast(errorMessage(reason, "Não foi possível assumir."), "error");
-                } finally {
-                  setClaiming(false);
-                }
+                const result = await executeAction(() => repo.claim(ticket.id), {
+                  fallback: "Não foi possível assumir.",
+                  showToast,
+                  setPending: setClaiming,
+                });
+                if (!result.ok) return;
+                queryClient.setQueryData(ticketQueryKey, result.value);
+                invalidateTicketQueries();
+                void refreshTicketNavigationCounts();
+                showToast("Chamado assumido com sucesso.");
               }}
             >
               {!claiming && <CheckCircle2 size={16} aria-hidden="true" />}
@@ -330,21 +331,19 @@ export function TicketDetailPage() {
                       label="Responsável"
                       value={ticket.assignedTo ?? ""}
                       onChange={async (value) => {
-                        try {
-                          const updated = await repo.assign(ticket.id, value);
-                          queryClient.setQueryData(ticketQueryKey, updated);
-                          invalidateTicketQueries();
-                          void refreshTicketNavigationCounts();
-                          const actionMessage = value
+                        const result = await executeAction(() => repo.assign(ticket.id, value), {
+                          fallback: "Não foi possível atribuir o chamado.",
+                          showToast,
+                        });
+                        if (!result.ok) return;
+                        queryClient.setQueryData(ticketQueryKey, result.value);
+                        invalidateTicketQueries();
+                        void refreshTicketNavigationCounts();
+                        showToast(
+                          value
                             ? "Chamado atribuído com sucesso."
-                            : "Chamado liberado para a fila.";
-                          showToast(actionMessage);
-                        } catch (reason) {
-                          showToast(
-                            errorMessage(reason, "Não foi possível atribuir o chamado."),
-                            "error",
-                          );
-                        }
+                            : "Chamado liberado para a fila.",
+                        );
                       }}
                     >
                       <option value="">Sem responsável</option>
@@ -362,18 +361,15 @@ export function TicketDetailPage() {
                         variant="ghost"
                         className="mt-2 min-h-8 px-2 text-xs"
                         onClick={async () => {
-                          try {
-                            const updated = await repo.assign(ticket.id, "");
-                            queryClient.setQueryData(ticketQueryKey, updated);
-                            invalidateTicketQueries();
-                            void refreshTicketNavigationCounts();
-                            showToast("Chamado liberado para a fila.");
-                          } catch (reason) {
-                            showToast(
-                              errorMessage(reason, "Não foi possível liberar o chamado."),
-                              "error",
-                            );
-                          }
+                          const result = await executeAction(() => repo.assign(ticket.id, ""), {
+                            fallback: "Não foi possível liberar o chamado.",
+                            showToast,
+                          });
+                          if (!result.ok) return;
+                          queryClient.setQueryData(ticketQueryKey, result.value);
+                          invalidateTicketQueries();
+                          void refreshTicketNavigationCounts();
+                          showToast("Chamado liberado para a fila.");
                         }}
                       >
                         <X size={14} /> Remover responsável
@@ -387,18 +383,15 @@ export function TicketDetailPage() {
                       label="Prioridade"
                       value={ticket.priorityId}
                       onChange={async (value) => {
-                        try {
-                          const updated = await repo.updatePriority(ticket.id, value);
-                          queryClient.setQueryData(ticketQueryKey, updated);
-                          invalidateTicketQueries();
-                          void refreshTicketNavigationCounts();
-                          showToast("Prioridade atualizada.");
-                        } catch (reason) {
-                          showToast(
-                            errorMessage(reason, "Não foi possível atualizar a prioridade."),
-                            "error",
-                          );
-                        }
+                        const result = await executeAction(
+                          () => repo.updatePriority(ticket.id, value),
+                          { fallback: "Não foi possível atualizar a prioridade.", showToast },
+                        );
+                        if (!result.ok) return;
+                        queryClient.setQueryData(ticketQueryKey, result.value);
+                        invalidateTicketQueries();
+                        void refreshTicketNavigationCounts();
+                        showToast("Prioridade atualizada.");
                       }}
                     >
                       {data.priorities

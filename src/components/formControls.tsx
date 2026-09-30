@@ -206,6 +206,7 @@ export function TextField({
   autoComplete,
   autoFocus,
   inputMode,
+  maxLength,
   showRequiredIndicator = true,
   className,
 }: {
@@ -220,6 +221,7 @@ export function TextField({
   autoComplete?: string;
   autoFocus?: boolean;
   inputMode?: "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
+  maxLength?: number;
   showRequiredIndicator?: boolean;
   className?: string;
 }) {
@@ -245,6 +247,7 @@ export function TextField({
           autoComplete={autoComplete}
           autoFocus={autoFocus}
           inputMode={inputMode}
+          maxLength={maxLength}
           aria-labelledby={labelId}
           className={cn(
             inputClass,

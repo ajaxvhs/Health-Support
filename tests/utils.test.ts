@@ -7,6 +7,7 @@ import {
   refreshAfterMutation,
   resolutionValueForTicket,
 } from "../src/lib/utils";
+import { normalizeError, withErrorContext } from "../src/lib/errors";
 import type { Profile, Ticket } from "../src/types";
 
 const requester: Profile = {
@@ -210,6 +211,54 @@ describe("mensagens de erro do repository", () => {
 
   it("preserva erros de domínio já normalizados", () => {
     expect(errorMessage(new Error("Sessão expirada."), "Falha.")).toBe("Sessão expirada.");
+  });
+
+  it("mantém código, status e causa enquanto mostra fallback seguro para código desconhecido", () => {
+    const reason = {
+      code: "PGRST999",
+      status: 503,
+      message: "internal query text",
+      details: "private database detail",
+    };
+    const normalized = normalizeError(reason, "Falha ao carregar os dados.");
+
+    expect(normalized).toMatchObject({
+      message: "Falha ao carregar os dados.",
+      code: "PGRST999",
+      status: 503,
+      cause: reason,
+    });
+    expect(errorMessage(reason, "Falha ao carregar os dados.")).toBe("Falha ao carregar os dados.");
+  });
+
+  it("mantém o código original ao adicionar contexto seguro a uma falha de mutação", () => {
+    const reason = Object.assign(new Error("internal query text"), {
+      code: "23514",
+      status: 409,
+    });
+    const normalized = withErrorContext(reason, "Não foi possível concluir a alteração.");
+
+    expect(normalized).toMatchObject({
+      message: "Não foi possível concluir a alteração.",
+      code: "23514",
+      status: 409,
+      cause: reason,
+    });
+  });
+
+  it("não exibe a mensagem interna de um erro Supabase desconhecido", () => {
+    const reason = Object.assign(new Error("select * from auth.users"), {
+      code: "XX999",
+    });
+
+    expect(errorMessage(reason, "Não foi possível concluir a ação.")).toBe(
+      "Não foi possível concluir a ação.",
+    );
+  });
+
+  it("usa fallback para null e strings sem metadados confiáveis", () => {
+    expect(errorMessage(null, "Falha segura.")).toBe("Falha segura.");
+    expect(errorMessage("internal database details", "Falha segura.")).toBe("Falha segura.");
   });
 });
 
