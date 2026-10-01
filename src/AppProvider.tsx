@@ -7,6 +7,7 @@ import { SupabaseRepository } from "./lib/repository";
 import { SessionGeneration } from "./lib/sessionGeneration";
 import { getSupabaseClient } from "./lib/supabase/client";
 import { queryCache } from "./lib/queryCache";
+import { getAuthSessionTransition } from "./lib/authSessionEvent";
 import { clearTicketDraft } from "./lib/ticketDraft";
 import type { AppData, Profile } from "./types";
 
@@ -43,17 +44,54 @@ export function AppProvider({ children }: { children?: ReactNode }) {
       return;
     }
     let mounted = true;
+    let sameUserRefresh = 0;
     const client = getSupabaseClient();
     if (!client) {
       setSessionChecked(true);
       return;
     }
     const { data } = client.auth.onAuthStateChange((event, session) => {
-      const generation = sessionGeneration.current.next();
       const previousUser = currentUser.current;
       const nextUserId = session?.user.id ?? null;
+      const transition = getAuthSessionTransition(event, previousUser?.id ?? null, nextUserId);
 
-      if (event === "TOKEN_REFRESHED" && previousUser?.id === nextUserId) return;
+      if (transition === "same-user" && session && previousUser) {
+        const generation = sessionGeneration.current.current();
+        const refreshId = ++sameUserRefresh;
+        void queryClient.invalidateQueries({ queryKey: appDataKey(previousUser.id) });
+        void queryClient.invalidateQueries({ queryKey: navigationCountsKey(previousUser.id) });
+        void queryClient.invalidateQueries({ queryKey: ["ticket-pages", previousUser.id] });
+        void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", previousUser.id] });
+        void queryClient.invalidateQueries({ queryKey: ["audit-pages", previousUser.id] });
+        void queryClient.invalidateQueries({ queryKey: ["admin-users", previousUser.id] });
+        queueMicrotask(() => {
+          void sessionGeneration.current
+            .run(generation, () => restoreUserSession(session))
+            .then((result) => {
+              if (
+                !mounted ||
+                !result.current ||
+                refreshId !== sameUserRefresh ||
+                currentUser.current?.id !== previousUser.id
+              )
+                return;
+              if (result.value) setCurrentUser(result.value);
+            })
+            .catch((reason: unknown) => {
+              if (
+                !mounted ||
+                refreshId !== sameUserRefresh ||
+                !sessionGeneration.current.isCurrent(generation)
+              )
+                return;
+              if (isProfileUnavailableError(reason)) void client.auth.signOut({ scope: "local" });
+              // A transient profile refresh must not replace a usable same-user session.
+            });
+        });
+        return;
+      }
+
+      const generation = sessionGeneration.current.next();
 
       if (previousUser) clearTicketDraft(previousUser.id);
       void queryClient.cancelQueries();
@@ -114,6 +152,8 @@ export function AppProvider({ children }: { children?: ReactNode }) {
       return result.value;
     },
     enabled: Boolean(user && !user.mustChangePassword && repo),
+    refetchInterval: queryCache.ticketRefreshInterval,
+    refetchIntervalInBackground: false,
     ...queryCache.ticketNavigation,
   });
   const data = user ? (appDataQuery.data ?? emptyData) : emptyData;
@@ -192,6 +232,7 @@ export function AppProvider({ children }: { children?: ReactNode }) {
 
   const logout = async () => {
     const previousUser = currentUser.current;
+    sessionGeneration.current.next();
     try {
       return (await signOut()).pushCleanupFailed;
     } finally {
