@@ -63,6 +63,11 @@ const TicketDetailPage = lazyWithRecovery(() =>
 const TicketsPage = lazyWithRecovery(() =>
   import("./pages/tickets/TicketsPage").then((module) => ({ default: module.TicketsPage })),
 );
+const SkeletonPreviewPage = lazyWithRecovery(() =>
+  import("./pages/SkeletonPreviewPage").then((module) => ({
+    default: module.SkeletonPreviewPage,
+  })),
+);
 
 const routeFallback = <LoadingScreen label="Carregando sessão..." />;
 
@@ -75,6 +80,9 @@ export const router = createBrowserRouter([
       </Suspense>
     ),
     children: [
+      ...(import.meta.env.DEV
+        ? [{ path: "__skeleton-preview", element: <SkeletonPreviewPage /> }]
+        : []),
       {
         path: "entrar",
         element: (

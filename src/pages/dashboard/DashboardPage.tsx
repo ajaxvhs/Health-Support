@@ -14,10 +14,11 @@ import { Link } from "react-router-dom";
 import { Button, EmptyState, PageHeader, StatCard } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { isStaff } from "../../lib/permissions";
-import { TicketRow } from "../tickets/TicketRow";
+import { TicketRow, TicketRowSkeleton } from "../tickets/TicketRow";
 import { useToast } from "../../context/useToast";
 import { errorMessage } from "../../lib/utils";
 import { queryCache } from "../../lib/queryCache";
+import { SkeletonText, SyncIndicator } from "../../components/Skeleton";
 
 export function DashboardPage() {
   const { data, user, repo } = useApp();
@@ -25,6 +26,8 @@ export function DashboardPage() {
   const dashboardQuery = useQuery({
     queryKey: ["ticket-dashboard", user.id],
     queryFn: () => repo.getTicketDashboard(),
+    refetchInterval: queryCache.ticketRefreshInterval,
+    refetchIntervalInBackground: false,
     ...queryCache.ticketDashboard,
   });
   useEffect(() => {
@@ -65,32 +68,57 @@ export function DashboardPage() {
           </Link>
         }
       />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div
+        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        role={dashboardQuery.isLoading ? "status" : undefined}
+        aria-label={dashboardQuery.isLoading ? "Carregando resumo dos chamados" : undefined}
+        aria-busy={dashboardQuery.isLoading}
+      >
         {!staff ? (
           <>
             <StatCard
               label="Chamados abertos"
-              value={summary.openCount}
+              value={
+                dashboardQuery.isLoading ? <SkeletonText className="h-7 w-12" /> : summary.openCount
+              }
               detail="Em acompanhamento"
               icon={TicketIcon}
             />
             <StatCard
               label="Em atendimento"
-              value={summary.inProgressCount}
+              value={
+                dashboardQuery.isLoading ? (
+                  <SkeletonText className="h-7 w-12" />
+                ) : (
+                  summary.inProgressCount
+                )
+              }
               detail="Com a equipe"
               icon={Clock3}
               tone="violet"
             />
             <StatCard
               label="Aguardando minha resposta"
-              value={summary.waitingForRequesterCount}
+              value={
+                dashboardQuery.isLoading ? (
+                  <SkeletonText className="h-7 w-12" />
+                ) : (
+                  summary.waitingForRequesterCount
+                )
+              }
               detail="Verifique seus chamados"
               icon={MessageCircle}
               tone="orange"
             />
             <StatCard
               label="Finalizados"
-              value={summary.closedCount}
+              value={
+                dashboardQuery.isLoading ? (
+                  <SkeletonText className="h-7 w-12" />
+                ) : (
+                  summary.closedCount
+                )
+              }
               detail="Tickets fechados"
               icon={CheckCircle2}
               tone="blue"
@@ -100,34 +128,72 @@ export function DashboardPage() {
           <>
             <StatCard
               label="Chamados abertos"
-              value={summary.waitingCount}
+              value={
+                dashboardQuery.isLoading ? (
+                  <SkeletonText className="h-7 w-12" />
+                ) : (
+                  summary.waitingCount
+                )
+              }
               detail="Aguardando atendimento"
               icon={TicketIcon}
             />
             <StatCard
               label="Em andamento"
-              value={summary.inProgressCount}
+              value={
+                dashboardQuery.isLoading ? (
+                  <SkeletonText className="h-7 w-12" />
+                ) : (
+                  summary.inProgressCount
+                )
+              }
               detail="Em atendimento"
               icon={Clock3}
               tone="violet"
             />
             <StatCard
               label="Urgentes"
-              value={summary.urgentCount}
-              detail={summary.urgentCount ? "Atenção necessária" : "Tudo sob controle"}
+              value={
+                dashboardQuery.isLoading ? (
+                  <SkeletonText className="h-7 w-12" />
+                ) : (
+                  summary.urgentCount
+                )
+              }
+              detail={
+                dashboardQuery.isLoading ? (
+                  <SkeletonText className="ml-auto h-3 w-24" />
+                ) : summary.urgentCount ? (
+                  "Atenção necessária"
+                ) : (
+                  "Tudo sob controle"
+                )
+              }
               icon={Zap}
               tone="orange"
             />
             <StatCard
               label="Sem responsável"
-              value={summary.unassignedCount}
+              value={
+                dashboardQuery.isLoading ? (
+                  <SkeletonText className="h-7 w-12" />
+                ) : (
+                  summary.unassignedCount
+                )
+              }
               detail="Na fila agora"
               icon={UserX}
               tone="teal"
             />
             <StatCard
               label="Atribuídos a mim"
-              value={summary.assignedToMeCount}
+              value={
+                dashboardQuery.isLoading ? (
+                  <SkeletonText className="h-7 w-12" />
+                ) : (
+                  summary.assignedToMeCount
+                )
+              }
               detail="Meus atendimentos"
               icon={UserCheck}
               tone="teal"
@@ -139,14 +205,29 @@ export function DashboardPage() {
         <section className="rounded-2xl border border-line-soft bg-surface shadow-soft">
           <div className="flex items-center justify-between border-b border-line-soft px-5 py-4 sm:px-6">
             <div>
-              <h2 className="font-display font-bold text-ink">Chamados recentes</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="font-display font-bold text-ink">Chamados recentes</h2>
+                <SyncIndicator active={dashboardQuery.isFetching && !dashboardQuery.isLoading} />
+              </div>
               <p className="mt-1 text-xs text-subtle">Últimas atualizações do atendimento</p>
             </div>
             <Link to="/chamados" className="text-xs font-bold text-brand hover:underline">
               Ver todos
             </Link>
           </div>
-          {recent.length ? (
+          {dashboardQuery.isLoading ? (
+            <div role="status" aria-busy="true" aria-label="Carregando chamados recentes">
+              <div className="divide-y divide-line-soft">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <TicketRowSkeleton key={index} />
+                ))}
+              </div>
+            </div>
+          ) : dashboardQuery.isError && !dashboardQuery.data ? (
+            <p className="p-6 text-center text-sm text-danger">
+              Não foi possível carregar o resumo dos chamados.
+            </p>
+          ) : recent.length ? (
             <div className="divide-y divide-line-soft">
               {recent.map((ticket) => (
                 <TicketRow key={ticket.id} ticket={ticket} data={data} />

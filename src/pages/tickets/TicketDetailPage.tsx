@@ -1,6 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, ArrowLeft, BookOpen, CheckCircle2, LockKeyhole, Phone, X } from "lucide-react";
+import {
+  Activity,
+  ArrowLeft,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  LockKeyhole,
+  Phone,
+  X,
+} from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Avatar,
@@ -25,6 +34,8 @@ import { errorMessage, formatDate, relativeDate, resolutionValueForTicket } from
 import { statusMeta, type Profile, type TicketParticipant, type TicketStatus } from "../../types";
 import { TicketConversation } from "./TicketConversation";
 import { queryCache } from "../../lib/queryCache";
+import { SkeletonText, SyncIndicator } from "../../components/Skeleton";
+import { useTicketRealtime } from "./useTicketRealtime";
 
 export function TicketDetailPage() {
   const { id } = useParams();
@@ -32,17 +43,22 @@ export function TicketDetailPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const realtimeActive = useTicketRealtime(user.id, id);
   const ticketQueryKey = ["ticket-detail", user.id, id] as const;
   const ticketQuery = useQuery({
     queryKey: ticketQueryKey,
     queryFn: () => repo.getTicketById(id!),
     enabled: Boolean(id),
+    refetchInterval: realtimeActive ? false : queryCache.ticketRefreshInterval,
+    refetchIntervalInBackground: false,
     ...queryCache.ticketDetail,
   });
   const ticketEventsQuery = useQuery({
     queryKey: ["ticket-events", user.id, id],
     queryFn: () => repo.getTicketEvents(id!),
     enabled: Boolean(id),
+    refetchInterval: realtimeActive ? false : queryCache.ticketRefreshInterval,
+    refetchIntervalInBackground: false,
     ...queryCache.ticketDetail,
   });
   const ticket = ticketQuery.data ?? null;
@@ -71,7 +87,9 @@ export function TicketDetailPage() {
       );
   }, [showToast, ticketEventsQuery.error]);
   if (ticketQuery.isLoading)
-    return <div className="py-12 text-center text-sm text-muted">Carregando chamado…</div>;
+    return (
+      <TicketDetailLoading staff={isStaff(user.role)} canManage={can(user.role, "manage_users")} />
+    );
   if (!ticket)
     return (
       <EmptyState
@@ -304,7 +322,7 @@ export function TicketDetailPage() {
               </form>
             </section>
           )}
-          <TicketConversation ticket={ticket} />
+          <TicketConversation ticket={ticket} realtimeActive={realtimeActive} />
         </div>
         <aside className="space-y-5">
           <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft">
@@ -446,14 +464,27 @@ export function TicketDetailPage() {
           <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft">
             <div className="flex items-center justify-between">
               <h2 className="font-display font-bold text-ink">Histórico</h2>
-              <Activity size={16} className="text-subtle" />
+              <div className="flex items-center gap-3">
+                <SyncIndicator
+                  active={
+                    (ticketQuery.isFetching || ticketEventsQuery.isFetching) &&
+                    !ticketQuery.isLoading
+                  }
+                />
+                <Activity size={16} className="text-subtle" />
+              </div>
             </div>
             <div
               aria-label="Eventos do chamado"
+              aria-busy={ticketEventsQuery.isLoading}
               className="mt-5 max-h-96 space-y-4 overflow-y-auto overscroll-contain pr-2 sm:max-h-[32rem]"
               tabIndex={0}
             >
-              {events.length ? (
+              {ticketEventsQuery.isLoading ? (
+                <div role="status" aria-label="Carregando histórico do chamado">
+                  <TicketHistorySkeleton />
+                </div>
+              ) : events.length ? (
                 events.map((event) => {
                   const actor = userById(data, event.actorId);
                   return (
@@ -512,6 +543,182 @@ function DetailItem({
         <p className="text-[10px] font-bold uppercase tracking-wide text-subtle">{label}</p>
         <p className="truncate text-sm font-semibold text-ink">{value}</p>
       </div>
+    </div>
+  );
+}
+
+export function TicketDetailLoading({
+  staff = true,
+  canManage = true,
+}: {
+  staff?: boolean;
+  canManage?: boolean;
+}) {
+  return (
+    <div role="status" aria-busy="true" aria-label="Carregando chamado">
+      <div className="mb-5">
+        <button className="inline-flex items-center gap-2 text-sm font-bold text-muted">
+          <ArrowLeft size={16} /> Voltar
+        </button>
+      </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="mb-3 flex flex-wrap items-center gap-2" aria-hidden="true">
+            <SkeletonText className="h-4 w-10" />
+            <SkeletonText className="h-6 w-20 rounded-full" />
+            <SkeletonText className="h-6 w-24 rounded-full" />
+          </div>
+          <SkeletonText className="h-8 w-2/3 max-w-xl sm:h-9" />
+          <div className="mt-2 flex items-center gap-2" aria-hidden="true">
+            <SkeletonText className="h-4 w-36" />
+            <SkeletonText className="h-4 w-32" />
+          </div>
+        </div>
+        {staff && (
+          <Button>
+            <CheckCircle2 size={16} aria-hidden="true" /> Assumir chamado
+          </Button>
+        )}
+      </div>
+      <div className="mt-7 grid gap-6 xl:grid-cols-[1fr_330px]">
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-7">
+            <div className="flex items-center justify-between border-b border-line-soft pb-5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-muted text-secondary">
+                  <BookOpen size={17} />
+                </span>
+                <h2 className="font-display font-bold text-ink">Descrição do chamado</h2>
+              </div>
+              <span className="inline-flex h-7 items-center rounded-full bg-surface-muted px-2.5">
+                <SkeletonText className="h-3 w-20" />
+              </span>
+            </div>
+            <div className="space-y-3 pt-5" aria-hidden="true">
+              <SkeletonText className="h-4 w-full" />
+              <SkeletonText className="h-4 w-full" />
+              <SkeletonText className="h-4 w-4/5" />
+            </div>
+          </section>
+          <section className="rounded-2xl border border-line-soft bg-surface shadow-soft">
+            <div className="border-b border-line-soft px-5 py-5 sm:px-7">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-display font-bold text-ink">Conversa do chamado</h2>
+              </div>
+              <p className="mt-1 text-xs text-subtle">
+                Mensagens públicas e atualizações do atendimento
+              </p>
+            </div>
+            <div
+              className="max-h-96 space-y-5 overflow-y-auto overscroll-contain p-5 sm:max-h-[32rem] sm:p-7"
+              aria-hidden="true"
+            >
+              {Array.from({ length: 3 }, (_, index) => (
+                <div key={index} className="flex gap-3">
+                  <SkeletonText className="h-8 w-8 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <SkeletonText className="h-4 w-28" />
+                      <SkeletonText className="h-3 w-20" />
+                    </div>
+                    <SkeletonText className="mt-2 h-4 w-full max-w-2xl" />
+                    <SkeletonText className="mt-2 h-4 w-4/5 max-w-xl" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-line-soft bg-surface-soft/60 p-5 sm:p-7">
+              <div className="h-28 rounded-xl border border-line bg-surface" aria-hidden="true" />
+              <div className="mt-4 flex justify-end">
+                <Button disabled>Enviar mensagem</Button>
+              </div>
+            </div>
+          </section>
+        </div>
+        <aside className="space-y-5">
+          <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft">
+            <h2 className="font-display font-bold text-ink">Detalhes</h2>
+            <div className="mt-5 space-y-4">
+              <DetailItemLoading label="Solicitante" kind="avatar" />
+              <DetailItemLoading label="Unidade" />
+              <DetailItemLoading label="Responsável" kind="avatar" />
+              <DetailItemLoading label="Contato" kind="phone" />
+            </div>
+            {staff && (
+              <div className="mt-5 space-y-4 border-t border-line-soft pt-5">
+                {canManage && <SelectItemLoading label="Responsável" />}
+                <SelectItemLoading label="Prioridade" />
+                <SelectItemLoading label="Alterar status" />
+              </div>
+            )}
+          </section>
+          <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft">
+            <h2 className="font-display font-bold text-ink">Histórico</h2>
+            <div
+              className="mt-5 max-h-96 space-y-4 overflow-y-auto overscroll-contain pr-2 sm:max-h-[32rem]"
+              aria-hidden="true"
+            >
+              <TicketHistorySkeleton />
+            </div>
+          </section>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function DetailItemLoading({
+  label,
+  kind = "dot",
+}: {
+  label: string;
+  kind?: "dot" | "avatar" | "phone";
+}) {
+  return (
+    <div className="flex items-center gap-3" aria-hidden="true">
+      {kind === "avatar" ? (
+        <SkeletonText className="h-8 w-8 shrink-0 rounded-lg" />
+      ) : kind === "phone" ? (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-muted">
+          <Phone size={15} />
+        </span>
+      ) : (
+        <span className="h-2 w-2 shrink-0 rounded-full bg-brand" />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-subtle">{label}</p>
+        <SkeletonText className="mt-1 h-4 w-3/4" />
+      </div>
+    </div>
+  );
+}
+
+function SelectItemLoading({ label }: { label: string }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold text-muted">{label}</p>
+      <div className="flex min-h-12 items-center justify-between rounded-xl border border-line bg-surface px-3.5">
+        <SkeletonText className="h-4 w-28" />
+        <ChevronDown size={16} className="shrink-0 text-muted" />
+      </div>
+    </div>
+  );
+}
+
+function TicketHistorySkeleton() {
+  return (
+    <div className="space-y-4" aria-hidden="true">
+      {Array.from({ length: 3 }, (_, index) => (
+        <div key={index} className="relative flex gap-3">
+          <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[10px] text-brand">
+            <CheckCircle2 size={12} />
+          </span>
+          <div className="min-w-0 flex-1 space-y-2">
+            <SkeletonText className="h-3 w-full max-w-64" />
+            <SkeletonText className="h-3 w-28" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

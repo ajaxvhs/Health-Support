@@ -145,7 +145,7 @@ export function PageHeader({
 }: {
   eyebrow?: string;
   title: string;
-  description?: string;
+  description?: ReactNode;
   action?: ReactNode;
   stackUntil?: "sm" | "tablet";
 }) {
@@ -229,8 +229,8 @@ export function StatCard({
   compact = false,
 }: {
   label: string;
-  value: string | number;
-  detail?: string;
+  value: ReactNode;
+  detail?: ReactNode;
   icon: LucideIcon;
   tone?: "teal" | "orange" | "violet" | "blue";
   compact?: boolean;

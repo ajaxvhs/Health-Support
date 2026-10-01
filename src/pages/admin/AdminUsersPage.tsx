@@ -22,6 +22,7 @@ import type { Profile } from "../../types";
 import { AdminUserRow } from "./AdminUserRow";
 import { CreateUserForm, EditUserForm } from "./AdminUserForms";
 import { roleLabel } from "./userHelpers";
+import { SkeletonTableRows, SkeletonText } from "../../components/Skeleton";
 
 type ConfirmState = {
   title: string;
@@ -206,7 +207,14 @@ export function AdminUsersPage() {
           />
           <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
             <span className="shrink-0 text-xs text-subtle">
-              {filteredUsers.length} usuários cadastrados
+              {loadingUsers ? (
+                <span role="status" aria-label="Carregando total de usuários">
+                  <SkeletonText className="inline-block h-3 w-6 align-middle" /> usuários
+                  cadastrados
+                </span>
+              ) : (
+                `${filteredUsers.length} usuários cadastrados`
+              )}
             </span>
             {selected.length > 0 && (
               <BulkActionButtons
@@ -241,16 +249,19 @@ export function AdminUsersPage() {
             <span className="text-center">Ações</span>
           </div>
           {loadingUsers ? (
-            <div className="p-8 text-center text-sm text-muted">Carregando usuários…</div>
+            <div role="status" aria-busy="true" aria-label="Carregando usuários">
+              <SkeletonTableRows count={6} variant="users" />
+            </div>
           ) : usersError ? (
             <div className="p-8 text-center text-sm text-danger">
               A lista não foi carregada por completo. Tente atualizar novamente.
             </div>
           ) : (
-            pageUsers.map((profile) => (
+            pageUsers.map((profile, index) => (
               <AdminUserRow
                 key={profile.id}
                 profile={profile}
+                isLast={index === pageUsers.length - 1}
                 data={data}
                 selected={selected.includes(profile.id)}
                 onSelect={(checked) =>

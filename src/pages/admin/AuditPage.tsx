@@ -29,6 +29,7 @@ import { userById } from "../../lib/selectors";
 import { formatDate, formatDateKey, localDateKey } from "../../lib/utils";
 import type { AppData, TicketEvent } from "../../types";
 import { useToast } from "../../context/useToast";
+import { SkeletonTableRows, SkeletonText } from "../../components/Skeleton";
 import { errorMessage } from "../../lib/utils";
 
 function AuditEventDetail({ event, data }: { event: TicketEvent; data: AppData }) {
@@ -226,18 +227,34 @@ export function AuditPage() {
           </div>
         }
       />
-      <div className="mb-5 grid gap-4 min-[1120px]:grid-cols-3">
-        <StatCard label="Eventos no período" value={summary.eventCount} icon={Activity} compact />
+      <div
+        className="mb-5 grid gap-4 min-[1120px]:grid-cols-3"
+        role={auditQueryState.isLoading ? "status" : undefined}
+        aria-label={auditQueryState.isLoading ? "Carregando indicadores da auditoria" : undefined}
+        aria-busy={auditQueryState.isLoading}
+      >
+        <StatCard
+          label="Eventos no período"
+          value={
+            auditQueryState.isLoading ? <SkeletonText className="h-6 w-12" /> : summary.eventCount
+          }
+          icon={Activity}
+          compact
+        />
         <StatCard
           label="Chamados com movimentação"
-          value={summary.ticketCount}
+          value={
+            auditQueryState.isLoading ? <SkeletonText className="h-6 w-12" /> : summary.ticketCount
+          }
           icon={BookOpen}
           tone="blue"
           compact
         />
         <StatCard
           label="Pessoas que atuaram"
-          value={summary.actorCount}
+          value={
+            auditQueryState.isLoading ? <SkeletonText className="h-6 w-12" /> : summary.actorCount
+          }
           icon={Users}
           tone="orange"
           compact
@@ -299,9 +316,11 @@ export function AuditPage() {
             </FilterToolbar>
           </div>
         </div>
-        <div className="divide-y divide-line-soft">
+        <div className="divide-y divide-line-soft" aria-busy={auditQueryState.isLoading}>
           {auditQueryState.isLoading ? (
-            <div className="p-8 text-center text-sm text-muted">Carregando auditoria…</div>
+            <div role="status" aria-busy="true" aria-label="Carregando auditoria">
+              <SkeletonTableRows count={6} />
+            </div>
           ) : auditQueryState.isError && !pageResult ? (
             <div className="p-8 text-center">
               <p className="text-sm text-muted">Não foi possível carregar a auditoria.</p>
