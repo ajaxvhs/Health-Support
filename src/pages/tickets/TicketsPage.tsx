@@ -17,8 +17,9 @@ import {
 import { queryCache } from "../../lib/queryCache";
 import { errorMessage, type TicketFilters } from "../../lib/utils";
 import type { TicketStatus } from "../../types";
-import { TicketRow } from "./TicketRow";
+import { TicketRow, TicketRowSkeleton } from "./TicketRow";
 import { TicketsFilterBar, type TicketFilterView } from "./TicketsFilterBar";
+import { SkeletonText } from "../../components/Skeleton";
 
 const initialFilters: TicketFilters = {
   search: "",
@@ -53,11 +54,13 @@ function TicketsViewSwitcher({
   view,
   queueUnassignedCount,
   queueInProgressCount,
+  loading,
   onChange,
 }: {
   view: TicketFilterView;
   queueUnassignedCount: number;
   queueInProgressCount: number;
+  loading: boolean;
   onChange: (view: TicketFilterView) => void;
 }) {
   return (
@@ -87,13 +90,22 @@ function TicketsViewSwitcher({
         </button>
       </div>
       {view === "queue" && (
-        <div className="grid w-full grid-cols-2 gap-2 text-center min-[1120px]:w-[240px]">
+        <div
+          className="grid w-full grid-cols-2 gap-2 text-center min-[1120px]:w-[240px]"
+          role={loading ? "status" : undefined}
+          aria-label={loading ? "Carregando contadores da fila" : undefined}
+          aria-busy={loading}
+        >
           <div className="rounded-xl bg-danger-soft px-3 py-2">
-            <strong className="block text-lg text-danger">{queueUnassignedCount}</strong>
+            <strong className="block text-lg text-danger">
+              {loading ? <SkeletonText className="mx-auto h-5 w-8" /> : queueUnassignedCount}
+            </strong>
             <span className="text-[10px] font-bold text-danger-strong">Sem responsável</span>
           </div>
           <div className="rounded-xl bg-caution-soft px-3 py-2">
-            <strong className="block text-lg text-caution">{queueInProgressCount}</strong>
+            <strong className="block text-lg text-caution">
+              {loading ? <SkeletonText className="mx-auto h-5 w-8" /> : queueInProgressCount}
+            </strong>
             <span className="text-[10px] font-bold text-caution-strong">Em atendimento</span>
           </div>
         </div>
@@ -165,6 +177,8 @@ export function TicketsPage() {
   const ticketQueryState = useQuery({
     queryKey: ["ticket-pages", user.id, ticketQuery],
     queryFn: () => repo.getTicketPage(ticketQuery),
+    refetchInterval: queryCache.ticketRefreshInterval,
+    refetchIntervalInBackground: false,
     ...queryCache.ticketPages,
   });
   useEffect(() => {
@@ -264,11 +278,20 @@ export function TicketsPage() {
               : "Todos os chamados"
         }
         description={
-          !isStaff
-            ? `${totalCount} chamados encontrados`
-            : view === "queue"
-              ? "Priorize, assuma e acompanhe os chamados das unidades."
-              : `${totalCount} chamados encontrados`
+          !isStaff || view !== "queue" ? (
+            ticketQueryState.isLoading ? (
+              <>
+                <span role="status" aria-label="Carregando total de chamados">
+                  <SkeletonText className="inline-block h-3 w-6 align-middle" />
+                </span>{" "}
+                chamados encontrados
+              </>
+            ) : (
+              `${totalCount} chamados encontrados`
+            )
+          ) : (
+            "Priorize, assuma e acompanhe os chamados das unidades."
+          )
         }
         action={
           <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 min-[1120px]:flex min-[1120px]:w-auto">
@@ -295,6 +318,7 @@ export function TicketsPage() {
           view={view}
           queueUnassignedCount={pageResult?.queueUnassignedCount ?? 0}
           queueInProgressCount={pageResult?.queueInProgressCount ?? 0}
+          loading={ticketQueryState.isLoading}
           onChange={changeView}
         />
       )}
@@ -314,7 +338,13 @@ export function TicketsPage() {
       />
       <div className="overflow-hidden rounded-2xl border border-line-soft bg-surface shadow-soft">
         {ticketQueryState.isLoading ? (
-          <div className="p-8 text-center text-sm text-muted">Carregando chamados…</div>
+          <div role="status" aria-busy="true" aria-label="Carregando chamados">
+            <div className="divide-y divide-line-soft">
+              {Array.from({ length: 6 }, (_, index) => (
+                <TicketRowSkeleton key={index} queueMode={view === "queue"} />
+              ))}
+            </div>
+          </div>
         ) : ticketQueryState.isError && !pageResult ? (
           <EmptyState
             title="Não foi possível carregar os chamados"

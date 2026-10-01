@@ -11,8 +11,15 @@ import { cn, errorMessage, formatDate } from "../../lib/utils";
 import type { Ticket, TicketMessage } from "../../types";
 import { queryCache } from "../../lib/queryCache";
 import { markPwaFormsSaved } from "../../lib/pwaUpdate";
+import { SkeletonText, SyncIndicator } from "../../components/Skeleton";
 
-export function TicketConversation({ ticket }: { ticket: Ticket }) {
+export function TicketConversation({
+  ticket,
+  realtimeActive,
+}: {
+  ticket: Ticket;
+  realtimeActive: boolean;
+}) {
   const { data, user, repo } = useApp();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -22,6 +29,8 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
   const messagesQuery = useQuery({
     queryKey: ["ticket-messages", user.id, ticket.id],
     queryFn: () => repo.getTicketMessages(ticket.id),
+    refetchInterval: realtimeActive ? false : queryCache.ticketRefreshInterval,
+    refetchIntervalInBackground: false,
     ...queryCache.ticketDetail,
   });
   const ticketMessages = messagesQuery.data ?? [];
@@ -71,11 +80,35 @@ export function TicketConversation({ ticket }: { ticket: Ticket }) {
   return (
     <section className="rounded-2xl border border-line-soft bg-surface shadow-soft">
       <div className="border-b border-line-soft px-5 py-5 sm:px-7">
-        <h2 className="font-display font-bold text-ink">Conversa do chamado</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display font-bold text-ink">Conversa do chamado</h2>
+          <SyncIndicator active={messagesQuery.isFetching && !messagesQuery.isLoading} />
+        </div>
         <p className="mt-1 text-xs text-subtle">Mensagens públicas e atualizações do atendimento</p>
       </div>
-      <div className="max-h-96 space-y-5 overflow-y-auto overscroll-contain p-5 sm:max-h-[32rem] sm:p-7">
-        {messages.length ? (
+      <div
+        className="max-h-96 space-y-5 overflow-y-auto overscroll-contain p-5 sm:max-h-[32rem] sm:p-7"
+        aria-busy={messagesQuery.isLoading}
+      >
+        {messagesQuery.isLoading ? (
+          <div role="status" aria-busy="true" aria-label="Carregando conversa">
+            <div className="space-y-5">
+              {Array.from({ length: 3 }, (_, index) => (
+                <div key={index} className="flex gap-3" aria-hidden="true">
+                  <SkeletonText className="h-8 w-8 shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <SkeletonText className="h-4 w-28" />
+                      <SkeletonText className="h-3 w-20" />
+                    </div>
+                    <SkeletonText className="mt-2 h-4 w-full max-w-2xl" />
+                    <SkeletonText className="mt-2 h-4 w-4/5 max-w-xl" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : messages.length ? (
           messages.map((item) => {
             const sender = userById(data, item.senderId);
             return (

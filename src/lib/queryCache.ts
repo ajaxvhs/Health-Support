@@ -1,4 +1,5 @@
 export const queryCache = {
+  ticketRefreshInterval: 60 * 1000,
   appData: { staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000 },
   ticketNavigation: { staleTime: 30 * 1000, gcTime: 10 * 60 * 1000 },
   ticketPages: { staleTime: 2 * 60 * 1000, gcTime: 10 * 60 * 1000 },
