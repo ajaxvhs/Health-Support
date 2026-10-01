@@ -4,6 +4,10 @@ verify_jwt = false
 [functions.update-password]
 verify_jwt = true
 
+[functions.username-login]
+# Pre-authentication endpoint; the handler validates credentials and returns no session on failure.
+verify_jwt = false
+
 [db.seed]
 enabled = true
 sql_paths = ["./seed.sql"]

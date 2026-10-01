@@ -5,6 +5,10 @@ import {
   isWithinLimit,
 } from "../supabase/functions/_shared/adminUserLimits";
 import {
+  isValidLoginInput,
+  USERNAME_LOGIN_LIMITS,
+} from "../supabase/functions/_shared/usernameLoginLimits";
+import {
   ADMIN_USER_ACTIONS,
   isAdminUserAction,
 } from "../supabase/functions/_shared/adminUserContract";
@@ -42,5 +46,14 @@ describe("limites do contrato administrativo de usuários", () => {
     expect(isAdminUserAction("set_active")).toBe(true);
     expect(isAdminUserAction("unknown_action")).toBe(false);
     expect(isAdminUserAction(null)).toBe(false);
+  });
+
+  it("valida o contrato de username/senha sem aceitar email como username", () => {
+    expect(isValidLoginInput("vpulici", "senha-sintetica")).toBe(true);
+    expect(isValidLoginInput(" user@example.test ", "senha-sintetica")).toBe(false);
+    expect(isValidLoginInput("vpulici", "short")).toBe(false);
+    expect(
+      isValidLoginInput("u".repeat(USERNAME_LOGIN_LIMITS.usernameLength + 1), "senha-sintetica"),
+    ).toBe(false);
   });
 });
