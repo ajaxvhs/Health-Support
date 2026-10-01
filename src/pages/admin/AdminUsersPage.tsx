@@ -257,10 +257,11 @@ export function AdminUsersPage() {
               A lista não foi carregada por completo. Tente atualizar novamente.
             </div>
           ) : (
-            pageUsers.map((profile) => (
+            pageUsers.map((profile, index) => (
               <AdminUserRow
                 key={profile.id}
                 profile={profile}
+                isLast={index === pageUsers.length - 1}
                 data={data}
                 selected={selected.includes(profile.id)}
                 onSelect={(checked) =>

@@ -217,10 +217,11 @@ export function CatalogsPage() {
             <span className="text-center">Status</span>
             <span className="text-center">Ações</span>
           </div>
-          {items.map((item) => (
+          {items.map((item, index) => (
             <CatalogRow
               key={item.id}
               item={item}
+              isLast={index === items.length - 1}
               selected={selected.includes(item.id)}
               onSelect={(checked) =>
                 setSelected((current) =>
@@ -272,6 +273,7 @@ export function CatalogsPage() {
 
 function CatalogRow({
   item,
+  isLast,
   selected,
   onSelect,
   onEdit,
@@ -279,6 +281,7 @@ function CatalogRow({
   onDelete,
 }: {
   item: CatalogItem;
+  isLast: boolean;
   selected: boolean;
   onSelect: (checked: boolean) => void;
   onEdit: () => void;
@@ -320,7 +323,9 @@ function CatalogRow({
     </div>
   );
   return (
-    <div className="mx-3 my-3 rounded-2xl border border-line-soft p-4 md:mx-0 md:my-0 md:grid md:grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] md:items-center md:gap-4 md:rounded-none md:border-x-0 md:border-b md:border-t-0 md:px-5 md:py-4">
+    <div
+      className={`mx-3 my-3 rounded-2xl border border-line-soft p-4 md:mx-0 md:my-0 md:grid md:grid-cols-[36px_minmax(280px,1fr)_120px_minmax(290px,auto)] md:items-center md:gap-4 md:rounded-none md:border-x-0 md:border-b md:border-t-0 md:px-5 md:py-4 ${isLast ? "md:border-b-0" : ""}`}
+    >
       <div className="space-y-4 md:hidden">
         <div className="flex items-start gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xs font-bold text-brand-contrast">

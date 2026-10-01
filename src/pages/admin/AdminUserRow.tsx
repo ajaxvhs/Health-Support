@@ -6,6 +6,7 @@ import { roleOptions, type AppData, type Profile, type Role } from "../../types"
 
 type Props = {
   profile: Profile;
+  isLast: boolean;
   data: AppData;
   selected: boolean;
   onSelect: (checked: boolean) => void;
@@ -18,6 +19,7 @@ type Props = {
 
 export function AdminUserRow({
   profile,
+  isLast,
   data,
   selected,
   onSelect,
@@ -78,6 +80,7 @@ export function AdminUserRow({
         "mx-3 my-3 rounded-2xl border border-line-soft p-4",
         "lg:mx-0 lg:my-0 lg:grid lg:grid-cols-[28px_minmax(0,1.65fr)_minmax(0,1fr)_148px_80px_132px] lg:items-center lg:gap-2 lg:rounded-none lg:border-x-0 lg:border-b lg:border-t-0 lg:px-3 lg:py-3",
         "xl:grid-cols-[36px_minmax(280px,2fr)_minmax(150px,1.1fr)_148px_90px_132px] xl:gap-4 xl:px-5 xl:py-4",
+        isLast && "lg:border-b-0",
       )}
     >
       <div className="space-y-4 lg:hidden">
