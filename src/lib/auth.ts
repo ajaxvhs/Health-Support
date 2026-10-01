@@ -76,21 +76,36 @@ export async function signInWithIdentifier(identifier: string, password: string)
   const client = getSupabaseClient();
   if (!client) throw new Error("O Supabase precisa estar configurado para entrar.");
 
-  let email = identifier.trim();
-  if (!email.includes("@")) {
-    const { data, error: lookupError } = await client.rpc("auth_email_for_username", {
-      login_username: email,
+  const trimmedIdentifier = identifier.trim();
+  let authUserId: string;
+  let authEmail: string;
+  if (trimmedIdentifier.includes("@")) {
+    const { data, error } = await client.auth.signInWithPassword({
+      email: trimmedIdentifier,
+      password,
     });
-    if (lookupError || typeof data !== "string" || !data)
+    if (error || !data.user) throw new Error("Usuário ou senha inválidos.");
+    authUserId = data.user.id;
+    authEmail = data.user.email ?? trimmedIdentifier;
+  } else {
+    const { data, error } = await client.functions.invoke<{ session: Session }>("username-login", {
+      body: { username: trimmedIdentifier, password },
+    });
+    if (error || !data?.session) {
+      const context = error && "context" in error ? error.context : null;
+      if (context instanceof Response && context.status === 429)
+        throw new Error("Muitas tentativas. Aguarde e tente novamente.");
       throw new Error("Usuário ou senha inválidos.");
-    email = data;
+    }
+    const { data: sessionData, error: sessionError } = await client.auth.setSession(data.session);
+    if (sessionError || !sessionData.user) throw new Error("Usuário ou senha inválidos.");
+    authUserId = sessionData.user.id;
+    authEmail = sessionData.user.email ?? "";
   }
 
-  const { data, error } = await client.auth.signInWithPassword({ email, password });
-  if (error || !data.user) throw new Error("Usuário ou senha inválidos.");
   let profile: Profile | null;
   try {
-    profile = await loadProfile(data.user.id, data.user.email ?? email);
+    profile = await loadProfile(authUserId, authEmail);
   } catch (reason) {
     if (isProfileUnavailableError(reason)) {
       await client.auth.signOut({ scope: "local" });
