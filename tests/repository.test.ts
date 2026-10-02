@@ -144,6 +144,83 @@ const statusMutations: Array<[string, (repository: SupabaseRepository) => Promis
 ];
 
 describe("contratos de mutação do repository", () => {
+  it("retorna o nível configurado no catálogo de prioridades", async () => {
+    const { repository } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+      [],
+      undefined,
+      { data: null, error: null },
+      {
+        ticket_priorities: {
+          data: [
+            {
+              id: "priority-custom",
+              name: "Crítica",
+              slug: "custom-critica-12345678",
+              level: 5,
+              color: "#64748b",
+              is_active: true,
+            },
+          ],
+          error: null,
+        },
+      },
+    );
+
+    const data = await repository.getData();
+
+    expect(data.priorities[0]).toMatchObject({ name: "Crítica", level: 5 });
+  });
+
+  it("cria prioridades com slug único, nome e nível configurado", async () => {
+    const { repository, writes } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+    );
+
+    await repository.addPriority("Crítica", 5);
+
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({
+      table: "ticket_priorities",
+      values: {
+        name: "Crítica",
+        level: 5,
+        color: "#64748b",
+      },
+    });
+    expect((writes[0] as { values: { slug: string } }).values.slug).toMatch(
+      /^custom-critica-[0-9a-f]{8}$/,
+    );
+  });
+
+  it("rejeita níveis inválidos antes de gravar uma prioridade", async () => {
+    const { repository, writes } = repositoryWithResults(
+      { data: null, error: null },
+      { data: null, error: null },
+    );
+
+    await expect(repository.addPriority("Crítica", 1.5)).rejects.toThrow(
+      "Informe um nível de prioridade inteiro.",
+    );
+    expect(writes).toHaveLength(0);
+  });
+
+  it("atualiza o nível de uma prioridade existente", async () => {
+    const { repository, writes } = repositoryWithResults(
+      { data: null, error: null },
+      { data: { id: "priority-1" }, error: null },
+    );
+
+    await repository.renameCatalog("priorities", "priority-1", "Crítica", "", 5);
+
+    expect(writes).toContainEqual({
+      table: "ticket_priorities",
+      values: { name: "Crítica", level: 5 },
+    });
+  });
+
   it.each(statusMutations)(
     "não grava %s quando o lookup do status falha",
     async (_name, mutate) => {
