@@ -145,12 +145,11 @@ export function ProfilePage() {
               </Button>
             </div>
           </section>
-        ) : (
-          <div className="max-w-xl space-y-4">
-            <ThemeSettings />
-            <PushNotificationSettings />
-          </div>
-        )}
+        ) : null}
+        <div className={`max-w-xl space-y-4 ${activeTab === "settings" ? "" : "hidden"}`}>
+          {activeTab === "settings" && <ThemeSettings />}
+          <PushNotificationSettings />
+        </div>
       </div>
     </>
   );
