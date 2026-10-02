@@ -84,6 +84,7 @@ export function CreateCatalogDialog({
               value={level}
               onChange={setLevel}
               hint="Use um número inteiro único. Números maiores aparecem primeiro."
+              className="hide-number-spinner"
               required
             />
           </div>
@@ -184,6 +185,7 @@ export function EditCatalogDialog({
             value={level}
             onChange={setLevel}
             hint="Use um número inteiro único. Números maiores aparecem primeiro."
+            className="hide-number-spinner"
             required
           />
         </div>
