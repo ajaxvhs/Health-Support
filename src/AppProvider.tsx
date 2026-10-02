@@ -31,6 +31,7 @@ export function AppProvider({ children }: { children?: ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [sessionError, setSessionError] = useState(false);
+  const [loginEventId, setLoginEventId] = useState<string | null>(null);
   const sessionGeneration = useRef(new SessionGeneration());
   const currentUser = useRef<Profile | null>(null);
   const setCurrentUser = useCallback((nextUser: Profile | null) => {
@@ -228,6 +229,7 @@ export function AppProvider({ children }: { children?: ReactNode }) {
     setSessionError(false);
     setSessionChecked(true);
     setCurrentUser(profile);
+    setLoginEventId(crypto.randomUUID());
   };
 
   const logout = async () => {
@@ -239,6 +241,7 @@ export function AppProvider({ children }: { children?: ReactNode }) {
       if (previousUser) clearTicketDraft(previousUser.id);
       queryClient.clear();
       setCurrentUser(null);
+      setLoginEventId(null);
       setSessionError(false);
       setSessionChecked(true);
     }
@@ -302,6 +305,7 @@ export function AppProvider({ children }: { children?: ReactNode }) {
         refreshTicketNavigationCounts,
         checkingSession,
         sessionError,
+        loginEventId,
         retrySession,
         login,
         logout,

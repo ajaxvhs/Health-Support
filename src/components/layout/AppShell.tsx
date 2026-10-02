@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
   Database,
@@ -18,7 +18,14 @@ import { useToast } from "../../context/useToast";
 import { can, isStaff } from "../../lib/permissions";
 import { roleLabels, type Profile } from "../../types";
 import { cn } from "../../lib/utils";
+import {
+  enablePush,
+  getPushSettingsState,
+  shouldShowPushLoginReminder,
+  type PushSettingsState,
+} from "../../lib/pushNotifications";
 import { NotificationPopover } from "../notifications";
+import { PushLoginReminder } from "../PushLoginReminder";
 import { Avatar } from "../ui";
 import { useNotifications } from "./useNotifications";
 
@@ -104,13 +111,23 @@ function navigationFor(
 }
 
 export function AppShell() {
-  const { user, repo, logout, ticketNavigationCounts } = useApp();
+  const { user, repo, logout, ticketNavigationCounts, loginEventId } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [pushReminder, setPushReminder] = useState<Extract<
+    PushSettingsState,
+    { kind: "inactive" }
+  > | null>(null);
+  const [activatingPush, setActivatingPush] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const pushStateCheckRef = useRef<{
+    loginEventId: string;
+    promise: Promise<PushSettingsState>;
+  } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
+  const dismissPushReminder = useCallback(() => setPushReminder(null), []);
   const {
     notifications,
     unreadCount,
@@ -122,6 +139,50 @@ export function AppShell() {
     remove,
     removeAll,
   } = useNotifications(repo, user.id, showToast);
+
+  useEffect(() => {
+    if (!loginEventId) return;
+    const storageKey = "health-support:push-reminder-login-event";
+    try {
+      if (window.sessionStorage.getItem(storageKey) === loginEventId) return;
+    } catch {
+      // The reminder still works when browser storage is unavailable.
+    }
+
+    let current = true;
+    setPushReminder(null);
+    if (pushStateCheckRef.current?.loginEventId !== loginEventId) {
+      pushStateCheckRef.current = { loginEventId, promise: getPushSettingsState() };
+    }
+    void pushStateCheckRef.current.promise.then((state) => {
+      if (!current || !shouldShowPushLoginReminder(state)) return;
+      try {
+        window.sessionStorage.setItem(storageKey, loginEventId);
+      } catch {
+        // The reminder remains limited to this AppShell instance.
+      }
+      setPushReminder(state);
+    });
+    return () => {
+      current = false;
+    };
+  }, [loginEventId]);
+
+  const handlePushActivation = async () => {
+    setActivatingPush(true);
+    try {
+      await enablePush();
+      setPushReminder(null);
+      showToast("Notificações ativadas neste dispositivo.", "success");
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "Não foi possível ativar as notificações.",
+        "error",
+      );
+    } finally {
+      setActivatingPush(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -288,6 +349,13 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      {pushReminder && (
+        <PushLoginReminder
+          onActivate={() => void handlePushActivation()}
+          onDismiss={dismissPushReminder}
+          activating={activatingPush}
+        />
+      )}
     </div>
   );
 }

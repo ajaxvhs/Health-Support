@@ -1,5 +1,19 @@
 import { getSupabaseClient } from "./supabase/client";
 
+export type PushSettingsState =
+  | { kind: "unsupported"; subscribed: false }
+  | { kind: "development-unavailable"; subscribed: false }
+  | { kind: "permission-denied"; subscribed: boolean }
+  | { kind: "inactive"; subscribed: false; permission: "default" | "granted" }
+  | { kind: "active"; subscribed: true }
+  | { kind: "sync-error"; subscribed: boolean };
+
+export function shouldShowPushLoginReminder(
+  state: PushSettingsState,
+): state is Extract<PushSettingsState, { kind: "inactive" }> {
+  return state.kind === "inactive";
+}
+
 export function supportsPush() {
   if (typeof navigator === "undefined") return false;
   const win =
@@ -9,9 +23,61 @@ export function supportsPush() {
   return "serviceWorker" in navigator && "PushManager" in win && "Notification" in win;
 }
 
+export async function getPushSettingsState(): Promise<PushSettingsState> {
+  if (!supportsPush()) return { kind: "unsupported", subscribed: false };
+
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    const subscription = await registration?.pushManager.getSubscription();
+    if (import.meta.env.DEV && !subscription)
+      return { kind: "development-unavailable", subscribed: false };
+    if (Notification.permission === "denied")
+      return { kind: "permission-denied", subscribed: false };
+    if (Notification.permission !== "granted" || !subscription)
+      return {
+        kind: "inactive",
+        subscribed: false,
+        permission: Notification.permission === "granted" ? "granted" : "default",
+      };
+
+    const client = getSupabaseClient();
+    if (!client) return { kind: "sync-error", subscribed: true };
+
+    const { data, error } = await client
+      .from("push_subscriptions")
+      .select("id")
+      .eq("endpoint", subscription.endpoint)
+      .maybeSingle();
+    if (error) return { kind: "sync-error", subscribed: true };
+    if (data) return { kind: "active", subscribed: true };
+
+    const { data: authData, error: authError } = await client.auth.getUser();
+    if (authError || !authData.user) return { kind: "sync-error", subscribed: true };
+    const json = subscription.toJSON();
+    const { error: upsertError } = await client.from("push_subscriptions").upsert(
+      {
+        user_id: authData.user.id,
+        endpoint: subscription.endpoint,
+        p256dh: json.keys?.p256dh,
+        auth: json.keys?.auth,
+      },
+      { onConflict: "endpoint" },
+    );
+    return upsertError
+      ? { kind: "sync-error", subscribed: true }
+      : { kind: "active", subscribed: true };
+  } catch {
+    return { kind: "sync-error", subscribed: false };
+  }
+}
+
 async function getActiveRegistration(): Promise<ServiceWorkerRegistration> {
   const current = await navigator.serviceWorker.getRegistration();
   if (current?.active) return current;
+  if (import.meta.env.DEV && !current)
+    throw new Error(
+      "O Web Push não está disponível no servidor de desenvolvimento. Use uma versão publicada.",
+    );
   // The worker may still be installing on first load; wait for activation.
   const ready = await Promise.race([
     navigator.serviceWorker.ready,
@@ -31,6 +97,7 @@ export async function enablePush() {
   if (!supportsPush()) throw new Error("Este navegador não oferece suporte a notificações.");
   const client = getSupabaseClient();
   if (!client) throw new Error("Serviço indisponível.");
+  const registration = await getActiveRegistration();
   if ((await Notification.requestPermission()) !== "granted") {
     throw new Error("Permita notificações nas configurações do navegador para ativar os avisos.");
   }
@@ -56,7 +123,6 @@ export async function enablePush() {
   }
   if (decoded.length !== 65 || decoded.charCodeAt(0) !== 4)
     throw new Error("As notificações ainda não foram configuradas neste ambiente.");
-  const registration = await getActiveRegistration();
   const { data, error: authError } = await client.auth.getUser();
   if (authError || !data.user) throw new Error("Entre novamente para ativar notificações.");
   let subscription: PushSubscription;
