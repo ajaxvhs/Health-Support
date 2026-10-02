@@ -65,6 +65,17 @@
   display: none;
 }
 
+.hide-number-spinner {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.hide-number-spinner::-webkit-inner-spin-button,
+.hide-number-spinner::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
 .skeleton-block {
   background: linear-gradient(
     90deg,

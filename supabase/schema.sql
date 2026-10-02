@@ -1030,7 +1030,7 @@ create or replace function public.get_ticket_page (
 set
   search_path = '' as $$
   with visible as materialized (
-    select t.*, s.slug as status_slug, p.slug as priority_slug
+    select t.*, s.slug as status_slug, p.level as priority_level
     from public.tickets t
     join public.ticket_statuses s on s.id = t.status_id
     join public.ticket_priorities p on p.id = t.priority_id
@@ -1061,15 +1061,14 @@ set
     select
       v.*,
       case when v.status_slug in ('aberto', 'em_andamento') then 0 else 1 end as status_order,
-      case when p_sort = 'priority' then
-        case v.priority_slug when 'urgente' then 0 when 'alta' then 1 when 'media' then 2 when 'baixa' then 3 else -1 end
-      else 0 end as priority_order
+      case when p_sort = 'priority' then v.priority_level end as priority_order
     from visible v
     order by
       status_order,
-      priority_order,
+      priority_order desc nulls last,
       case when p_sort = 'oldest' then v.created_at end asc,
       case when p_sort <> 'oldest' then v.created_at end desc,
+      v.ticket_number desc,
       v.id desc
     offset greatest(coalesce(p_offset, 0), 0)
     limit least(greatest(coalesce(p_limit, 10), 1), 100)
@@ -1088,11 +1087,12 @@ set
     totals.queue_in_progress_count,
     coalesce(
       (select jsonb_agg(
-        to_jsonb(page_rows) - 'status_slug' - 'priority_slug' - 'status_order' - 'priority_order'
+        to_jsonb(page_rows) - 'status_slug' - 'priority_level' - 'status_order' - 'priority_order'
         || jsonb_build_object('ticket_statuses', jsonb_build_object('slug', page_rows.status_slug))
-        order by page_rows.status_order, page_rows.priority_order,
+        order by page_rows.status_order, page_rows.priority_order desc nulls last,
           case when p_sort = 'oldest' then page_rows.created_at end asc,
           case when p_sort <> 'oldest' then page_rows.created_at end desc,
+          page_rows.ticket_number desc,
           page_rows.id desc
       ) from page_rows),
       '[]'::jsonb

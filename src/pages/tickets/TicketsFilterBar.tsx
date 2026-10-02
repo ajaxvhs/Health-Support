@@ -133,11 +133,17 @@ export function TicketsFilterBar({
     onStatusSelectionChange,
     onToggleAssigned,
   });
-  const sortOptions = [
+  const dateSortOptions = [
     { value: "newest", label: "Mais recentes" },
     { value: "oldest", label: "Mais antigos" },
-    { value: "priority", label: "Maior prioridade" },
   ];
+  const prioritySortOption = { value: "priority", label: "Maior prioridade" };
+  const sortOptions =
+    view === "queue"
+      ? [prioritySortOption, ...dateSortOptions]
+      : view === "all"
+        ? [...dateSortOptions, prioritySortOption]
+        : dateSortOptions;
 
   return (
     <section className="mb-5 rounded-2xl border border-line-soft bg-surface p-3 shadow-soft sm:p-4">
@@ -227,11 +233,7 @@ export function TicketsFilterBar({
             ariaLabel="Ordenar chamados"
             value={filters.sort}
             onChange={(value) => onFilterChange("sort", value)}
-            options={
-              view === "queue"
-                ? [{ value: "priority", label: "Maior prioridade" }, ...sortOptions.slice(0, 2)]
-                : sortOptions
-            }
+            options={sortOptions}
           />
         </FilterField>
       </FilterToolbar>

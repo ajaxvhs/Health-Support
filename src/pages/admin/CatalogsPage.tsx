@@ -40,6 +40,10 @@ export function CatalogsPage() {
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
+  const displayItems =
+    tab === "priorities"
+      ? [...items].sort((left, right) => (right.level ?? -Infinity) - (left.level ?? -Infinity))
+      : items;
   const allSelected = items.length > 0 && items.every((item) => selected.includes(item.id));
   const setTabAndClear = (value: CatalogTab) => {
     setTab(value);
@@ -90,9 +94,15 @@ export function CatalogsPage() {
         ),
     });
   };
-  const createItem = async (itemName: string, description: string) => {
-    if (tab !== "categories" && tab !== "units") return;
-    await repo.addCatalog(tab, itemName, description);
+  const createItem = async (itemName: string, description: string, level?: number) => {
+    if (tab === "priorities") {
+      if (level === undefined) return;
+      await repo.addPriority(itemName, level);
+    } else if (tab === "categories" || tab === "units") {
+      await repo.addCatalog(tab, itemName, description);
+    } else {
+      return;
+    }
     setCreating(false);
     await refreshAndNotify(refresh, showToast, "Item adicionado ao catálogo.");
   };
@@ -154,7 +164,11 @@ export function CatalogsPage() {
                       ? "Prioridades controladas"
                       : "Status do fluxo"}
               </h2>
-              <p className="mt-1 text-xs text-subtle">{items.length} itens no catálogo</p>
+              <p className="mt-1 text-xs text-subtle">
+                {tab === "priorities"
+                  ? `${items.length} opções · maior nível aparece primeiro`
+                  : `${items.length} itens no catálogo`}
+              </p>
             </div>
             <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-2">
               <TopSearch
@@ -180,9 +194,9 @@ export function CatalogsPage() {
                   />
                   Selecionar todos
                 </label>
-                {(tab === "categories" || tab === "units") && (
+                {(tab === "categories" || tab === "units" || tab === "priorities") && (
                   <Button className="min-h-11" onClick={() => setCreating(true)}>
-                    <Plus size={16} /> Novo item
+                    <Plus size={16} /> {tab === "priorities" ? "Nova prioridade" : "Novo item"}
                   </Button>
                 )}
               </div>
@@ -217,11 +231,11 @@ export function CatalogsPage() {
             <span className="text-center">Status</span>
             <span className="text-center">Ações</span>
           </div>
-          {items.map((item, index) => (
+          {displayItems.map((item, index) => (
             <CatalogRow
               key={item.id}
               item={item}
-              isLast={index === items.length - 1}
+              isLast={index === displayItems.length - 1}
               selected={selected.includes(item.id)}
               onSelect={(checked) =>
                 setSelected((current) =>
@@ -251,7 +265,14 @@ export function CatalogsPage() {
         </div>
       </section>
       {creating && (
-        <CreateCatalogDialog kind={tab} onClose={() => setCreating(false)} onCreate={createItem} />
+        <CreateCatalogDialog
+          kind={tab}
+          priorityLevels={data.priorities.flatMap((priority) =>
+            priority.level === undefined ? [] : [priority.level],
+          )}
+          onClose={() => setCreating(false)}
+          onCreate={createItem}
+        />
       )}
       {editing && <EditCatalogDialog item={editing} kind={tab} onClose={() => setEditing(null)} />}
       <ConfirmDialog
@@ -293,6 +314,10 @@ function CatalogRow({
       {item.isActive ? "Ativo" : "Inativo"}
     </Badge>
   );
+  const secondaryText =
+    item.level === undefined
+      ? (item.description ?? item.code ?? "Disponível no formulário de chamados")
+      : `Nível ${item.level}`;
   const mobileActions = (
     <div className="grid grid-cols-3 gap-2 border-t border-line-soft pt-3">
       <Button
@@ -347,11 +372,9 @@ function CatalogRow({
         </div>
         <div className="min-w-0 rounded-xl bg-surface-soft/70 p-3">
           <span className="text-[10px] font-bold uppercase tracking-wider text-subtle">
-            Descrição
+            {item.level === undefined ? "Descrição" : "Ordem de prioridade"}
           </span>
-          <p className="mt-1 break-words text-xs leading-5 text-secondary">
-            {item.description ?? item.code ?? "Disponível no formulário de chamados"}
-          </p>
+          <p className="mt-1 break-words text-xs leading-5 text-secondary">{secondaryText}</p>
         </div>
         {mobileActions}
       </div>
@@ -369,9 +392,7 @@ function CatalogRow({
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-ink">{item.name}</p>
-            <p className="truncate text-xs text-subtle">
-              {item.description ?? item.code ?? "Disponível no formulário de chamados"}
-            </p>
+            <p className="truncate text-xs text-subtle">{secondaryText}</p>
           </div>
         </div>
         <div className="flex justify-center">

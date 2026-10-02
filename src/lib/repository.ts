@@ -63,6 +63,11 @@ export interface AuditPageResult {
 }
 type CreateUserInput = Extract<AdminUserActionRequest, { action: "create" }>;
 type UpdateUserInput = Extract<AdminUserActionRequest, { action: "update" }>;
+const isValidPriorityLevel = (level: number | undefined): level is number =>
+  typeof level === "number" &&
+  Number.isInteger(level) &&
+  level >= -2147483648 &&
+  level <= 2147483647;
 const catalogTables: Record<CatalogKind, string> = {
   categories: "ticket_categories",
   units: "units",
@@ -93,6 +98,7 @@ const catalog = (r: Row): CatalogItem => ({
   code: r.code as string | undefined,
   slug: r.slug as string | undefined,
   color: r.color as string | undefined,
+  level: typeof r.level === "number" ? r.level : undefined,
   isActive: r.is_active as boolean,
 });
 const ticket = (r: Row): Ticket => ({
@@ -641,11 +647,37 @@ export class SupabaseRepository {
             .insert({ name: name.trim(), description: description.trim() || null });
     if (error) throw repositoryError(error);
   }
-  async renameCatalog(kind: CatalogKind, id: string, name: string, description = "") {
+  async addPriority(name: string, level: number) {
+    if (!isValidPriorityLevel(level)) throw new Error("Informe um nível de prioridade inteiro.");
+    const normalizedName = name.trim();
+    const slugBase = normalizedName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const { error } = await this.client.from("ticket_priorities").insert({
+      slug: `custom-${slugBase || "priority"}-${crypto.randomUUID().slice(0, 8)}`,
+      name: normalizedName,
+      level,
+      color: "#64748b",
+    });
+    if (error) throw repositoryError(error);
+  }
+  async renameCatalog(
+    kind: CatalogKind,
+    id: string,
+    name: string,
+    description = "",
+    level?: number,
+  ) {
+    if (kind === "priorities" && !isValidPriorityLevel(level))
+      throw new Error("Informe um nível de prioridade inteiro.");
     const table = catalogTables[kind];
     const values = {
       name: name.trim(),
       ...(kind === "categories" ? { description: description.trim() || null } : {}),
+      ...(kind === "priorities" ? { level } : {}),
     };
     const result = await this.client
       .from(table)

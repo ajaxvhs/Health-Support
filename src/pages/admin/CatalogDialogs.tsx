@@ -8,37 +8,60 @@ import { executeAction } from "../../lib/actionRunner";
 import { refreshAndNotify } from "../../lib/utils";
 import type { CatalogItem, CatalogKind } from "../../types";
 
+function parsePriorityLevel(value: string): number | null {
+  if (!/^-?\d+$/.test(value.trim())) return null;
+  const level = Number(value);
+  return Number.isSafeInteger(level) && level >= -2147483648 && level <= 2147483647 ? level : null;
+}
+
 export function CreateCatalogDialog({
   kind,
+  priorityLevels = [],
   onClose,
   onCreate,
 }: {
   kind: CatalogKind;
+  priorityLevels?: number[];
   onClose: () => void;
-  onCreate: (name: string, description: string) => Promise<void>;
+  onCreate: (name: string, description: string, level?: number) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [level, setLevel] = useState("");
   const [saving, setSaving] = useState(false);
   const { showToast } = useToast();
+  const isPriority = kind === "priorities";
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!name.trim()) {
       showToast("Informe um nome.", "error");
       return;
     }
-    await executeAction(() => onCreate(name, description), {
+    const priorityLevel = isPriority ? parsePriorityLevel(level) : undefined;
+    if (priorityLevel === null) {
+      showToast("Informe um nível de prioridade inteiro.", "error");
+      return;
+    }
+    if (priorityLevel !== undefined && priorityLevels.includes(priorityLevel)) {
+      showToast("Esse nível já está sendo usado por outra prioridade.", "error");
+      return;
+    }
+    await executeAction(() => onCreate(name, description, priorityLevel ?? undefined), {
       fallback: "Não foi possível adicionar o item.",
       showToast,
       setPending: setSaving,
     });
   };
-  const label = kind === "units" ? "unidade" : "categoria";
+  const label = kind === "units" ? "unidade" : kind === "priorities" ? "prioridade" : "categoria";
 
   return (
     <Dialog
-      title="Novo item"
-      description={`Cadastre uma nova ${label} para os chamados.`}
+      title={isPriority ? "Nova prioridade" : "Novo item"}
+      description={
+        isPriority
+          ? "Defina o nível usado para ordenar esta prioridade."
+          : `Cadastre uma nova ${label} para os chamados.`
+      }
       onClose={onClose}
       maxWidth="max-w-md"
     >
@@ -52,6 +75,20 @@ export function CreateCatalogDialog({
             required
           />
         </div>
+        {isPriority && (
+          <div className="mt-5">
+            <TextField
+              label="Nível de prioridade"
+              type="number"
+              inputMode="numeric"
+              value={level}
+              onChange={setLevel}
+              hint="Use um número inteiro único. Números maiores aparecem primeiro."
+              className="hide-number-spinner"
+              required
+            />
+          </div>
+        )}
         {kind === "categories" && (
           <div className="mt-5">
             <TextField
@@ -84,21 +121,40 @@ export function EditCatalogDialog({
   kind: CatalogKind;
   onClose: () => void;
 }) {
-  const { repo, refresh } = useApp();
+  const { data, repo, refresh } = useApp();
   const { showToast } = useToast();
   const [name, setName] = useState(item.name);
   const [description, setDescription] = useState(item.description ?? "");
+  const [level, setLevel] = useState(item.level?.toString() ?? "");
   const [saving, setSaving] = useState(false);
+  const isPriority = kind === "priorities";
   const save = async () => {
     if (!name.trim()) {
       showToast("Informe um nome.", "error");
       return;
     }
-    const result = await executeAction(() => repo.renameCatalog(kind, item.id, name, description), {
-      fallback: "Não foi possível atualizar o item.",
-      showToast,
-      setPending: setSaving,
-    });
+    const priorityLevel = isPriority ? parsePriorityLevel(level) : undefined;
+    if (priorityLevel === null) {
+      showToast("Informe um nível de prioridade inteiro.", "error");
+      return;
+    }
+    if (
+      priorityLevel !== undefined &&
+      data.priorities.some(
+        (priority) => priority.id !== item.id && priority.level === priorityLevel,
+      )
+    ) {
+      showToast("Esse nível já está sendo usado por outra prioridade.", "error");
+      return;
+    }
+    const result = await executeAction(
+      () => repo.renameCatalog(kind, item.id, name, description, priorityLevel ?? undefined),
+      {
+        fallback: "Não foi possível atualizar o item.",
+        showToast,
+        setPending: setSaving,
+      },
+    );
     if (!result.ok) return;
     onClose();
     await refreshAndNotify(refresh, showToast, "Item atualizado com sucesso.");
@@ -106,11 +162,13 @@ export function EditCatalogDialog({
 
   return (
     <Dialog
-      title="Editar item"
+      title={isPriority ? "Editar prioridade" : "Editar item"}
       description={
-        kind === "categories"
-          ? "Atualize o nome e a descrição da categoria."
-          : "Atualize o nome do item do catálogo."
+        isPriority
+          ? "Atualize o nome e o nível de ordenação da prioridade."
+          : kind === "categories"
+            ? "Atualize o nome e a descrição da categoria."
+            : "Atualize o nome do item do catálogo."
       }
       onClose={onClose}
       maxWidth="max-w-md"
@@ -118,6 +176,20 @@ export function EditCatalogDialog({
       <div className="mt-5">
         <TextField label="Nome" value={name} onChange={setName} required />
       </div>
+      {isPriority && (
+        <div className="mt-5">
+          <TextField
+            label="Nível de prioridade"
+            type="number"
+            inputMode="numeric"
+            value={level}
+            onChange={setLevel}
+            hint="Use um número inteiro único. Números maiores aparecem primeiro."
+            className="hide-number-spinner"
+            required
+          />
+        </div>
+      )}
       {kind === "categories" && (
         <div className="mt-5">
           <TextField

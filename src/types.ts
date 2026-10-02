@@ -27,6 +27,7 @@ export interface CatalogItem {
   description?: string;
   isActive: boolean;
   color?: string;
+  level?: number;
 }
 export interface Profile {
   id: string;
