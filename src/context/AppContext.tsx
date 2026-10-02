@@ -16,6 +16,7 @@ export interface AppContextValue {
   refreshTicketNavigationCounts: () => Promise<void>;
   checkingSession: boolean;
   sessionError: boolean;
+  loginEventId: string | null;
   retrySession: () => Promise<void>;
   login: (profile: Profile) => Promise<void>;
   logout: () => Promise<boolean>;
