@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -36,6 +36,7 @@ import { TicketConversation } from "./TicketConversation";
 import { queryCache } from "../../lib/queryCache";
 import { SkeletonText, SyncIndicator } from "../../components/Skeleton";
 import { useTicketRealtime } from "./useTicketRealtime";
+import { runPwaScopeMutation } from "../../lib/pwaUpdate";
 
 export function TicketDetailPage() {
   const { id } = useParams();
@@ -69,6 +70,7 @@ export function TicketDetailPage() {
   } | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const resolutionFormRef = useRef<HTMLFormElement>(null);
   const invalidateTicketQueries = () => {
     void queryClient.invalidateQueries({ queryKey: ["ticket-pages", user.id] });
     void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", user.id] });
@@ -153,8 +155,12 @@ export function TicketDetailPage() {
   const submitResolution = (event: FormEvent) => {
     event.preventDefault();
     if (!resolution.trim() || resolving) return;
+    const form = resolutionFormRef.current;
+    if (!form) return;
     setResolving(true);
-    void statusChange("resolvido").finally(() => setResolving(false));
+    void runPwaScopeMutation(form, () => statusChange("resolvido"), Boolean)
+      .catch(() => undefined)
+      .finally(() => setResolving(false));
   };
   return (
     <>
@@ -275,7 +281,7 @@ export function TicketDetailPage() {
                   </p>
                 </div>
               </div>
-              <form onSubmit={submitResolution} className="p-5 sm:p-6">
+              <form ref={resolutionFormRef} onSubmit={submitResolution} className="p-5 sm:p-6">
                 <label
                   htmlFor="ticket-resolution-draft"
                   className="mb-2 block text-sm font-semibold text-ink"
@@ -288,6 +294,7 @@ export function TicketDetailPage() {
                   onChange={(event) =>
                     setResolutionDraft({ ticketId: ticket.id, value: event.target.value })
                   }
+                  disabled={resolving}
                   onKeyDown={(event) => {
                     if (
                       event.key === "Enter" &&

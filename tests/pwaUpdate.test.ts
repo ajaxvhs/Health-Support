@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { clearPwaScopeDirty, hasUnsavedPwaForms, markPwaScopeDirty } from "../src/lib/pwaUpdate";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  clearPwaScopeDirty,
+  hasPendingPwaMutations,
+  hasUnsavedPwaForms,
+  markPwaScopeDirty,
+  markPwaScopeSaved,
+  runPwaScopeMutation,
+  shouldApplyPwaUpdate,
+} from "../src/lib/pwaUpdate";
 import { pwaUpdateRetryDelay } from "../src/lib/pwaUpdateRetry";
 
 function rootContaining(...scopes: object[]) {
@@ -7,6 +15,8 @@ function rootContaining(...scopes: object[]) {
 }
 
 describe("proteção de formulários durante atualização PWA", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it("adia a atualização enquanto o formulário está marcado como alterado", () => {
     const form = {};
     const root = rootContaining(form);
@@ -33,6 +43,146 @@ describe("proteção de formulários durante atualização PWA", () => {
 
     expect(hasUnsavedPwaForms(rootContaining(activeForm))).toBe(false);
     expect(hasUnsavedPwaForms(rootContaining(profileEditor))).toBe(true);
+  });
+
+  it("salvar a conversa mantém outro formulário alterado e o manager aguarda", async () => {
+    const messageForm = {};
+    const resolutionForm = {};
+    const root = rootContaining(messageForm, resolutionForm);
+    let finishSave!: (messageId: string) => void;
+    markPwaScopeDirty(messageForm);
+    markPwaScopeDirty(resolutionForm);
+
+    const sending = runPwaScopeMutation(
+      messageForm,
+      () => new Promise<string>((resolve) => (finishSave = resolve)),
+    );
+    expect(hasPendingPwaMutations()).toBe(true);
+    expect(
+      shouldApplyPwaUpdate({
+        updatePending: true,
+        applying: false,
+        online: true,
+        hasUnsavedForms: hasUnsavedPwaForms(root),
+        hasPendingMutation: hasPendingPwaMutations(),
+      }),
+    ).toBe(false);
+
+    finishSave("message-1");
+    await expect(sending).resolves.toEqual({ value: "message-1", saved: true });
+    expect(hasPendingPwaMutations()).toBe(false);
+    expect(hasUnsavedPwaForms(root)).toBe(true);
+    expect(hasUnsavedPwaForms(rootContaining(messageForm))).toBe(false);
+    expect(
+      shouldApplyPwaUpdate({
+        updatePending: true,
+        applying: false,
+        online: true,
+        hasUnsavedForms: hasUnsavedPwaForms(root),
+        hasPendingMutation: hasPendingPwaMutations(),
+      }),
+    ).toBe(false);
+
+    markPwaScopeSaved(resolutionForm);
+    expect(
+      shouldApplyPwaUpdate({
+        updatePending: true,
+        applying: false,
+        online: true,
+        hasUnsavedForms: hasUnsavedPwaForms(root),
+        hasPendingMutation: hasPendingPwaMutations(),
+      }),
+    ).toBe(true);
+  });
+
+  it("preserva edições feitas enquanto a mutação está em andamento", async () => {
+    const form = {};
+    const root = rootContaining(form);
+    let finishSave!: () => void;
+    markPwaScopeDirty(form);
+
+    const saving = runPwaScopeMutation(
+      form,
+      () => new Promise<void>((resolve) => (finishSave = resolve)),
+    );
+    markPwaScopeDirty(form);
+    finishSave();
+
+    await expect(saving).resolves.toEqual({ value: undefined, saved: false });
+    expect(hasUnsavedPwaForms(root)).toBe(true);
+  });
+
+  it("mantém dirty após falha e reconhece o próprio elemento raiz", async () => {
+    vi.stubGlobal(
+      "Element",
+      class FakeElement {
+        matches() {
+          return true;
+        }
+        querySelectorAll() {
+          return [];
+        }
+      },
+    );
+    const form = new Element() as unknown as object & ParentNode;
+    markPwaScopeDirty(form);
+
+    await expect(
+      runPwaScopeMutation(form, async () => Promise.reject(new Error("network"))),
+    ).rejects.toThrow("network");
+
+    expect(hasUnsavedPwaForms(form)).toBe(true);
+    expect(hasPendingPwaMutations()).toBe(false);
+  });
+
+  it("limpa o elemento raiz salvo sem limpar um escopo irmão", () => {
+    class FakeElement {
+      constructor(private readonly scopes: FakeElement[] = []) {}
+      matches() {
+        return true;
+      }
+      querySelectorAll() {
+        return this.scopes;
+      }
+    }
+    vi.stubGlobal("Element", FakeElement);
+    const savedScope = new FakeElement();
+    const unrelatedScope = new FakeElement();
+    const page = new FakeElement([savedScope, unrelatedScope]);
+    markPwaScopeDirty(savedScope);
+    markPwaScopeDirty(unrelatedScope);
+
+    markPwaScopeSaved(savedScope);
+
+    expect(hasUnsavedPwaForms(savedScope as unknown as ParentNode)).toBe(false);
+    expect(hasUnsavedPwaForms(page as unknown as ParentNode)).toBe(true);
+    expect(hasUnsavedPwaForms(unrelatedScope as unknown as ParentNode)).toBe(true);
+  });
+
+  it("não libera atualização enquanto há mutação pendente, mesmo após reset", async () => {
+    const form = {};
+    const root = rootContaining(form);
+    let finishSave!: () => void;
+    markPwaScopeDirty(form);
+    const saving = runPwaScopeMutation(
+      form,
+      () => new Promise<void>((resolve) => (finishSave = resolve)),
+    );
+
+    clearPwaScopeDirty(form);
+    expect(
+      shouldApplyPwaUpdate({
+        updatePending: true,
+        applying: false,
+        online: true,
+        hasUnsavedForms: hasUnsavedPwaForms(root),
+        hasPendingMutation: hasPendingPwaMutations(),
+      }),
+    ).toBe(false);
+
+    finishSave();
+    await saving;
+    expect(hasPendingPwaMutations()).toBe(false);
   });
 });
 

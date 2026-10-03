@@ -12,7 +12,7 @@ import {
   saveTicketDraft,
   type TicketDraftFields,
 } from "../../lib/ticketDraft";
-import { markPwaFormsSaved } from "../../lib/pwaUpdate";
+import { markPwaScopeSaved, runPwaScopeMutation } from "../../lib/pwaUpdate";
 
 export function NewTicketPage() {
   const { data, user, repo, refreshTicketNavigationCounts } = useApp();
@@ -58,6 +58,11 @@ export function NewTicketPage() {
   });
   const draftChanged = useRef(false);
   const [saving, setSaving] = useState(false);
+  const ticketFormRef = useRef<HTMLFormElement>(null);
+
+  const markTicketDraftSaved = () => {
+    if (ticketFormRef.current) markPwaScopeSaved(ticketFormRef.current);
+  };
 
   useEffect(() => {
     if (restoredDraft) showToast("Rascunho local restaurado.", "info");
@@ -71,7 +76,7 @@ export function NewTicketPage() {
       hasDraftChanges.current = true;
       if (releaseUpdate) {
         draftChanged.current = false;
-        markPwaFormsSaved();
+        markTicketDraftSaved();
       }
     }
     return saved;
@@ -87,7 +92,7 @@ export function NewTicketPage() {
 
   const persistOnBlur = () => {
     if (draftChanged.current) persistDraft(true);
-    else if (hasDraftChanges.current) markPwaFormsSaved();
+    else if (hasDraftChanges.current) markTicketDraftSaved();
   };
 
   const discardDraft = () => {
@@ -107,7 +112,7 @@ export function NewTicketPage() {
     hasDraftChanges.current = false;
     draftChanged.current = false;
     setHasDraft(false);
-    markPwaFormsSaved();
+    markTicketDraftSaved();
     showToast("Rascunho descartado.");
   };
 
@@ -124,19 +129,26 @@ export function NewTicketPage() {
       return;
     }
     persistDraft(false);
+    const form = ticketFormRef.current;
+    if (!form) return;
     setSaving(true);
     try {
-      const ticket = await repo.createTicket({
-        title,
-        description,
-        unitId,
-        categoryId,
-        priorityId,
-      });
+      const { value: ticket, saved } = await runPwaScopeMutation(form, () =>
+        repo.createTicket({ title, description, unitId, categoryId, priorityId }),
+      );
       void queryClient.invalidateQueries({ queryKey: ["ticket-pages", user.id] });
       void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", user.id] });
       void queryClient.invalidateQueries({ queryKey: ["audit-pages", user.id] });
       void refreshTicketNavigationCounts();
+      if (!saved) {
+        if (draftChanged.current) persistDraft(true);
+        showToast(
+          `Chamado #${ticket.number} criado. As alterações mais recentes continuam salvas como rascunho.`,
+          "info",
+        );
+        setSaving(false);
+        return;
+      }
       clearTicketDraft(user.id);
       draftChanged.current = false;
       hasDraftChanges.current = false;
@@ -184,7 +196,7 @@ export function NewTicketPage() {
           </li>
         </ul>
       </aside>
-      <form onSubmit={submit} onBlurCapture={persistOnBlur}>
+      <form ref={ticketFormRef} onSubmit={submit} onBlurCapture={persistOnBlur}>
         <div className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-7">
           <div className="mb-7 flex items-center gap-3 border-b border-line-soft pb-5">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">

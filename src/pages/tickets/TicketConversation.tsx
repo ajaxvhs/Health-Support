@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, LoaderCircle, Send } from "lucide-react";
 import { Avatar, Badge, Button } from "../../components/ui";
@@ -10,7 +10,7 @@ import { isTicketTerminal } from "../../lib/ticketPolicy";
 import { cn, errorMessage, formatDate } from "../../lib/utils";
 import type { Ticket, TicketMessage } from "../../types";
 import { queryCache } from "../../lib/queryCache";
-import { markPwaFormsSaved } from "../../lib/pwaUpdate";
+import { runPwaScopeMutation } from "../../lib/pwaUpdate";
 import { SkeletonText, SyncIndicator } from "../../components/Skeleton";
 
 export function TicketConversation({
@@ -26,6 +26,7 @@ export function TicketConversation({
   const [message, setMessage] = useState("");
   const [internal, setInternal] = useState(false);
   const [sending, setSending] = useState(false);
+  const messageFormRef = useRef<HTMLFormElement>(null);
   const messagesQuery = useQuery({
     queryKey: ["ticket-messages", user.id, ticket.id],
     queryFn: () => repo.getTicketMessages(ticket.id),
@@ -52,19 +53,23 @@ export function TicketConversation({
       showToast("Escreva uma mensagem antes de enviar.", "error");
       return;
     }
+    const form = messageFormRef.current;
+    if (!form) return;
+    const submittedMessage = message;
     setSending(true);
     try {
-      const sent = await repo.addMessage(ticket.id, message, internal);
+      const { value: sent, saved } = await runPwaScopeMutation(form, () =>
+        repo.addMessage(ticket.id, submittedMessage, internal),
+      );
       queryClient.setQueryData<TicketMessage[]>(
         ["ticket-messages", user.id, ticket.id],
         (items = []) => [...items.filter((item) => item.id !== sent.id), sent],
       );
       if (!internal)
         void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", user.id] });
-      setMessage("");
+      if (saved) setMessage("");
       const actionLabel = internal ? "Nota interna adicionada." : "Mensagem enviada.";
       showToast(actionLabel);
-      window.setTimeout(markPwaFormsSaved, 0);
     } catch (reason) {
       showToast(errorMessage(reason, "Não foi possível enviar."), "error");
     } finally {
@@ -140,6 +145,7 @@ export function TicketConversation({
       </div>
       {!terminal && (
         <form
+          ref={messageFormRef}
           onSubmit={handleSubmit}
           className="border-t border-line-soft bg-surface-soft/60 p-5 sm:p-7"
         >

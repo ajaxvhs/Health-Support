@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { UserPlus } from "lucide-react";
 import { Dialog } from "../../components/Dialog";
 import { Button, SelectField, TextField } from "../../components/ui";
@@ -8,7 +8,7 @@ import { roleOptions, type Profile, type Role } from "../../types";
 import { formatPhone } from "../../lib/utils";
 import { executeAction } from "../../lib/actionRunner";
 import { ADMIN_USER_LIMITS } from "../../../supabase/functions/_shared/adminUserLimits";
-import { markPwaFormsSaved } from "../../lib/pwaUpdate";
+import { runPwaScopeMutation } from "../../lib/pwaUpdate";
 
 function UserModal({
   title,
@@ -34,6 +34,7 @@ function UserFormLayout({
   title,
   description,
   onClose,
+  scopeRef,
   tab,
   onTabChange,
   onSubmit,
@@ -43,6 +44,7 @@ function UserFormLayout({
   title: string;
   description: string;
   onClose: () => void;
+  scopeRef: { current: HTMLDivElement | null };
   tab: UserFormTab;
   onTabChange: (value: UserFormTab) => void;
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
@@ -59,7 +61,7 @@ function UserFormLayout({
 
   return (
     <UserModal title={title} description={description} onClose={onClose}>
-      <div data-pwa-update-protected>
+      <div ref={scopeRef} data-pwa-update-protected>
         {onSubmit ? <form onSubmit={onSubmit}>{content}</form> : content}
       </div>
     </UserModal>
@@ -117,6 +119,7 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
   const [role, setRole] = useState<Role>("solicitante");
   const [tab, setTab] = useState<UserFormTab>("personal");
   const [saving, setSaving] = useState(false);
+  const scopeRef = useRef<HTMLDivElement>(null);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (
@@ -138,23 +141,37 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
       showToast("A senha temporária precisa ter pelo menos 8 caracteres.", "error");
       return;
     }
-    const result = await executeAction(
-      () => repo.createUser({ fullName, username, email, phone, temporaryPassword, unitId, role }),
-      {
-        fallback: "Não foi possível criar o usuário.",
-        showToast,
-        setPending: setSaving,
-      },
+    const scope = scopeRef.current;
+    if (!scope) return;
+    const { value: result, saved } = await runPwaScopeMutation(
+      scope,
+      () =>
+        executeAction(
+          () =>
+            repo.createUser({ fullName, username, email, phone, temporaryPassword, unitId, role }),
+          {
+            fallback: "Não foi possível criar o usuário.",
+            showToast,
+            setPending: setSaving,
+          },
+        ),
+      (action) => action.ok,
     );
     if (!result.ok) return;
-    onClose(true);
-    showToast("Usuário criado com senha temporária.");
+    if (saved) onClose(true);
+    showToast(
+      saved
+        ? "Usuário criado com senha temporária."
+        : "Usuário criado. As alterações feitas durante o envio ainda não foram salvas.",
+      saved ? "success" : "info",
+    );
   };
   return (
     <UserFormLayout
       title="Novo usuário"
       description="A conta será criada com senha temporária e troca obrigatória no primeiro acesso."
       onClose={onClose}
+      scopeRef={scopeRef}
       tab={tab}
       onTabChange={setTab}
       onSubmit={submit}
@@ -252,24 +269,38 @@ export function EditUserForm({
   const [role, setRole] = useState<Role>(profile.role);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const scopeRef = useRef<HTMLDivElement>(null);
   const save = async () => {
-    const result = await executeAction(
-      () => repo.updateUser(profile.id, { fullName, username, email, phone, unitId, role }),
-      {
-        fallback: "Não foi possível atualizar o usuário.",
-        showToast,
-        setPending: setSaving,
-      },
+    const scope = scopeRef.current;
+    if (!scope) return;
+    const { value: result, saved } = await runPwaScopeMutation(
+      scope,
+      () =>
+        executeAction(
+          () => repo.updateUser(profile.id, { fullName, username, email, phone, unitId, role }),
+          {
+            fallback: "Não foi possível atualizar o usuário.",
+            showToast,
+            setPending: setSaving,
+          },
+        ),
+      (action) => action.ok,
     );
     if (!result.ok) return;
-    onClose(true);
-    showToast("Usuário atualizado.");
+    if (saved) onClose(true);
+    showToast(
+      saved
+        ? "Usuário atualizado."
+        : "Usuário atualizado. As alterações feitas durante o envio ainda não foram salvas.",
+      saved ? "success" : "info",
+    );
   };
   return (
     <UserFormLayout
       title="Editar usuário"
       description={`Atualize os dados e as permissões de ${profile.fullName}.`}
       onClose={onClose}
+      scopeRef={scopeRef}
       tab={tab}
       onTabChange={setTab}
       actions={
@@ -281,17 +312,21 @@ export function EditUserForm({
             <Button
               loading={resetting}
               onClick={async () => {
-                const result = await executeAction(
-                  () => repo.resetUserPassword(profile.id, resetPassword),
-                  {
-                    fallback: "Não foi possível redefinir a senha.",
-                    showToast,
-                    setPending: setResetting,
-                  },
+                const scope = scopeRef.current;
+                if (!scope) return;
+                const submittedPassword = resetPassword;
+                const { value: result, saved } = await runPwaScopeMutation(
+                  scope,
+                  () =>
+                    executeAction(() => repo.resetUserPassword(profile.id, submittedPassword), {
+                      fallback: "Não foi possível redefinir a senha.",
+                      showToast,
+                      setPending: setResetting,
+                    }),
+                  (action) => action.ok,
                 );
                 if (!result.ok) return;
-                setResetPassword("");
-                window.setTimeout(markPwaFormsSaved, 0);
+                if (saved) setResetPassword("");
                 showToast("Senha redefinida. O usuário deverá trocá-la no próximo acesso.");
               }}
             >

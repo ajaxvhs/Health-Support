@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Avatar, Button, PageHeader, PillTabs, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { unitName } from "../../lib/selectors";
@@ -6,7 +6,7 @@ import { useToast } from "../../context/useToast";
 import { passwordUpdateErrorMessage, updatePassword } from "../../lib/auth";
 import { roleLabels } from "../../types";
 import { errorMessage, formatPhone, refreshAndNotify } from "../../lib/utils";
-import { markPwaFormsSaved } from "../../lib/pwaUpdate";
+import { runPwaScopeMutation } from "../../lib/pwaUpdate";
 import { PushNotificationSettings } from "../../components/PushNotificationSettings";
 import { ThemeSettings } from "../../components/ThemeSettings";
 
@@ -19,6 +19,7 @@ export function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [activeTab, setActiveTab] = useState("info");
+  const profileScopeRef = useRef<HTMLDivElement>(null);
 
   return (
     <>
@@ -37,7 +38,7 @@ export function ProfilePage() {
           { value: "settings", label: "Configurações" },
         ]}
       />
-      <div className="max-w-4xl" data-pwa-update-protected>
+      <div ref={profileScopeRef} className="max-w-4xl" data-pwa-update-protected>
         {activeTab === "info" ? (
           <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-8">
             <div className="mb-8 flex flex-col items-start gap-5 border-b border-line-soft pb-7 sm:flex-row sm:items-center">
@@ -72,10 +73,15 @@ export function ProfilePage() {
                 className="w-full sm:w-auto"
                 onClick={async () => {
                   try {
-                    await repo.saveProfile({ fullName: name, phone });
-                    updateCurrentProfile({ fullName: name.trim(), phone: phone.trim() });
+                    const scope = profileScopeRef.current;
+                    if (!scope) return;
+                    const submittedProfile = { fullName: name, phone };
+                    await runPwaScopeMutation(scope, () => repo.saveProfile(submittedProfile));
+                    updateCurrentProfile({
+                      fullName: submittedProfile.fullName.trim(),
+                      phone: submittedProfile.phone.trim(),
+                    });
                     await refreshAndNotify(refresh, showToast, "Dados do perfil atualizados.");
-                    markPwaFormsSaved();
                   } catch (reason) {
                     showToast(
                       errorMessage(reason, "Não foi possível atualizar o perfil."),
@@ -120,11 +126,17 @@ export function ProfilePage() {
                 className="w-full sm:w-auto"
                 onClick={async () => {
                   try {
+                    const scope = profileScopeRef.current;
+                    if (!scope) return;
                     if (newPassword !== confirmation) {
                       showToast("A confirmação da nova senha não confere.", "error");
                       return;
                     }
-                    await updatePassword(newPassword, currentPassword);
+                    const submittedPassword = newPassword;
+                    const submittedCurrentPassword = currentPassword;
+                    const { saved } = await runPwaScopeMutation(scope, () =>
+                      updatePassword(submittedPassword, submittedCurrentPassword),
+                    );
                     updateCurrentProfile({ mustChangePassword: false });
                     await refreshAndNotify(
                       refresh,
@@ -132,10 +144,11 @@ export function ProfilePage() {
                       "Senha atualizada com sucesso.",
                       "Senha atualizada. Entre novamente se a sessão não sincronizar.",
                     );
-                    setCurrentPassword("");
-                    setNewPassword("");
-                    setConfirmation("");
-                    window.setTimeout(markPwaFormsSaved, 0);
+                    if (saved) {
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmation("");
+                    }
                   } catch (reason) {
                     showToast(passwordUpdateErrorMessage(reason), "error");
                   }
