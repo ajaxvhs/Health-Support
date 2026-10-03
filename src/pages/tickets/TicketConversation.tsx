@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, LoaderCircle, Send } from "lucide-react";
 import { Avatar, Badge, Button } from "../../components/ui";
@@ -10,7 +10,7 @@ import { isTicketTerminal } from "../../lib/ticketPolicy";
 import { cn, errorMessage, formatDate } from "../../lib/utils";
 import type { Ticket, TicketMessage } from "../../types";
 import { queryCache } from "../../lib/queryCache";
-import { markPwaFormsSaved } from "../../lib/pwaUpdate";
+import { runPwaScopeMutation } from "../../lib/pwaUpdate";
 import { SkeletonText, SyncIndicator } from "../../components/Skeleton";
 
 export function TicketConversation({
@@ -26,6 +26,7 @@ export function TicketConversation({
   const [message, setMessage] = useState("");
   const [internal, setInternal] = useState(false);
   const [sending, setSending] = useState(false);
+  const messageFormRef = useRef<HTMLFormElement>(null);
   const messagesQuery = useQuery({
     queryKey: ["ticket-messages", user.id, ticket.id],
     queryFn: () => repo.getTicketMessages(ticket.id),
@@ -52,9 +53,13 @@ export function TicketConversation({
       showToast("Escreva uma mensagem antes de enviar.", "error");
       return;
     }
+    const form = messageFormRef.current;
+    if (!form) return;
     setSending(true);
     try {
-      const sent = await repo.addMessage(ticket.id, message, internal);
+      const sent = await runPwaScopeMutation(form, () =>
+        repo.addMessage(ticket.id, message, internal),
+      );
       queryClient.setQueryData<TicketMessage[]>(
         ["ticket-messages", user.id, ticket.id],
         (items = []) => [...items.filter((item) => item.id !== sent.id), sent],
@@ -64,7 +69,6 @@ export function TicketConversation({
       setMessage("");
       const actionLabel = internal ? "Nota interna adicionada." : "Mensagem enviada.";
       showToast(actionLabel);
-      window.setTimeout(markPwaFormsSaved, 0);
     } catch (reason) {
       showToast(errorMessage(reason, "Não foi possível enviar."), "error");
     } finally {
@@ -140,6 +144,7 @@ export function TicketConversation({
       </div>
       {!terminal && (
         <form
+          ref={messageFormRef}
           onSubmit={handleSubmit}
           className="border-t border-line-soft bg-surface-soft/60 p-5 sm:p-7"
         >
@@ -148,6 +153,7 @@ export function TicketConversation({
             <textarea
               value={message}
               onChange={(event) => setMessage(event.target.value)}
+              disabled={sending}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
@@ -161,7 +167,7 @@ export function TicketConversation({
                   ? "Escreva uma nota visível apenas para a equipe..."
                   : "Escreva uma resposta para este chamado..."
               }
-              className="w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"
+              className="w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -178,6 +184,7 @@ export function TicketConversation({
                   type="checkbox"
                   aria-label="Nota interna (somente equipe)"
                   checked={internal}
+                  disabled={sending}
                   onChange={(event) => setInternal(event.target.checked)}
                   className="peer sr-only"
                 />

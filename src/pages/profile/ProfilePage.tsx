@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Avatar, Button, PageHeader, PillTabs, TextField } from "../../components/ui";
 import { useApp } from "../../context/AppContext";
 import { unitName } from "../../lib/selectors";
@@ -6,7 +6,7 @@ import { useToast } from "../../context/useToast";
 import { passwordUpdateErrorMessage, updatePassword } from "../../lib/auth";
 import { roleLabels } from "../../types";
 import { errorMessage, formatPhone, refreshAndNotify } from "../../lib/utils";
-import { markPwaFormsSaved } from "../../lib/pwaUpdate";
+import { runPwaScopeMutation } from "../../lib/pwaUpdate";
 import { PushNotificationSettings } from "../../components/PushNotificationSettings";
 import { ThemeSettings } from "../../components/ThemeSettings";
 
@@ -19,6 +19,9 @@ export function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [activeTab, setActiveTab] = useState("info");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+  const profileScopeRef = useRef<HTMLDivElement>(null);
 
   return (
     <>
@@ -37,113 +40,135 @@ export function ProfilePage() {
           { value: "settings", label: "Configurações" },
         ]}
       />
-      <div className="max-w-4xl" data-pwa-update-protected>
+      <div ref={profileScopeRef} className="max-w-4xl" data-pwa-update-protected>
         {activeTab === "info" ? (
           <section className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-8">
-            <div className="mb-8 flex flex-col items-start gap-5 border-b border-line-soft pb-7 sm:flex-row sm:items-center">
-              <Avatar user={user} size="lg" />
-              <div>
-                <h2 className="font-display text-lg font-bold text-ink">{user.fullName}</h2>
-                <p className="mt-1 text-sm text-muted">
-                  {roleLabels[user.role]} · {unitName(data, user.unitId)}
-                </p>
-                <p className="mt-2 text-xs text-brand">{user.email}</p>
+            <fieldset disabled={savingProfile} className="min-w-0 border-0 p-0">
+              <div className="mb-8 flex flex-col items-start gap-5 border-b border-line-soft pb-7 sm:flex-row sm:items-center">
+                <Avatar user={user} size="lg" />
+                <div>
+                  <h2 className="font-display text-lg font-bold text-ink">{user.fullName}</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {roleLabels[user.role]} · {unitName(data, user.unitId)}
+                  </p>
+                  <p className="mt-2 text-xs text-brand">{user.email}</p>
+                </div>
               </div>
-            </div>
-            <div className="grid gap-6 sm:grid-cols-2">
-              <TextField label="Nome completo" value={name} onChange={setName} required />
-              <TextField
-                label="Telefone"
-                value={phone}
-                onChange={(value) => setPhone(formatPhone(value))}
-                inputMode="tel"
-                required
-              />
-              <TextField
-                label="E-mail institucional"
-                value={user.email}
-                readOnly
-                hint="O e-mail é gerenciado pelo administrador"
-              />
-              <TextField label="Perfil de acesso" value={roleLabels[user.role]} readOnly />
-            </div>
-            <div className="mt-8 flex flex-col gap-3 border-t border-line-soft pt-6 sm:flex-row sm:justify-end">
-              <Button
-                className="w-full sm:w-auto"
-                onClick={async () => {
-                  try {
-                    await repo.saveProfile({ fullName: name, phone });
-                    updateCurrentProfile({ fullName: name.trim(), phone: phone.trim() });
-                    await refreshAndNotify(refresh, showToast, "Dados do perfil atualizados.");
-                    markPwaFormsSaved();
-                  } catch (reason) {
-                    showToast(
-                      errorMessage(reason, "Não foi possível atualizar o perfil."),
-                      "error",
-                    );
-                  }
-                }}
-              >
-                Salvar alterações
-              </Button>
-            </div>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <TextField label="Nome completo" value={name} onChange={setName} required />
+                <TextField
+                  label="Telefone"
+                  value={phone}
+                  onChange={(value) => setPhone(formatPhone(value))}
+                  inputMode="tel"
+                  required
+                />
+                <TextField
+                  label="E-mail institucional"
+                  value={user.email}
+                  readOnly
+                  hint="O e-mail é gerenciado pelo administrador"
+                />
+                <TextField label="Perfil de acesso" value={roleLabels[user.role]} readOnly />
+              </div>
+              <div className="mt-8 flex flex-col gap-3 border-t border-line-soft pt-6 sm:flex-row sm:justify-end">
+                <Button
+                  className="w-full sm:w-auto"
+                  loading={savingProfile}
+                  onClick={async () => {
+                    setSavingProfile(true);
+                    try {
+                      const scope = profileScopeRef.current;
+                      if (!scope) return;
+                      const submittedProfile = { fullName: name, phone };
+                      await runPwaScopeMutation(scope, () => repo.saveProfile(submittedProfile));
+                      updateCurrentProfile({
+                        fullName: submittedProfile.fullName.trim(),
+                        phone: submittedProfile.phone.trim(),
+                      });
+                      await refreshAndNotify(refresh, showToast, "Dados do perfil atualizados.");
+                    } catch (reason) {
+                      showToast(
+                        errorMessage(reason, "Não foi possível atualizar o perfil."),
+                        "error",
+                      );
+                    } finally {
+                      setSavingProfile(false);
+                    }
+                  }}
+                >
+                  Salvar alterações
+                </Button>
+              </div>
+            </fieldset>
           </section>
         ) : activeTab === "security" ? (
           <section className="max-w-2xl rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-8">
-            <div className="space-y-6">
-              <TextField
-                label="Senha atual"
-                value={currentPassword}
-                onChange={setCurrentPassword}
-                type="password"
-                required
-              />
-              <TextField
-                label="Nova senha"
-                value={newPassword}
-                onChange={setNewPassword}
-                type="password"
-                required
-                hint="Use pelo menos 8 caracteres"
-              />
-              <TextField
-                label="Confirmar nova senha"
-                value={confirmation}
-                onChange={setConfirmation}
-                type="password"
-                required
-              />
-            </div>
-            <div className="mt-8 flex justify-end">
-              <Button
-                variant="secondary"
-                className="w-full sm:w-auto"
-                onClick={async () => {
-                  try {
-                    if (newPassword !== confirmation) {
-                      showToast("A confirmação da nova senha não confere.", "error");
-                      return;
+            <fieldset disabled={updatingPassword} className="min-w-0 border-0 p-0">
+              <div className="space-y-6">
+                <TextField
+                  label="Senha atual"
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
+                  type="password"
+                  required
+                />
+                <TextField
+                  label="Nova senha"
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  type="password"
+                  required
+                  hint="Use pelo menos 8 caracteres"
+                />
+                <TextField
+                  label="Confirmar nova senha"
+                  value={confirmation}
+                  onChange={setConfirmation}
+                  type="password"
+                  required
+                />
+              </div>
+              <div className="mt-8 flex justify-end">
+                <Button
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                  loading={updatingPassword}
+                  onClick={async () => {
+                    setUpdatingPassword(true);
+                    try {
+                      const scope = profileScopeRef.current;
+                      if (!scope) return;
+                      if (newPassword !== confirmation) {
+                        showToast("A confirmação da nova senha não confere.", "error");
+                        return;
+                      }
+                      const submittedPassword = newPassword;
+                      const submittedCurrentPassword = currentPassword;
+                      await runPwaScopeMutation(scope, () =>
+                        updatePassword(submittedPassword, submittedCurrentPassword),
+                      );
+                      updateCurrentProfile({ mustChangePassword: false });
+                      await refreshAndNotify(
+                        refresh,
+                        showToast,
+                        "Senha atualizada com sucesso.",
+                        "Senha atualizada. Entre novamente se a sessão não sincronizar.",
+                      );
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmation("");
+                    } catch (reason) {
+                      showToast(passwordUpdateErrorMessage(reason), "error");
+                    } finally {
+                      setUpdatingPassword(false);
                     }
-                    await updatePassword(newPassword, currentPassword);
-                    updateCurrentProfile({ mustChangePassword: false });
-                    await refreshAndNotify(
-                      refresh,
-                      showToast,
-                      "Senha atualizada com sucesso.",
-                      "Senha atualizada. Entre novamente se a sessão não sincronizar.",
-                    );
-                    setCurrentPassword("");
-                    setNewPassword("");
-                    setConfirmation("");
-                    window.setTimeout(markPwaFormsSaved, 0);
-                  } catch (reason) {
-                    showToast(passwordUpdateErrorMessage(reason), "error");
-                  }
-                }}
-              >
-                Atualizar senha
-              </Button>
-            </div>
+                  }}
+                >
+                  Atualizar senha
+                </Button>
+              </div>
+            </fieldset>
           </section>
         ) : null}
         <div className={`max-w-xl space-y-4 ${activeTab === "settings" ? "" : "hidden"}`}>

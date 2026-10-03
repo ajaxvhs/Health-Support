@@ -3,9 +3,11 @@ import { useRegisterSW } from "virtual:pwa-register/react";
 import { useToast } from "../context/useToast";
 import {
   clearPwaScopeDirty,
+  hasPendingPwaMutations,
   hasUnsavedPwaForms,
   markPwaFormInteraction,
-  pwaFormSavedEvent,
+  pwaFormStateChangeEvent,
+  shouldApplyPwaUpdate,
 } from "../lib/pwaUpdate";
 import { pwaUpdateRetryDelay } from "../lib/pwaUpdateRetry";
 
@@ -37,10 +39,13 @@ export function PwaUpdateManager() {
 
   const applyWhenSafe = useCallback(() => {
     if (
-      !updatePending.current ||
-      applyingUpdate.current ||
-      !navigator.onLine ||
-      hasUnsavedPwaForms()
+      !shouldApplyPwaUpdate({
+        updatePending: updatePending.current,
+        applying: applyingUpdate.current,
+        online: navigator.onLine,
+        hasUnsavedForms: hasUnsavedPwaForms(),
+        hasPendingMutation: hasPendingPwaMutations(),
+      })
     )
       return;
 
@@ -147,8 +152,9 @@ export function PwaUpdateManager() {
     };
     const onFormReset = (event: Event) => {
       if (event.target instanceof Element) {
-        const form = event.target.closest("form");
-        if (form) clearPwaScopeDirty(form);
+        const scope =
+          event.target.closest("[data-pwa-update-protected]") ?? event.target.closest("form");
+        if (scope) clearPwaScopeDirty(scope);
       }
       scheduleSafeApply();
     };
@@ -164,7 +170,7 @@ export function PwaUpdateManager() {
     window.addEventListener("focus", checkForWorkerUpdate);
     window.addEventListener("focus", scheduleSafeApply);
     window.addEventListener("online", onOnline);
-    window.addEventListener(pwaFormSavedEvent, scheduleSafeApply);
+    window.addEventListener(pwaFormStateChangeEvent, scheduleSafeApply);
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
 
     checkForWorkerUpdate();
@@ -185,7 +191,7 @@ export function PwaUpdateManager() {
       window.removeEventListener("focus", checkForWorkerUpdate);
       window.removeEventListener("focus", scheduleSafeApply);
       window.removeEventListener("online", onOnline);
-      window.removeEventListener(pwaFormSavedEvent, scheduleSafeApply);
+      window.removeEventListener(pwaFormStateChangeEvent, scheduleSafeApply);
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       reportFailure.current = () => undefined;
     };

@@ -12,7 +12,7 @@ import {
   saveTicketDraft,
   type TicketDraftFields,
 } from "../../lib/ticketDraft";
-import { markPwaFormsSaved } from "../../lib/pwaUpdate";
+import { markPwaScopeSaved, runPwaScopeMutation } from "../../lib/pwaUpdate";
 
 export function NewTicketPage() {
   const { data, user, repo, refreshTicketNavigationCounts } = useApp();
@@ -58,6 +58,11 @@ export function NewTicketPage() {
   });
   const draftChanged = useRef(false);
   const [saving, setSaving] = useState(false);
+  const ticketFormRef = useRef<HTMLFormElement>(null);
+
+  const markTicketDraftSaved = () => {
+    if (ticketFormRef.current) markPwaScopeSaved(ticketFormRef.current);
+  };
 
   useEffect(() => {
     if (restoredDraft) showToast("Rascunho local restaurado.", "info");
@@ -71,7 +76,7 @@ export function NewTicketPage() {
       hasDraftChanges.current = true;
       if (releaseUpdate) {
         draftChanged.current = false;
-        markPwaFormsSaved();
+        markTicketDraftSaved();
       }
     }
     return saved;
@@ -87,7 +92,7 @@ export function NewTicketPage() {
 
   const persistOnBlur = () => {
     if (draftChanged.current) persistDraft(true);
-    else if (hasDraftChanges.current) markPwaFormsSaved();
+    else if (hasDraftChanges.current) markTicketDraftSaved();
   };
 
   const discardDraft = () => {
@@ -107,7 +112,7 @@ export function NewTicketPage() {
     hasDraftChanges.current = false;
     draftChanged.current = false;
     setHasDraft(false);
-    markPwaFormsSaved();
+    markTicketDraftSaved();
     showToast("Rascunho descartado.");
   };
 
@@ -124,15 +129,13 @@ export function NewTicketPage() {
       return;
     }
     persistDraft(false);
+    const form = ticketFormRef.current;
+    if (!form) return;
     setSaving(true);
     try {
-      const ticket = await repo.createTicket({
-        title,
-        description,
-        unitId,
-        categoryId,
-        priorityId,
-      });
+      const ticket = await runPwaScopeMutation(form, () =>
+        repo.createTicket({ title, description, unitId, categoryId, priorityId }),
+      );
       void queryClient.invalidateQueries({ queryKey: ["ticket-pages", user.id] });
       void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", user.id] });
       void queryClient.invalidateQueries({ queryKey: ["audit-pages", user.id] });
@@ -142,6 +145,7 @@ export function NewTicketPage() {
       hasDraftChanges.current = false;
       setHasDraft(false);
       showToast(`Chamado #${ticket.number} criado com sucesso.`);
+      setSaving(false);
       navigate(`/chamados/${ticket.id}`);
     } catch (reason) {
       persistDraft(true);
@@ -184,150 +188,155 @@ export function NewTicketPage() {
           </li>
         </ul>
       </aside>
-      <form onSubmit={submit} onBlurCapture={persistOnBlur}>
-        <div className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-7">
-          <div className="mb-7 flex items-center gap-3 border-b border-line-soft pb-5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
-              <MessageCircle size={19} />
-            </span>
-            <div>
-              <h2 className="font-display font-bold text-ink">Sobre o problema</h2>
-              <p className="text-xs text-subtle">Quanto mais detalhes, mais rápida a solução.</p>
+      <form ref={ticketFormRef} onSubmit={submit} onBlurCapture={persistOnBlur}>
+        <fieldset disabled={saving} className="min-w-0 border-0 p-0">
+          <div className="rounded-2xl border border-line-soft bg-surface p-5 shadow-soft sm:p-7">
+            <div className="mb-7 flex items-center gap-3 border-b border-line-soft pb-5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
+                <MessageCircle size={19} />
+              </span>
+              <div>
+                <h2 className="font-display font-bold text-ink">Sobre o problema</h2>
+                <p className="text-xs text-subtle">Quanto mais detalhes, mais rápida a solução.</p>
+              </div>
             </div>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <TextField
-              label="Solicitante"
-              value={user.fullName}
-              readOnly
-              hint="Preenchido pelo seu perfil"
-            />
-            <TextField
-              label="Telefone para contato"
-              value={user.phone}
-              readOnly
-              hint="Edite no seu perfil"
-            />
-            <SelectField
-              label="Unidade"
-              value={unitId}
-              onChange={(value) => {
-                setUnitId(value);
-                updateDraftField("unitId", value);
-                persistDraft(true);
-              }}
-              required
-            >
-              {activeUnits.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                </option>
-              ))}
-            </SelectField>
-            <SelectField
-              label="Categoria"
-              value={categoryId}
-              onChange={(value) => {
-                setCategoryId(value);
-                updateDraftField("categoryId", value);
-                persistDraft(true);
-              }}
-              required
-            >
-              {activeCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </SelectField>
-          </div>
-          <div className="mt-5 grid gap-5 sm:grid-cols-2">
-            <SelectField
-              label="Prioridade"
-              value={priorityId}
-              onChange={(value) => {
-                setPriorityId(value);
-                updateDraftField("priorityId", value);
-                persistDraft(true);
-              }}
-              required
-            >
-              {activePriorities.map((priority) => (
-                <option key={priority.id} value={priority.id}>
-                  {priority.name}
-                </option>
-              ))}
-            </SelectField>
-            <div className="hidden sm:block" />
-          </div>
-          <div className="mt-5">
-            <TextField
-              label="Título do chamado"
-              value={title}
-              onChange={(value) => {
-                setTitle(value);
-                updateDraftField("title", value);
-              }}
-              placeholder="Ex.: Computador não liga"
-              hint="Seja breve e objetivo (mínimo de 5 caracteres)"
-            />
-          </div>
-          <div className="mt-5 block">
-            <span className="mb-2 block text-sm font-bold text-ink">
-              Descrição do problema<span className="ml-1 text-brand">*</span>
-            </span>
-            <textarea
-              value={description}
-              onChange={(e) => {
-                setDescription(e.target.value);
-                updateDraftField("description", e.target.value);
-              }}
-              rows={6}
-              placeholder="Explique o que aconteceu, quando começou e o que você já tentou..."
-              aria-label="Descrição do problema"
-              className="w-full resize-y rounded-xl border border-line bg-surface px-3.5 py-3 text-sm leading-6 text-ink outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"
-            />
-            <span className="mt-1.5 block text-xs text-subtle">Mínimo de 10 caracteres</span>
-          </div>
-          <div className="mt-7 grid grid-cols-1 gap-x-6 gap-y-5 border-t border-line-soft pt-5 md:grid-cols-[minmax(0,1fr),auto] md:items-center">
-            <div className="order-1">
-              {hasDraft && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full whitespace-nowrap md:w-auto"
-                  onClick={discardDraft}
-                >
-                  Descartar rascunho
-                </Button>
-              )}
-            </div>
-            <p className="order-2 text-center text-xs text-subtle md:order-3 md:col-span-2 md:text-left">
-              {hasDraft &&
-                (draftChanged.current
-                  ? "As alterações serão salvas ao sair do campo."
-                  : "Rascunho salvo neste dispositivo. Ele será removido após o envio.")}
-            </p>
-            <div className="order-3 flex w-full flex-row gap-3 md:order-2 md:w-auto md:justify-end">
-              <Link to="/chamados" className="block min-w-0 flex-1 md:w-auto md:flex-none">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full whitespace-nowrap md:w-auto"
-                >
-                  Cancelar
-                </Button>
-              </Link>
-              <Button
-                loading={saving}
-                className="min-w-0 flex-1 whitespace-nowrap md:w-auto md:flex-none"
+            <div className="grid gap-5 sm:grid-cols-2">
+              <TextField
+                label="Solicitante"
+                value={user.fullName}
+                readOnly
+                hint="Preenchido pelo seu perfil"
+              />
+              <TextField
+                label="Telefone para contato"
+                value={user.phone}
+                readOnly
+                hint="Edite no seu perfil"
+              />
+              <SelectField
+                label="Unidade"
+                value={unitId}
+                disabled={saving}
+                onChange={(value) => {
+                  setUnitId(value);
+                  updateDraftField("unitId", value);
+                  persistDraft(true);
+                }}
+                required
               >
-                Enviar chamado
-                <Send size={16} />
-              </Button>
+                {activeUnits.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField
+                label="Categoria"
+                value={categoryId}
+                disabled={saving}
+                onChange={(value) => {
+                  setCategoryId(value);
+                  updateDraftField("categoryId", value);
+                  persistDraft(true);
+                }}
+                required
+              >
+                {activeCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+            <div className="mt-5 grid gap-5 sm:grid-cols-2">
+              <SelectField
+                label="Prioridade"
+                value={priorityId}
+                disabled={saving}
+                onChange={(value) => {
+                  setPriorityId(value);
+                  updateDraftField("priorityId", value);
+                  persistDraft(true);
+                }}
+                required
+              >
+                {activePriorities.map((priority) => (
+                  <option key={priority.id} value={priority.id}>
+                    {priority.name}
+                  </option>
+                ))}
+              </SelectField>
+              <div className="hidden sm:block" />
+            </div>
+            <div className="mt-5">
+              <TextField
+                label="Título do chamado"
+                value={title}
+                onChange={(value) => {
+                  setTitle(value);
+                  updateDraftField("title", value);
+                }}
+                placeholder="Ex.: Computador não liga"
+                hint="Seja breve e objetivo (mínimo de 5 caracteres)"
+              />
+            </div>
+            <div className="mt-5 block">
+              <span className="mb-2 block text-sm font-bold text-ink">
+                Descrição do problema<span className="ml-1 text-brand">*</span>
+              </span>
+              <textarea
+                value={description}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  updateDraftField("description", e.target.value);
+                }}
+                rows={6}
+                placeholder="Explique o que aconteceu, quando começou e o que você já tentou..."
+                aria-label="Descrição do problema"
+                className="w-full resize-y rounded-xl border border-line bg-surface px-3.5 py-3 text-sm leading-6 text-ink outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted disabled:cursor-not-allowed disabled:opacity-60"
+              />
+              <span className="mt-1.5 block text-xs text-subtle">Mínimo de 10 caracteres</span>
+            </div>
+            <div className="mt-7 grid grid-cols-1 gap-x-6 gap-y-5 border-t border-line-soft pt-5 md:grid-cols-[minmax(0,1fr),auto] md:items-center">
+              <div className="order-1">
+                {hasDraft && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full whitespace-nowrap md:w-auto"
+                    onClick={discardDraft}
+                  >
+                    Descartar rascunho
+                  </Button>
+                )}
+              </div>
+              <p className="order-2 text-center text-xs text-subtle md:order-3 md:col-span-2 md:text-left">
+                {hasDraft &&
+                  (draftChanged.current
+                    ? "As alterações serão salvas ao sair do campo."
+                    : "Rascunho salvo neste dispositivo. Ele será removido após o envio.")}
+              </p>
+              <div className="order-3 flex w-full flex-row gap-3 md:order-2 md:w-auto md:justify-end">
+                <Link to="/chamados" className="block min-w-0 flex-1 md:w-auto md:flex-none">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full whitespace-nowrap md:w-auto"
+                  >
+                    Cancelar
+                  </Button>
+                </Link>
+                <Button
+                  loading={saving}
+                  className="min-w-0 flex-1 whitespace-nowrap md:w-auto md:flex-none"
+                >
+                  Enviar chamado
+                  <Send size={16} />
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        </fieldset>
       </form>
     </>
   );
