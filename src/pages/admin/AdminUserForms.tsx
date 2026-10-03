@@ -35,6 +35,7 @@ function UserFormLayout({
   description,
   onClose,
   scopeRef,
+  busy = false,
   tab,
   onTabChange,
   onSubmit,
@@ -45,6 +46,7 @@ function UserFormLayout({
   description: string;
   onClose: () => void;
   scopeRef: { current: HTMLDivElement | null };
+  busy?: boolean;
   tab: UserFormTab;
   onTabChange: (value: UserFormTab) => void;
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
@@ -53,9 +55,11 @@ function UserFormLayout({
 }) {
   const content = (
     <>
-      <UserFormTabs value={tab} onChange={onTabChange} includeSecurity />
-      <div className="h-[23rem] overflow-y-auto sm:h-[14rem]">{children}</div>
-      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">{actions}</div>
+      <UserFormTabs value={tab} onChange={onTabChange} includeSecurity disabled={busy} />
+      <fieldset disabled={busy} className="min-w-0 border-0 p-0">
+        <div className="h-[23rem] overflow-y-auto sm:h-[14rem]">{children}</div>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">{actions}</div>
+      </fieldset>
     </>
   );
 
@@ -80,10 +84,12 @@ function UserFormTabs({
   value,
   onChange,
   includeSecurity = false,
+  disabled = false,
 }: {
   value: UserFormTab;
   onChange: (value: UserFormTab) => void;
   includeSecurity?: boolean;
+  disabled?: boolean;
 }) {
   const tabs: Array<{ value: UserFormTab; label: string }> = [
     { value: "personal", label: "Dados pessoais" },
@@ -96,6 +102,7 @@ function UserFormTabs({
         <button
           key={tab.value}
           type="button"
+          disabled={disabled}
           onClick={() => onChange(tab.value)}
           aria-selected={value === tab.value}
           className={`min-h-10 min-w-0 flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-bold transition ${value === tab.value ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"}`}
@@ -122,6 +129,7 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
   const scopeRef = useRef<HTMLDivElement>(null);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     if (
       !fullName.trim() ||
       !username.trim() ||
@@ -143,7 +151,7 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
     }
     const scope = scopeRef.current;
     if (!scope) return;
-    const { value: result, saved } = await runPwaScopeMutation(
+    const result = await runPwaScopeMutation(
       scope,
       () =>
         executeAction(
@@ -158,13 +166,8 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
       (action) => action.ok,
     );
     if (!result.ok) return;
-    if (saved) onClose(true);
-    showToast(
-      saved
-        ? "Usuário criado com senha temporária."
-        : "Usuário criado. As alterações feitas durante o envio ainda não foram salvas.",
-      saved ? "success" : "info",
-    );
+    onClose(true);
+    showToast("Usuário criado com senha temporária.");
   };
   return (
     <UserFormLayout
@@ -172,6 +175,7 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
       description="A conta será criada com senha temporária e troca obrigatória no primeiro acesso."
       onClose={onClose}
       scopeRef={scopeRef}
+      busy={saving}
       tab={tab}
       onTabChange={setTab}
       onSubmit={submit}
@@ -220,7 +224,7 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
         </div>
       ) : tab === "access" ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <SelectField label="Unidade" value={unitId} onChange={setUnitId}>
+          <SelectField label="Unidade" value={unitId} onChange={setUnitId} disabled={saving}>
             {data.units
               .filter((unit) => unit.isActive)
               .map((unit) => (
@@ -229,7 +233,12 @@ export function CreateUserForm({ onClose }: { onClose: (saved?: boolean) => void
                 </option>
               ))}
           </SelectField>
-          <SelectField label="Perfil" value={role} onChange={(value) => setRole(value as Role)}>
+          <SelectField
+            label="Perfil"
+            value={role}
+            onChange={(value) => setRole(value as Role)}
+            disabled={saving}
+          >
             {roleOptionElements}
           </SelectField>
         </div>
@@ -271,9 +280,10 @@ export function EditUserForm({
   const [resetting, setResetting] = useState(false);
   const scopeRef = useRef<HTMLDivElement>(null);
   const save = async () => {
+    if (saving) return;
     const scope = scopeRef.current;
     if (!scope) return;
-    const { value: result, saved } = await runPwaScopeMutation(
+    const result = await runPwaScopeMutation(
       scope,
       () =>
         executeAction(
@@ -287,13 +297,8 @@ export function EditUserForm({
       (action) => action.ok,
     );
     if (!result.ok) return;
-    if (saved) onClose(true);
-    showToast(
-      saved
-        ? "Usuário atualizado."
-        : "Usuário atualizado. As alterações feitas durante o envio ainda não foram salvas.",
-      saved ? "success" : "info",
-    );
+    onClose(true);
+    showToast("Usuário atualizado.");
   };
   return (
     <UserFormLayout
@@ -301,6 +306,7 @@ export function EditUserForm({
       description={`Atualize os dados e as permissões de ${profile.fullName}.`}
       onClose={onClose}
       scopeRef={scopeRef}
+      busy={saving || resetting}
       tab={tab}
       onTabChange={setTab}
       actions={
@@ -312,13 +318,13 @@ export function EditUserForm({
             <Button
               loading={resetting}
               onClick={async () => {
+                if (resetting) return;
                 const scope = scopeRef.current;
                 if (!scope) return;
-                const submittedPassword = resetPassword;
-                const { value: result, saved } = await runPwaScopeMutation(
+                const result = await runPwaScopeMutation(
                   scope,
                   () =>
-                    executeAction(() => repo.resetUserPassword(profile.id, submittedPassword), {
+                    executeAction(() => repo.resetUserPassword(profile.id, resetPassword), {
                       fallback: "Não foi possível redefinir a senha.",
                       showToast,
                       setPending: setResetting,
@@ -326,7 +332,7 @@ export function EditUserForm({
                   (action) => action.ok,
                 );
                 if (!result.ok) return;
-                if (saved) setResetPassword("");
+                setResetPassword("");
                 showToast("Senha redefinida. O usuário deverá trocá-la no próximo acesso.");
               }}
             >
@@ -380,7 +386,13 @@ export function EditUserForm({
             </>
           ) : (
             <>
-              <SelectField label="Unidade" value={unitId} onChange={setUnitId} required>
+              <SelectField
+                label="Unidade"
+                value={unitId}
+                onChange={setUnitId}
+                disabled={saving || resetting}
+                required
+              >
                 {data.units
                   .filter((unit) => unit.isActive || unit.id === profile.unitId)
                   .map((unit) => (
@@ -393,6 +405,7 @@ export function EditUserForm({
                 label="Perfil"
                 value={role}
                 onChange={(value) => setRole(value as Role)}
+                disabled={saving || resetting}
                 required
               >
                 {roleOptionElements}

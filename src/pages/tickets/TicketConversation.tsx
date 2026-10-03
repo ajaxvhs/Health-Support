@@ -55,11 +55,10 @@ export function TicketConversation({
     }
     const form = messageFormRef.current;
     if (!form) return;
-    const submittedMessage = message;
     setSending(true);
     try {
-      const { value: sent, saved } = await runPwaScopeMutation(form, () =>
-        repo.addMessage(ticket.id, submittedMessage, internal),
+      const sent = await runPwaScopeMutation(form, () =>
+        repo.addMessage(ticket.id, message, internal),
       );
       queryClient.setQueryData<TicketMessage[]>(
         ["ticket-messages", user.id, ticket.id],
@@ -67,7 +66,7 @@ export function TicketConversation({
       );
       if (!internal)
         void queryClient.invalidateQueries({ queryKey: ["ticket-dashboard", user.id] });
-      if (saved) setMessage("");
+      setMessage("");
       const actionLabel = internal ? "Nota interna adicionada." : "Mensagem enviada.";
       showToast(actionLabel);
     } catch (reason) {
@@ -154,6 +153,7 @@ export function TicketConversation({
             <textarea
               value={message}
               onChange={(event) => setMessage(event.target.value)}
+              disabled={sending}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
@@ -167,7 +167,7 @@ export function TicketConversation({
                   ? "Escreva uma nota visível apenas para a equipe..."
                   : "Escreva uma resposta para este chamado..."
               }
-              className="w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted"
+              className="w-full resize-none rounded-xl border border-line bg-surface px-3.5 py-3 text-sm outline-none focus:border-brand-focus focus:ring-2 focus:ring-brand-muted disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -184,6 +184,7 @@ export function TicketConversation({
                   type="checkbox"
                   aria-label="Nota interna (somente equipe)"
                   checked={internal}
+                  disabled={sending}
                   onChange={(event) => setInternal(event.target.checked)}
                   className="peer sr-only"
                 />

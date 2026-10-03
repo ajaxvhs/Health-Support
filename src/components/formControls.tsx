@@ -13,7 +13,7 @@ import { cn } from "../lib/utils";
 import { useFloatingPosition } from "./useFloatingPosition";
 
 const inputClass =
-  "min-h-12 w-full rounded-xl border border-line bg-surface px-3.5 text-sm font-medium text-ink outline-none transition hover:border-brand-hover focus:border-brand-focus focus:ring-2 focus:ring-brand-muted";
+  "min-h-12 w-full rounded-xl border border-line bg-surface px-3.5 text-sm font-medium text-ink outline-none transition hover:border-brand-hover focus:border-brand-focus focus:ring-2 focus:ring-brand-muted disabled:cursor-not-allowed disabled:opacity-60";
 
 export interface SelectOption {
   value: string;
@@ -29,6 +29,7 @@ export function SelectField({
   required = false,
   ariaLabel,
   compact = false,
+  disabled = false,
   className,
 }: {
   label?: string;
@@ -38,6 +39,7 @@ export function SelectField({
   required?: boolean;
   ariaLabel?: string;
   compact?: boolean;
+  disabled?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -45,6 +47,10 @@ export function SelectField({
   const menuRef = useRef<HTMLDivElement>(null);
   const labelId = useId();
   const menuPosition = useFloatingPosition(buttonRef, open, menuRef);
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -101,6 +107,7 @@ export function SelectField({
       <button
         ref={buttonRef}
         type="button"
+        disabled={disabled}
         className={cn(
           inputClass,
           "flex cursor-pointer items-center justify-between text-left",
@@ -116,6 +123,7 @@ export function SelectField({
         <ChevronDown size={16} className={cn("transition-transform", open && "rotate-180")} />
       </button>
       {open &&
+        !disabled &&
         menuPosition &&
         createPortal(
           <div

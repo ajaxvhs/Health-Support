@@ -1,7 +1,6 @@
 export const pwaFormStateChangeEvent = "health-support:pwa-form-state-change";
 
 const dirtyScopes = new WeakSet<object>();
-const scopeRevisions = new WeakMap<object, number>();
 const pendingMutations = new WeakMap<object, Set<symbol>>();
 const pendingScopes = new Set<object>();
 
@@ -14,25 +13,15 @@ function pwaUpdateScopes(root: ParentNode): Element[] {
   return descendants;
 }
 
-function scopeRevision(scope: object) {
-  return scopeRevisions.get(scope) ?? 0;
-}
-
-function updateScopeRevision(scope: object) {
-  scopeRevisions.set(scope, scopeRevision(scope) + 1);
-}
-
 function announcePwaFormStateChange() {
   if (typeof window !== "undefined") window.dispatchEvent(new Event(pwaFormStateChangeEvent));
 }
 
 export function markPwaScopeDirty(scope: object) {
-  updateScopeRevision(scope);
   dirtyScopes.add(scope);
 }
 
 export function clearPwaScopeDirty(scope: object) {
-  updateScopeRevision(scope);
   dirtyScopes.delete(scope);
 }
 
@@ -52,7 +41,7 @@ export function beginPwaScopeMutation(scope: object) {
   pendingMutations.set(scope, mutations);
   pendingScopes.add(scope);
   announcePwaFormStateChange();
-  return { scope, token, revision: scopeRevision(scope) };
+  return { scope, token };
 }
 
 export function finishPwaScopeMutation(
@@ -66,21 +55,21 @@ export function finishPwaScopeMutation(
     pendingScopes.delete(mutation.scope);
   }
 
-  const unchanged = scopeRevision(mutation.scope) === mutation.revision;
-  if (succeeded && unchanged) clearPwaScopeDirty(mutation.scope);
+  if (succeeded) clearPwaScopeDirty(mutation.scope);
   announcePwaFormStateChange();
-  return succeeded && unchanged;
+  return succeeded;
 }
 
 export async function runPwaScopeMutation<T>(
   scope: object,
   mutate: () => Promise<T>,
   succeeded: (value: T) => boolean = () => true,
-) {
+): Promise<T> {
   const mutation = beginPwaScopeMutation(scope);
   try {
     const value = await mutate();
-    return { value, saved: finishPwaScopeMutation(mutation, succeeded(value)) };
+    finishPwaScopeMutation(mutation, succeeded(value));
+    return value;
   } catch (error) {
     finishPwaScopeMutation(mutation, false);
     throw error;
